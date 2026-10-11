@@ -1,0 +1,13 @@
+# Normalise line endings for all text files
+* text=auto
+
+# Shell scripts must use LF (macOS/Linux)
+mvnw text eol=lf
+*.sh text eol=lf
+
+# Windows scripts must use CRLF
+*.cmd text eol=crlf
+
+# Binary files: never modify
+*.png binary
+*.jpg binary

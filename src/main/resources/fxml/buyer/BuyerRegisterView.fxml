@@ -31,7 +31,7 @@
                 </VBox>
                 <VBox spacing="5">
                     <Label text="Password *" style="-fx-font-weight: 600;"/>
-                    <PasswordField fx:id="passwordField" promptText="Min 8 chars, upper + lower + digit" prefHeight="38"/>
+                    <PasswordField fx:id="passwordField" promptText="Min 8 chars: upper, lower, digit, symbol" prefHeight="38"/>
                 </VBox>
                 <VBox spacing="5">
                     <Label text="Confirm Password *" style="-fx-font-weight: 600;"/>

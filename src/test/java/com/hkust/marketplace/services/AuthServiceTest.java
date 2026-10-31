@@ -139,6 +139,16 @@ class AuthServiceTest {
     }
 
     @Test
+    void login_seededDemoAccounts_logInToTheirOwnPortals() {
+        // Demo credentials from the README; the seed data stores them hashed
+        assertEquals(LoginResult.SUCCESS, auth.login("alice", "password1", UserRole.BUYER));
+        assertEquals(LoginResult.SUCCESS, auth.login("charlie", "password1", UserRole.SELLER));
+        assertEquals(LoginResult.SUCCESS, auth.login("admin", "admin123", UserRole.ADMIN));
+        assertEquals(LoginResult.WRONG_ACCOUNT_TYPE, auth.login("admin", "admin123", UserRole.BUYER));
+        assertNotEquals("admin123", data.findUser("admin").getPasswordHash());
+    }
+
+    @Test
     void login_usernameIsCaseInsensitive() {
         String username = registerBuyer();
 

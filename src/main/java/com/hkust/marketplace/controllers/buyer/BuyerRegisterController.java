@@ -1,7 +1,7 @@
 package com.hkust.marketplace.controllers.buyer;
 
-import com.hkust.marketplace.models.User;
 import com.hkust.marketplace.models.UserRole;
+import com.hkust.marketplace.services.AuthService;
 import com.hkust.marketplace.utils.DummyDataService;
 import com.hkust.marketplace.utils.SceneManager;
 import javafx.collections.FXCollections;
@@ -32,40 +32,18 @@ public class BuyerRegisterController {
         hideMessages();
 
         String username = usernameField.getText().trim();
-        String fullName = fullNameField.getText().trim();
-        String password = passwordField.getText();
-        String confirm = confirmPasswordField.getText();
         String residence = residenceCombo.getValue();
 
-        // Validation
-        if (username.isEmpty()) {
-            showError("Username is required.");
+        // UC1 Register as Buyer: validation and hashed storage are shared with sellers
+        String error = new AuthService().register(username, fullNameField.getText(),
+                passwordField.getText(), confirmPasswordField.getText(), UserRole.BUYER);
+        if (error != null) {
+            showError(error);
             return;
         }
-        if (DummyDataService.getInstance().usernameExists(username)) {
-            showError("Username already taken. Please choose another.");
-            return;
-        }
-        if (fullName.isEmpty()) {
-            showError("Full Name cannot be empty.");
-            return;
-        }
-        String pwdCheck = DummyDataService.checkPasswordStrength(password);
-        if (!"OK".equals(pwdCheck)) {
-            showError(pwdCheck);
-            return;
-        }
-        if (!password.equals(confirm)) {
-            showError("Passwords do not match.");
-            return;
-        }
-
-        // Create user (demo – password stored as-is)
-        User user = new User(username.toLowerCase(), fullName, password, UserRole.BUYER);
         if (residence != null) {
-            user.setResidenceHall(residence);
+            DummyDataService.getInstance().findUser(username).setResidenceHall(residence);
         }
-        DummyDataService.getInstance().registerUser(user);
 
         showSuccess("Registration successful! You can now login.");
         // Clear form

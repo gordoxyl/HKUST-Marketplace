@@ -1,6 +1,7 @@
 package com.hkust.marketplace.utils;
 
 import com.hkust.marketplace.models.*;
+import com.hkust.marketplace.services.PasswordHasher;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -69,29 +70,33 @@ public class DummyDataService {
     }
 
     private void seedData() {
+        // Demo passwords are stored hashed, like real accounts (see README for the plaintext values)
+        String adminHash = PasswordHasher.hash("admin123");
+        String demoHash = PasswordHasher.hash("password1");
+
         // Admin
-        User admin = new User("admin", "System Admin", "admin123", UserRole.ADMIN);
+        User admin = new User("admin", "System Admin", adminHash, UserRole.ADMIN);
         admin.setFullName("HKUST Marketplace Admin");
         users.put("admin", admin);
 
         // Sample buyers
-        User buyer1 = new User("alice", "Alice Chan", "password1", UserRole.BUYER);
+        User buyer1 = new User("alice", "Alice Chan", demoHash, UserRole.BUYER);
         buyer1.setResidenceHall("Hall 3");
         users.put("alice", buyer1);
 
-        User buyer2 = new User("bob", "Bob Wong", "password1", UserRole.BUYER);
+        User buyer2 = new User("bob", "Bob Wong", demoHash, UserRole.BUYER);
         buyer2.setResidenceHall("Off-campus");
         users.put("bob", buyer2);
 
         // Sample sellers
-        User seller1 = new User("charlie", "Charlie Lee", "password1", UserRole.SELLER);
+        User seller1 = new User("charlie", "Charlie Lee", demoHash, UserRole.SELLER);
         seller1.setBio("Final year CSE student selling textbooks and gadgets.");
         seller1.setPreferredMeetup("Library");
         seller1.setAverageRating(4.7);
         seller1.setRatingCount(12);
         users.put("charlie", seller1);
 
-        User seller2 = new User("diana", "Diana Ng", "password1", UserRole.SELLER);
+        User seller2 = new User("diana", "Diana Ng", demoHash, UserRole.SELLER);
         seller2.setBio("Selling furniture and kitchen items before graduation.");
         seller2.setPreferredMeetup("Hall 5 Lobby");
         seller2.setAverageRating(4.3);
@@ -290,18 +295,5 @@ public class DummyDataService {
             r.setId("R" + reviewIdCounter.getAndIncrement());
         }
         reviews.add(r);
-    }
-
-    // Password strength helper (demo)
-    public static String checkPasswordStrength(String password) {
-        if (password == null || password.isEmpty()) return "Password cannot be empty.";
-        if (password.length() < 8) return "Password must be at least 8 characters.";
-        boolean hasUpper = password.chars().anyMatch(Character::isUpperCase);
-        boolean hasLower = password.chars().anyMatch(Character::isLowerCase);
-        boolean hasDigit = password.chars().anyMatch(Character::isDigit);
-        if (!hasUpper || !hasLower || !hasDigit) {
-            return "Password should contain uppercase, lowercase and a digit.";
-        }
-        return "OK";
     }
 }

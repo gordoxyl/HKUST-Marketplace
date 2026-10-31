@@ -2,6 +2,7 @@ package com.hkust.marketplace.controllers.seller;
 
 import com.hkust.marketplace.models.User;
 import com.hkust.marketplace.models.UserRole;
+import com.hkust.marketplace.services.AuthService;
 import com.hkust.marketplace.utils.DummyDataService;
 import com.hkust.marketplace.utils.SceneManager;
 import javafx.collections.FXCollections;
@@ -28,23 +29,15 @@ public class SellerRegisterController {
     private void handleRegister() {
         hideMessages();
         String username = usernameField.getText().trim();
-        String fullName = fullNameField.getText().trim();
-        String password = passwordField.getText();
-        String confirm = confirmPasswordField.getText();
 
-        if (username.isEmpty()) { showError("Username is required."); return; }
-        if (DummyDataService.getInstance().usernameExists(username)) {
-            showError("Username already taken."); return;
-        }
-        if (fullName.isEmpty()) { showError("Full Name cannot be empty."); return; }
-        String pwdCheck = DummyDataService.checkPasswordStrength(password);
-        if (!"OK".equals(pwdCheck)) { showError(pwdCheck); return; }
-        if (!password.equals(confirm)) { showError("Passwords do not match."); return; }
+        // Register as Seller: same validation and hashed storage as buyers (UC1)
+        String error = new AuthService().register(username, fullNameField.getText(),
+                passwordField.getText(), confirmPasswordField.getText(), UserRole.SELLER);
+        if (error != null) { showError(error); return; }
 
-        User user = new User(username.toLowerCase(), fullName, password, UserRole.SELLER);
+        User user = DummyDataService.getInstance().findUser(username);
         if (meetupCombo.getValue() != null) user.setPreferredMeetup(meetupCombo.getValue());
         if (bioArea.getText() != null && !bioArea.getText().isBlank()) user.setBio(bioArea.getText().trim());
-        DummyDataService.getInstance().registerUser(user);
 
         showSuccess("Seller account created! You can now login.");
         usernameField.clear(); fullNameField.clear(); passwordField.clear();

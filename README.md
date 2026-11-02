@@ -31,6 +31,17 @@ Optional: for a reusable ▶ button, go to **Run → Edit Configurations… → 
 
 **Do not** right-click `MarketplaceApp.java` → **Run**. It fails with `Error: JavaFX runtime components are missing, and are required to run this application`, because the project has no `module-info.java` and the IDE puts JavaFX on the classpath. Running through Maven avoids this.
 
+### Dev mode: pre-filled logins (DEV-ONLY, remove before release)
+Add `-Pdev` to the run command (`.\mvnw.cmd clean javafx:run -Pdev`, or tick the **dev** profile in IntelliJ's Maven tool window). Each login screen is then pre-filled with a test account, so you only click **Login**:
+
+| Portal | Username | Password |
+|--------|----------|----------|
+| Buyer  | `buyer`  | `Buyer.123`  |
+| Seller | `seller` | `Seller.123` |
+| Admin  | `admin`  | `Admin.123`  |
+
+The `buyer` and `seller` accounts exist only in dev mode, and dev mode gives `admin` the password above. Without `-Pdev` none of this happens. To remove the shortcut, search the code for `DEV-ONLY`.
+
 ## Prerequisites
 
 1. **JDK 17 or newer** (full JDK, not only JRE)

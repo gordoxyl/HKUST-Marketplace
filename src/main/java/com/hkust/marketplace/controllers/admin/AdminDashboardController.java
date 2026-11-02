@@ -1,7 +1,7 @@
 package com.hkust.marketplace.controllers.admin;
 
 import com.hkust.marketplace.models.*;
-import com.hkust.marketplace.utils.DummyDataService;
+import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
 import javafx.collections.FXCollections;
@@ -47,7 +47,7 @@ public class AdminDashboardController {
         VBox root = new VBox(14);
         root.setPadding(new Insets(4));
 
-        List<Listing> pending = DummyDataService.getInstance().getPendingListings();
+        List<Listing> pending = DataStore.getInstance().getListingsByStatus(ListingStatus.PENDING_REVIEW);
         if (pending.isEmpty()) {
             Label empty = new Label("No listings awaiting review.");
             empty.setStyle("-fx-text-fill: #2e7d32; -fx-font-size: 15px;");
@@ -71,12 +71,12 @@ public class AdminDashboardController {
         title.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
 
         Label meta = new Label(String.format("Seller: %s (@%s)  ·  %s  ·  %s  ·  %s",
-                l.getSellerFullName(), l.getSellerUsername(),
-                l.getCategory(), l.getTypeDisplay(), l.getMeetupLocation()));
+                DataStore.getInstance().getFullName(l.getSellerUsername()), l.getSellerUsername(),
+                l.getCategory(), l.getType().getDisplayName(), l.getMeetupLocation()));
         meta.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 12px;");
 
         Label submitted = new Label("Submitted: " +
-                l.getPostedAt().format(DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm")));
+                l.getPostedDate().format(DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm")));
         submitted.setStyle("-fx-text-fill: #9aa0b0; -fx-font-size: 11px;");
 
         HBox actions = new HBox(10);
@@ -86,12 +86,12 @@ public class AdminDashboardController {
             Alert conf = new Alert(Alert.AlertType.CONFIRMATION, "Approve this listing?");
             conf.showAndWait().ifPresent(r -> {
                 if (r == ButtonType.OK) {
-                    l.setStatus(ListingStatus.LIVE);
-                    l.setReviewedAt(LocalDateTime.now());
-                    DummyDataService.getInstance().updateListing(l);
-                    DummyDataService.getInstance().addNotification(new Notification(
-                            l.getSellerUsername(), "Listing Approved",
-                            "Your listing '" + l.getTitle() + "' is now live!", "System"));
+                    DataStore store = DataStore.getInstance();
+                    store.transaction(() -> l.setStatus(ListingStatus.LIVE));
+                    store.addListingAction(new ListingActionRecord(l.getId(),
+                            SessionManager.getCurrentUser().getUsername(), ListingAction.APPROVE_LISTING, null));
+                    store.addNotification(new Notification(l.getSellerUsername(), NotificationCategory.LISTING_APPROVED,
+                            "Your listing '" + l.getTitle() + "' is now live!"));
                     showReview();
                 }
             });
@@ -109,13 +109,13 @@ public class AdminDashboardController {
                     new Alert(Alert.AlertType.WARNING, "Reason is required.").showAndWait();
                     return;
                 }
-                l.setStatus(ListingStatus.REJECTED);
-                l.setRejectionReason(reason);
-                l.setReviewedAt(LocalDateTime.now());
-                DummyDataService.getInstance().updateListing(l);
-                DummyDataService.getInstance().addNotification(new Notification(
-                        l.getSellerUsername(), "Listing Rejected",
-                        "Your listing '" + l.getTitle() + "' was rejected. Reason: " + reason, "System"));
+                DataStore store = DataStore.getInstance();
+                store.transaction(() -> l.setStatus(ListingStatus.REJECTED));
+                // The reason is stored in the action record (ListingActionRecord in the domain class diagram)
+                store.addListingAction(new ListingActionRecord(l.getId(),
+                        SessionManager.getCurrentUser().getUsername(), ListingAction.REJECT_LISTING, reason));
+                store.addNotification(new Notification(l.getSellerUsername(), NotificationCategory.LISTING_REJECTED,
+                        "Your listing '" + l.getTitle() + "' was rejected. Reason: " + reason));
                 showReview();
             });
         });
@@ -139,7 +139,7 @@ public class AdminDashboardController {
                 "Admin can create a listing on behalf of a seller here.\nSame form fields as Seller Create Listing.\n(UI placeholder)").showAndWait());
         root.getChildren().add(addBtn);
 
-        for (Listing l : DummyDataService.getInstance().getAllListings()) {
+        for (Listing l : DataStore.getInstance().getAllListings()) {
             HBox row = new HBox(12);
             row.getStyleClass().add("card");
             row.setAlignment(Pos.CENTER_LEFT);
@@ -149,7 +149,7 @@ public class AdminDashboardController {
             HBox.setHgrow(info, Priority.ALWAYS);
             Label t = new Label(l.getTitle());
             t.setStyle("-fx-font-weight: bold;");
-            Label m = new Label(l.getSellerFullName() + " · " + l.getTypeDisplay() + " · " + l.getStatus());
+            Label m = new Label(DataStore.getInstance().getFullName(l.getSellerUsername()) + " · " + l.getType().getDisplayName() + " · " + l.getStatus());
             m.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 12px;");
             info.getChildren().addAll(t, m);
 
@@ -163,7 +163,8 @@ public class AdminDashboardController {
                 Alert conf = new Alert(Alert.AlertType.CONFIRMATION, "Permanently remove this listing?");
                 conf.showAndWait().ifPresent(r -> {
                     if (r == ButtonType.OK) {
-                        DummyDataService.getInstance().removeListing(l.getId());
+                        // A removed listing keeps its record with status Removed (Manage Marketplace Listings 5.5.4)
+                        DataStore.getInstance().transaction(() -> l.setStatus(ListingStatus.REMOVED));
                         showAllListings();
                     }
                 });
@@ -185,7 +186,7 @@ public class AdminDashboardController {
         VBox root = new VBox(12);
         root.setPadding(new Insets(4));
 
-        for (User u : DummyDataService.getInstance().getAllUsers()) {
+        for (User u : DataStore.getInstance().getAllUsers()) {
             if (u.getRole() == UserRole.ADMIN) continue;
 
             HBox row = new HBox(12);
@@ -285,7 +286,7 @@ public class AdminDashboardController {
         filters.getChildren().addAll(userFilter, scoreFilter);
         root.getChildren().add(filters);
 
-        for (Review r : DummyDataService.getInstance().getAllReviews()) {
+        for (Review r : DataStore.getInstance().getAllReviews()) {
             HBox row = new HBox(12);
             row.getStyleClass().add("card");
             row.setAlignment(Pos.CENTER_LEFT);
@@ -294,7 +295,7 @@ public class AdminDashboardController {
             VBox info = new VBox(4);
             HBox.setHgrow(info, Priority.ALWAYS);
             Label stars = new Label("★".repeat(r.getRating()) + "☆".repeat(5 - r.getRating()) +
-                    "  @" + r.getSellerUsername() + " by @" + r.getBuyerUsername());
+                    "  @" + DataStore.getInstance().getSellerUsername(r) + " by @" + DataStore.getInstance().getBuyerUsername(r));
             stars.setStyle("-fx-font-weight: bold;");
             Label comment = new Label(r.getComment());
             comment.setWrapText(true);
@@ -321,16 +322,16 @@ public class AdminDashboardController {
         contentPane.getChildren().clear();
         VBox root = new VBox(12);
         root.setPadding(new Insets(4));
-        List<Notification> notifs = DummyDataService.getInstance().getNotificationsFor("admin");
+        List<Notification> notifs = DataStore.getInstance().getNotificationsFor(SessionManager.getCurrentUser().getUsername());
         if (notifs.isEmpty()) {
             root.getChildren().add(new Label("No notifications."));
         } else {
             for (Notification n : notifs) {
                 VBox item = new VBox(4);
                 item.getStyleClass().add("notif-item");
-                Label t = new Label(n.getTitle());
+                Label t = new Label(n.getCategory().getDisplayName());
                 t.setStyle("-fx-font-weight: bold;");
-                Label m = new Label(n.getMessage());
+                Label m = new Label(n.getContent());
                 m.setWrapText(true);
                 m.setStyle("-fx-text-fill: #5a5a7a;");
                 Label meta = new Label(n.getCategory() + " · " +

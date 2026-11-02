@@ -1,10 +1,14 @@
 package com.hkust.marketplace.controllers.buyer;
 
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.Buyer;
+import com.hkust.marketplace.models.Category;
+import com.hkust.marketplace.models.LendListing;
 import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.ListingType;
 import com.hkust.marketplace.models.Notification;
+import com.hkust.marketplace.models.SaleListing;
 import com.hkust.marketplace.models.User;
-import com.hkust.marketplace.utils.DummyDataService;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
 import javafx.collections.FXCollections;
@@ -59,7 +63,7 @@ public class BuyerDashboardController {
         HBox filterBar = new HBox(12);
         filterBar.setAlignment(Pos.CENTER_LEFT);
         ComboBox<String> categoryFilter = new ComboBox<>(FXCollections.observableArrayList("All Categories"));
-        categoryFilter.getItems().addAll(DummyDataService.CATEGORIES);
+        for (Category c : Category.values()) categoryFilter.getItems().add(c.getDisplayName());
         categoryFilter.getSelectionModel().selectFirst();
         ComboBox<String> typeFilter = new ComboBox<>(FXCollections.observableArrayList("All Types", "Sell", "Lend", "Giveaway"));
         typeFilter.getSelectionModel().selectFirst();
@@ -79,7 +83,7 @@ public class BuyerDashboardController {
         FlowPane grid = new FlowPane(16, 16);
         grid.setPrefWrapLength(900);
 
-        List<Listing> live = DummyDataService.getInstance().getLiveListings();
+        List<Listing> live = DataStore.getInstance().getLiveListings();
         if (live.isEmpty()) {
             Label empty = new Label("No live listings at the moment.");
             empty.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 15px;");
@@ -106,7 +110,7 @@ public class BuyerDashboardController {
         // Type badge + price
         HBox top = new HBox();
         top.setAlignment(Pos.CENTER_LEFT);
-        Label typeBadge = new Label(listing.getTypeDisplay());
+        Label typeBadge = new Label(listing.getType().getDisplayName());
         typeBadge.getStyleClass().add("badge");
         if (listing.getType() == ListingType.SELL) typeBadge.getStyleClass().add("badge-sold");
         else if (listing.getType() == ListingType.LEND) typeBadge.getStyleClass().add("badge-pending");
@@ -125,13 +129,13 @@ public class BuyerDashboardController {
         Label meta = new Label(listing.getCategory() + " · " + listing.getCondition());
         meta.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 12px;");
 
-        Label seller = new Label("Seller: " + listing.getSellerFullName());
+        Label seller = new Label("Seller: " + DataStore.getInstance().getFullName(listing.getSellerUsername()));
         seller.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 12px;");
 
         Label location = new Label("📍 " + listing.getMeetupLocation());
         location.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 12px;");
 
-        Label date = new Label("Posted: " + listing.getPostedAt().format(DateTimeFormatter.ofPattern("dd MMM yyyy")));
+        Label date = new Label("Posted: " + listing.getPostedDate().format(DateTimeFormatter.ofPattern("dd MMM yyyy")));
         date.setStyle("-fx-text-fill: #9aa0b0; -fx-font-size: 11px;");
 
         Button actionBtn = new Button();
@@ -156,7 +160,7 @@ public class BuyerDashboardController {
     }
 
     private void showOfferDialog(Listing listing) {
-        TextInputDialog dialog = new TextInputDialog(String.valueOf(listing.getPrice() != null ? listing.getPrice() : 0));
+        TextInputDialog dialog = new TextInputDialog(String.valueOf(listing instanceof SaleListing sale ? sale.getPrice() : 0));
         dialog.setTitle("Make an Offer");
         dialog.setHeaderText("Offer for: " + listing.getTitle());
         dialog.setContentText("Your offer price (HK$):");
@@ -166,7 +170,7 @@ public class BuyerDashboardController {
                 Alert alert = new Alert(Alert.AlertType.INFORMATION);
                 alert.setTitle("Offer Submitted");
                 alert.setHeaderText(null);
-                alert.setContentText("Your offer of HK$" + price + " has been sent to " + listing.getSellerFullName() + ".\n\n(Demo only – no backend)");
+                alert.setContentText("Your offer of HK$" + price + " has been sent to " + DataStore.getInstance().getFullName(listing.getSellerUsername()) + ".\n\n(Demo only – no backend)");
                 alert.showAndWait();
             } catch (NumberFormatException ex) {
                 new Alert(Alert.AlertType.ERROR, "Invalid price.").showAndWait();
@@ -178,7 +182,7 @@ public class BuyerDashboardController {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("Borrow Request");
         alert.setHeaderText("Request to borrow: " + listing.getTitle());
-        alert.setContentText("Proposed duration: " + (listing.getLendingDays() != null ? listing.getLendingDays() + " days" : "N/A") +
+        alert.setContentText("Proposed duration: " + (listing instanceof LendListing lend ? lend.getDurationDisplay() : "N/A") +
                 "\n\nSend borrow request to seller?");
         alert.showAndWait().ifPresent(resp -> {
             if (resp == ButtonType.OK) {
@@ -308,7 +312,7 @@ public class BuyerDashboardController {
         root.setPadding(new Insets(4));
 
         User user = SessionManager.getCurrentUser();
-        List<Notification> notifs = DummyDataService.getInstance()
+        List<Notification> notifs = DataStore.getInstance()
                 .getNotificationsFor(user != null ? user.getUsername() : "");
 
         if (notifs.isEmpty()) {
@@ -319,9 +323,9 @@ public class BuyerDashboardController {
             for (Notification n : notifs) {
                 VBox item = new VBox(4);
                 item.getStyleClass().add("notif-item");
-                Label title = new Label(n.getTitle());
+                Label title = new Label(n.getCategory().getDisplayName());
                 title.setStyle("-fx-font-weight: bold; -fx-text-fill: #1a1a2e;");
-                Label msg = new Label(n.getMessage());
+                Label msg = new Label(n.getContent());
                 msg.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 13px;");
                 msg.setWrapText(true);
                 Label meta = new Label(n.getCategory() + " · " +
@@ -357,12 +361,11 @@ public class BuyerDashboardController {
         newPass.setPromptText("New password (leave blank to keep)");
         PasswordField confirmPass = new PasswordField();
         confirmPass.setPromptText("Confirm new password");
-        ComboBox<String> residence = new ComboBox<>(FXCollections.observableArrayList(
-                "Hall 1", "Hall 2", "Hall 3", "Hall 4", "Hall 5",
-                "Hall 6", "Hall 7", "Hall 8", "Hall 9", "UG Hall 1", "UG Hall 2", "Off-campus"));
-        if (user != null && user.getResidenceHall() != null) {
-            residence.setValue(user.getResidenceHall());
+        ComboBox<String> residence = new ComboBox<>(FXCollections.observableArrayList(Buyer.RESIDENCE_OPTIONS));
+        if (user instanceof Buyer buyer && buyer.getResidenceHall() != null) {
+            residence.setValue(buyer.getResidenceHall());
         }
+        residence.setDisable(true); // UC3 Special Requirement 1: the residence hall cannot be changed
 
         Button saveBtn = new Button("Save Changes");
         saveBtn.getStyleClass().add("btn-primary");

@@ -1,62 +1,84 @@
 package com.hkust.marketplace.services;
 
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.data.SeedData;
+import com.hkust.marketplace.models.Buyer;
+import com.hkust.marketplace.models.MeetupLocation;
+import com.hkust.marketplace.models.Seller;
 import com.hkust.marketplace.models.User;
 import com.hkust.marketplace.models.UserRole;
-import com.hkust.marketplace.utils.DummyDataService;
 import com.hkust.marketplace.utils.SessionManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.UUID;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Tests for UC1 Register as Buyer and UC2 Log In. */
+/** Tests for UC1 Register as Buyer, Register as Seller and UC2 Log In. */
 class AuthServiceTest {
 
     private static final String GOOD_PASSWORD = "Secure#123";
 
-    private final DummyDataService data = DummyDataService.getInstance();
+    private final DataStore data = seededStore();
     private final AuthService auth = new AuthService(data);
+
+    /** Each test gets its own store with the demo data, so tests cannot affect each other. */
+    private static DataStore seededStore() {
+        DataStore store = new DataStore();
+        SeedData.populate(store);
+        return store;
+    }
 
     @AfterEach
     void logOut() {
         SessionManager.logout();
     }
 
-    /** DummyDataService is shared by all tests, so each test uses its own new username. */
-    private static String newUsername() {
-        return "test_" + UUID.randomUUID().toString().substring(0, 8);
-    }
-
     private String registerBuyer() {
-        String username = newUsername();
-        assertNull(auth.register(username, "Test Buyer", GOOD_PASSWORD, GOOD_PASSWORD, UserRole.BUYER));
-        return username;
+        assertNull(auth.registerBuyer("newbuyer", "Test Buyer", GOOD_PASSWORD, GOOD_PASSWORD, null));
+        return "newbuyer";
     }
 
     // ---------- UC1 Register ----------
 
     @Test
-    void register_validBuyer_createsAccountWithHashedPassword() {
-        String username = newUsername();
-
-        String error = auth.register(username, "  Gordon Lee ", GOOD_PASSWORD, GOOD_PASSWORD, UserRole.BUYER);
+    void registerBuyer_validDetails_createsBuyerWithHashedPassword() {
+        String error = auth.registerBuyer("gordon", "  Gordon Lee ", GOOD_PASSWORD, GOOD_PASSWORD, "Hall 1");
 
         assertNull(error);
-        User user = data.findUser(username);
-        assertNotNull(user);
-        assertEquals("Gordon Lee", user.getFullName());
-        assertEquals(UserRole.BUYER, user.getRole());
-        assertTrue(user.isActive());
-        assertNotEquals(GOOD_PASSWORD, user.getPasswordHash()); // never stored in plaintext
-        assertTrue(PasswordHasher.verify(GOOD_PASSWORD, user.getPasswordHash()));
+        User user = data.findUser("gordon");
+        Buyer buyer = assertInstanceOf(Buyer.class, user);
+        assertEquals("Gordon Lee", buyer.getFullName());
+        assertEquals("Hall 1", buyer.getResidenceHall());
+        assertEquals(UserRole.BUYER, buyer.getRole());
+        assertTrue(buyer.isActive());
+        assertNotEquals(GOOD_PASSWORD, buyer.getPasswordHash()); // never stored in plaintext
+        assertTrue(PasswordHasher.verify(GOOD_PASSWORD, buyer.getPasswordHash()));
+    }
+
+    @Test
+    void registerBuyer_blankResidence_isStoredAsNotGiven() {
+        assertNull(auth.registerBuyer("gordon", "Gordon", GOOD_PASSWORD, GOOD_PASSWORD, " "));
+
+        assertNull(((Buyer) data.findUser("gordon")).getResidenceHall());
+    }
+
+    @Test
+    void registerSeller_validDetails_createsSellerWithBioAndLocations() {
+        String error = auth.registerSeller("sam", "Sam Seller", GOOD_PASSWORD, GOOD_PASSWORD,
+                " Selling books ", List.of(MeetupLocation.LIBRARY, MeetupLocation.LIBRARY, MeetupLocation.NORTH_GATE));
+
+        assertNull(error);
+        Seller seller = assertInstanceOf(Seller.class, data.findUser("sam"));
+        assertEquals("Selling books", seller.getBio());
+        assertEquals(List.of(MeetupLocation.LIBRARY, MeetupLocation.NORTH_GATE), seller.getPreferredMeetupLocations());
     }
 
     @Test
     void register_usernameTakenByAnotherRole_isRejected() {
         // "charlie" is a seeded seller; usernames are unique across all roles, ignoring case
-        String error = auth.register("Charlie", "Another Charlie", GOOD_PASSWORD, GOOD_PASSWORD, UserRole.BUYER);
+        String error = auth.registerBuyer("Charlie", "Another Charlie", GOOD_PASSWORD, GOOD_PASSWORD, null);
 
         assertEquals("This username is already in use.", error);
         assertEquals(UserRole.SELLER, data.findUser("charlie").getRole()); // seller account unchanged
@@ -64,25 +86,15 @@ class AuthServiceTest {
 
     @Test
     void register_invalidDetails_isRejectedAndNothingIsStored() {
-        String u1 = newUsername();
-        String u2 = newUsername();
-        String u3 = newUsername();
-
         assertEquals("Full name cannot be empty.",
-                auth.register(u1, " ", GOOD_PASSWORD, GOOD_PASSWORD, UserRole.BUYER));
-        assertNotNull(auth.register(u2, "Weak Password", "weakpass", "weakpass", UserRole.BUYER));
+                auth.registerBuyer("u1", " ", GOOD_PASSWORD, GOOD_PASSWORD, null));
+        assertNotNull(auth.registerBuyer("u2", "Weak Password", "weakpass", "weakpass", null));
         assertEquals("The two passwords do not match.",
-                auth.register(u3, "Typo", GOOD_PASSWORD, "Secure#124", UserRole.SELLER));
+                auth.registerSeller("u3", "Typo", GOOD_PASSWORD, "Secure#124", null, null));
 
-        assertNull(data.findUser(u1));
-        assertNull(data.findUser(u2));
-        assertNull(data.findUser(u3));
-    }
-
-    @Test
-    void register_adminRole_isNotAllowed() {
-        assertThrows(IllegalArgumentException.class,
-                () -> auth.register(newUsername(), "Fake Admin", GOOD_PASSWORD, GOOD_PASSWORD, UserRole.ADMIN));
+        assertNull(data.findUser("u1"));
+        assertNull(data.findUser("u2"));
+        assertNull(data.findUser("u3"));
     }
 
     // ---------- UC2 Log In ----------
@@ -111,7 +123,7 @@ class AuthServiceTest {
         String username = registerBuyer();
 
         LoginResult wrongPassword = auth.login(username, "Wrong#123", UserRole.BUYER);
-        LoginResult unknownUser = auth.login(newUsername(), GOOD_PASSWORD, UserRole.BUYER);
+        LoginResult unknownUser = auth.login("nobody", GOOD_PASSWORD, UserRole.BUYER);
 
         // UC2 Special Requirement 2: never reveal whether the username exists
         assertEquals(LoginResult.INVALID_CREDENTIALS, wrongPassword);
@@ -141,11 +153,11 @@ class AuthServiceTest {
     @Test
     void login_seededDemoAccounts_logInToTheirOwnPortals() {
         // Demo credentials from the README; the seed data stores them hashed
-        assertEquals(LoginResult.SUCCESS, auth.login("alice", "password1", UserRole.BUYER));
-        assertEquals(LoginResult.SUCCESS, auth.login("charlie", "password1", UserRole.SELLER));
-        assertEquals(LoginResult.SUCCESS, auth.login("admin", "admin123", UserRole.ADMIN));
-        assertEquals(LoginResult.WRONG_ACCOUNT_TYPE, auth.login("admin", "admin123", UserRole.BUYER));
-        assertNotEquals("admin123", data.findUser("admin").getPasswordHash());
+        assertEquals(LoginResult.SUCCESS, auth.login("alice", SeedData.DEMO_PASSWORD, UserRole.BUYER));
+        assertEquals(LoginResult.SUCCESS, auth.login("charlie", SeedData.DEMO_PASSWORD, UserRole.SELLER));
+        assertEquals(LoginResult.SUCCESS, auth.login("admin", SeedData.ADMIN_PASSWORD, UserRole.ADMIN));
+        assertEquals(LoginResult.WRONG_ACCOUNT_TYPE, auth.login("admin", SeedData.ADMIN_PASSWORD, UserRole.BUYER));
+        assertNotEquals(SeedData.ADMIN_PASSWORD, data.findUser("admin").getPasswordHash());
     }
 
     @Test

@@ -92,13 +92,15 @@ mvn clean javafx:run
 
 ## Demo Credentials
 
-| Role   | Username  | Password   |
-|--------|-----------|------------|
-| Admin  | `admin`   | `admin123` |
-| Buyer  | `alice`   | `password1`|
-| Buyer  | `bob`     | `password1`|
-| Seller | `charlie` | `password1`|
-| Seller | `diana`   | `password1`|
+| Role   | Username  | Password     |
+|--------|-----------|--------------|
+| Admin  | `admin`   | `Admin@1234` |
+| Buyer  | `alice`   | `Demo@1234`  |
+| Buyer  | `bob`     | `Demo@1234`  |
+| Seller | `charlie` | `Demo@1234`  |
+| Seller | `diana`   | `Demo@1234`  |
+
+All passwords meet the password rules: at least 8 characters, with at least one uppercase letter, one lowercase letter, one digit and one special ASCII character (such as `! @ # $ %`). Usernames and passwords may contain only ASCII characters.
 
 ## Features Implemented (UI Only)
 
@@ -107,7 +109,7 @@ mvn clean javafx:run
 - HKUST branding (logo + colour palette: deep blue `#003974` + gold `#A68137`)
 - Modern card-based UI, icons (Ikonli), consistent sidebars & top bars
   - **⚠️ Outdated for our team:** Ikonli is not in `pom.xml` and is not used by the code.
-- In-memory dummy data (no database / no network)
+- In-memory data (no database / no network); see [Shared Core](#shared-core-read-before-building-a-feature)
 
 ### Buyer Portal
 - Registration, Login, Browse Marketplace, Make Offer / Borrow / Claim
@@ -131,14 +133,41 @@ HKUST-Marketplace/
 └── src/main/
     ├── java/com/hkust/marketplace/
     │   ├── MarketplaceApp.java
-    │   ├── controllers/
-    │   ├── models/
-    │   └── utils/
+    │   ├── controllers/     ← JavaFX screens, one package per portal
+    │   ├── data/            ← DataStore (all data, thread-safe) and SeedData (demo data)
+    │   ├── models/          ← domain classes from the class diagram
+    │   ├── services/        ← logic shared by the portals: AuthService, AccessControl, ...
+    │   └── utils/           ← SceneManager, SessionManager
     └── resources/
         ├── fxml/
         ├── css/styles.css
         └── images/hkust_logo.png
 ```
+
+## Shared Core (read before building a feature)
+
+The model follows the domain class diagram in our use-case specification:
+
+| Base class (abstract) | Subclasses | Notes |
+|---|---|---|
+| `User` | `Buyer`, `Seller`, `Admin` | `getRole()` gives the account type. Usernames are lower case and cannot change. |
+| `Listing` | `SaleListing` (price), `LendListing` (`Duration`), `GiveawayListing` | Up to 6 photos; the first is the thumbnail. New listings are Pending Review. |
+| `Offer` | `PriceOffer`, `BorrowRequest`, `Claim` | Called a "deal" in the use cases. Change status only with `accept`, `decline`, `counter`, `complete`, which refuse invalid changes. |
+
+Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `ListingActionRecord`, `AuditLogEntry`, and enums such as `Category`, `MeetupLocation` and `NotificationCategory` (their `toString()` is the display name, so they can go straight into a `ComboBox`).
+
+**Getting data.** Use `DataStore.getInstance()`. It already implements the shared rules, so reuse them instead of rewriting them:
+- `getLiveListings()`, `isAvailable(listing)`: the glossary's "live" and "available" listings
+- `addOffer(offer)`: checks the offer type matches the listing type and creates the chat thread
+- `getAverageRating(seller)`, `getVisibleReviewsForSeller(seller)`: leave out reviews the admin hid
+- `addReview`, `addReport`, `addUser`: refuse a second review of a deal, a second report by the same buyer, and a taken username
+- A deleted listing is not removed from the store: set its status to `REMOVED`.
+
+**Several steps as one.** Wrap them in `store.transaction(() -> { ... })` so another thread cannot run in between. Use it when you check something and then change data based on it, and when you change model objects you got from the store.
+
+**Role checks.** Start every portal-specific service method with `AccessControl.requireBuyer()`, `requireSeller()` or `requireAdmin()` (UC2 Special Requirement 3). They return the logged-in user, or throw `AccessDeniedException`.
+
+**Storage.** Data is in memory for now and is lost when the app closes. Saving to files is planned; keep all data access going through `DataStore` so only it has to change.
 
 ## Troubleshooting
 
@@ -162,6 +191,8 @@ You need a normal desktop session (not a headless server). On Windows this is us
 Copy the lines that start with `Exception in thread` or `Caused by`.
 
 ## For Students — Next Steps (Backend)
+
+> **⚠️ Outdated for our team:** items 1–3 are done (`DataStore`, PBKDF2 password hashing, `AccessControl`). For item 4, we are saving to files rather than a database.
 
 1. Replace `DummyDataService` with real repositories / REST clients
 2. Hash passwords (BCrypt) — never store plaintext

@@ -1,48 +1,79 @@
 package com.hkust.marketplace.models;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
+/**
+ * A buyer's rating and optional comment on the seller of one completed deal
+ * (Review in the domain class diagram; UC10). The buyer cannot change it afterwards
+ * (UC10 Special Requirement 3), so the rating and comment are final.
+ * The buyer and seller are found through the reviewed offer.
+ */
 public class Review {
-    private String id;
-    private String sellerUsername;
-    private String buyerUsername;
-    private String listingTitle;
-    private int rating; // 1-5
-    private String comment;
-    private String sellerReply;
-    private boolean hidden; // admin can hide
-    private LocalDateTime createdAt;
 
-    public Review() {
-        this.createdAt = LocalDateTime.now();
-        this.hidden = false;
+    public static final int MIN_RATING = 1;
+    public static final int MAX_RATING = 5;
+
+    private String id;
+    private final String offerId;
+    private final int rating;
+    private final String comment;
+    private final LocalDateTime reviewDate = LocalDateTime.now();
+    private String sellerReply;
+    private boolean flagged;
+    private boolean hidden;
+
+    /** @throws IllegalArgumentException if the rating is not 1 to 5 */
+    public Review(String offerId, int rating, String comment) {
+        if (rating < MIN_RATING || rating > MAX_RATING) {
+            throw new IllegalArgumentException("A rating from " + MIN_RATING + " to " + MAX_RATING + " stars is required.");
+        }
+        this.offerId = Objects.requireNonNull(offerId, "offerId");
+        this.rating = rating;
+        this.comment = comment == null || comment.isBlank() ? null : comment.trim();
     }
 
-    // Getters & Setters
+    /** Null until the review is added to DataStore. */
     public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
 
-    public String getSellerUsername() { return sellerUsername; }
-    public void setSellerUsername(String sellerUsername) { this.sellerUsername = sellerUsername; }
+    /** Called once by DataStore when the review is added. */
+    public void assignId(String id) {
+        if (this.id != null) {
+            throw new IllegalStateException("Review already has id " + this.id);
+        }
+        this.id = Objects.requireNonNull(id, "id");
+    }
 
-    public String getBuyerUsername() { return buyerUsername; }
-    public void setBuyerUsername(String buyerUsername) { this.buyerUsername = buyerUsername; }
-
-    public String getListingTitle() { return listingTitle; }
-    public void setListingTitle(String listingTitle) { this.listingTitle = listingTitle; }
-
+    public String getOfferId() { return offerId; }
     public int getRating() { return rating; }
-    public void setRating(int rating) { this.rating = rating; }
 
+    /** Null if the buyer wrote no comment. */
     public String getComment() { return comment; }
-    public void setComment(String comment) { this.comment = comment; }
+    public LocalDateTime getReviewDate() { return reviewDate; }
 
+    /** Null until the seller replies. */
     public String getSellerReply() { return sellerReply; }
-    public void setSellerReply(String sellerReply) { this.sellerReply = sellerReply; }
 
+    /**
+     * Saves the seller's reply. A review has at most one reply (Manage Reviews Special Requirement 1).
+     * @throws IllegalStateException if the review already has a reply
+     * @throws IllegalArgumentException if the reply is empty
+     */
+    public void reply(String reply) {
+        if (sellerReply != null) {
+            throw new IllegalStateException("Only one reply is allowed per review.");
+        }
+        if (reply == null || reply.isBlank()) {
+            throw new IllegalArgumentException("The reply cannot be empty.");
+        }
+        sellerReply = reply.trim();
+    }
+
+    /** True once the seller flagged the review for the admin. */
+    public boolean isFlagged() { return flagged; }
+    public void flag() { flagged = true; }
+
+    /** A hidden review stays stored but is neither shown nor counted in ratings (UC8 Special Requirement 5). */
     public boolean isHidden() { return hidden; }
     public void setHidden(boolean hidden) { this.hidden = hidden; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

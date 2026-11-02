@@ -3,6 +3,9 @@ package com.hkust.marketplace.utils;
 // DEV-ONLY: this whole class is a testing shortcut. Delete it, and every line marked
 // DEV-ONLY that calls it, before the final release.
 
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.Buyer;
+import com.hkust.marketplace.models.Seller;
 import com.hkust.marketplace.models.User;
 import com.hkust.marketplace.models.UserRole;
 import com.hkust.marketplace.services.PasswordHasher;
@@ -48,14 +51,12 @@ public final class DevLogin {
      * the test password and full name. Does nothing otherwise.
      * Called once, after the demo data is seeded.
      */
-    public static void seedAccounts(DummyDataService data) {
+    public static void seedAccounts(DataStore data) {
         if (!isEnabled()) {
             return;
         }
-        data.registerUser(new User(BUYER_USERNAME, "Buyer",
-                PasswordHasher.hash(BUYER_PASSWORD), UserRole.BUYER));
-        data.registerUser(new User(SELLER_USERNAME, "Seller",
-                PasswordHasher.hash(SELLER_PASSWORD), UserRole.SELLER));
+        data.addUser(new Buyer(BUYER_USERNAME, "Buyer", PasswordHasher.hash(BUYER_PASSWORD), null));
+        data.addUser(new Seller(SELLER_USERNAME, "Seller", PasswordHasher.hash(SELLER_PASSWORD)));
 
         User admin = data.findUser(ADMIN_USERNAME);
         admin.setFullName("Admin");

@@ -1,7 +1,7 @@
 package com.hkust.marketplace.controllers.seller;
 
 import com.hkust.marketplace.models.*;
-import com.hkust.marketplace.utils.DummyDataService;
+import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
 import javafx.collections.FXCollections;
@@ -16,6 +16,7 @@ import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
+import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -52,7 +53,7 @@ public class SellerDashboardController {
         root.setPadding(new Insets(4));
 
         User user = SessionManager.getCurrentUser();
-        List<Listing> myListings = DummyDataService.getInstance()
+        List<Listing> myListings = DataStore.getInstance()
                 .getListingsBySeller(user != null ? user.getUsername() : "");
 
         if (myListings.isEmpty()) {
@@ -79,7 +80,7 @@ public class SellerDashboardController {
         HBox.setHgrow(info, Priority.ALWAYS);
         Label title = new Label(l.getTitle());
         title.setStyle("-fx-font-weight: bold; -fx-font-size: 15px;");
-        Label meta = new Label(l.getCategory() + " · " + l.getTypeDisplay() + " · " + l.getMeetupLocation());
+        Label meta = new Label(l.getCategory() + " · " + l.getType().getDisplayName() + " · " + l.getMeetupLocation());
         meta.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 12px;");
         info.getChildren().addAll(title, meta);
 
@@ -103,7 +104,8 @@ public class SellerDashboardController {
             Alert conf = new Alert(Alert.AlertType.CONFIRMATION, "Delete this listing?");
             conf.showAndWait().ifPresent(r -> {
                 if (r == ButtonType.OK) {
-                    DummyDataService.getInstance().removeListing(l.getId());
+                    // Manage Listings step 3.2.4: a deleted listing keeps its record with status Removed
+                    DataStore.getInstance().transaction(() -> l.setStatus(ListingStatus.REMOVED));
                     showMyListings();
                 }
             });
@@ -126,16 +128,16 @@ public class SellerDashboardController {
         Label title = new Label("Post a new item");
         title.getStyleClass().add("section-title");
 
-        ComboBox<String> typeCombo = new ComboBox<>(FXCollections.observableArrayList("Sell", "Lend", "Give Away"));
+        ComboBox<ListingType> typeCombo = new ComboBox<>(FXCollections.observableArrayList(ListingType.values()));
         typeCombo.setPromptText("Listing type *");
         typeCombo.setMaxWidth(Double.MAX_VALUE);
 
         TextField nameField = new TextField();
         nameField.setPromptText("Item name *");
-        ComboBox<String> catCombo = new ComboBox<>(FXCollections.observableArrayList(DummyDataService.CATEGORIES));
+        ComboBox<Category> catCombo = new ComboBox<>(FXCollections.observableArrayList(Category.values()));
         catCombo.setPromptText("Category *");
         catCombo.setMaxWidth(Double.MAX_VALUE);
-        ComboBox<String> condCombo = new ComboBox<>(FXCollections.observableArrayList(DummyDataService.CONDITIONS));
+        ComboBox<ItemCondition> condCombo = new ComboBox<>(FXCollections.observableArrayList(ItemCondition.values()));
         condCombo.setPromptText("Condition *");
         condCombo.setMaxWidth(Double.MAX_VALUE);
         TextArea descArea = new TextArea();
@@ -147,7 +149,7 @@ public class SellerDashboardController {
         TextField daysField = new TextField();
         daysField.setPromptText("Lending duration (days) – required for Lend");
 
-        ComboBox<String> meetupCombo = new ComboBox<>(FXCollections.observableArrayList(DummyDataService.HKUST_LOCATIONS));
+        ComboBox<MeetupLocation> meetupCombo = new ComboBox<>(FXCollections.observableArrayList(MeetupLocation.values()));
         meetupCombo.setPromptText("Meet-up location *");
         meetupCombo.setMaxWidth(Double.MAX_VALUE);
 
@@ -164,40 +166,37 @@ public class SellerDashboardController {
                 return;
             }
             User user = SessionManager.getCurrentUser();
-            Listing listing = new Listing();
-            listing.setTitle(nameField.getText().trim());
-            listing.setDescription(descArea.getText());
-            listing.setCategory(catCombo.getValue());
-            listing.setCondition(condCombo.getValue());
-            listing.setMeetupLocation(meetupCombo.getValue());
-            listing.setSellerUsername(user.getUsername());
-            listing.setSellerFullName(user.getFullName());
-            listing.setStatus(ListingStatus.PENDING_REVIEW);
-
+            String itemName = nameField.getText().trim();
+            Listing listing;
             switch (typeCombo.getValue()) {
-                case "Sell" -> {
-                    listing.setType(ListingType.SELL);
-                    try { listing.setPrice(Double.parseDouble(priceField.getText())); }
-                    catch (Exception ex) {
+                case SELL -> {
+                    try {
+                        listing = new SaleListing(user.getUsername(), itemName, catCombo.getValue(), condCombo.getValue(),
+                                descArea.getText(), meetupCombo.getValue(), Double.parseDouble(priceField.getText()));
+                    } catch (IllegalArgumentException ex) { // also catches NumberFormatException
                         new Alert(Alert.AlertType.WARNING, "Valid price required for Sell listings.").showAndWait();
                         return;
                     }
                 }
-                case "Lend" -> {
-                    listing.setType(ListingType.LEND);
-                    try { listing.setLendingDays(Integer.parseInt(daysField.getText())); }
-                    catch (Exception ex) {
+                case LEND -> {
+                    try {
+                        listing = new LendListing(user.getUsername(), itemName, catCombo.getValue(), condCombo.getValue(),
+                                descArea.getText(), meetupCombo.getValue(), Duration.ofDays(Integer.parseInt(daysField.getText())));
+                    } catch (IllegalArgumentException ex) { // also catches NumberFormatException
                         new Alert(Alert.AlertType.WARNING, "Valid lending days required.").showAndWait();
                         return;
                     }
                 }
-                default -> listing.setType(ListingType.GIVEAWAY);
+                default -> listing = new GiveawayListing(user.getUsername(), itemName, catCombo.getValue(),
+                        condCombo.getValue(), descArea.getText(), meetupCombo.getValue());
             }
-            DummyDataService.getInstance().addListing(listing);
+            DataStore.getInstance().addListing(listing);
             // Notify admin
-            DummyDataService.getInstance().addNotification(new Notification(
-                    "admin", "New Listing Submitted",
-                    user.getFullName() + " submitted '" + listing.getTitle() + "' for review.", "System"));
+            for (User admin : DataStore.getInstance().getUsersByRole(UserRole.ADMIN)) {
+                DataStore.getInstance().addNotification(new Notification(admin.getUsername(),
+                        NotificationCategory.LISTING_SUBMITTED,
+                        user.getFullName() + " submitted '" + listing.getTitle() + "' for review."));
+            }
             new Alert(Alert.AlertType.INFORMATION,
                     "Listing submitted! Status: Pending Review.\nAdmin will review shortly.\n(Demo – in-memory only)").showAndWait();
             showMyListings();
@@ -228,15 +227,17 @@ public class SellerDashboardController {
         root.setPadding(new Insets(4));
 
         User user = SessionManager.getCurrentUser();
-        List<Listing> myListings = DummyDataService.getInstance()
+        List<Listing> myListings = DataStore.getInstance()
                 .getListingsBySeller(user != null ? user.getUsername() : "");
 
         // Metric cards
         HBox metrics = new HBox(16);
         metrics.getChildren().addAll(
                 metricCard("Listings", String.valueOf(myListings.size()), "#003974"),
-                metricCard("Avg Rating", String.format("%.1f", user != null ? user.getAverageRating() : 0), "#A68137"),
-                metricCard("Reviews", String.valueOf(user != null ? user.getRatingCount() : 0), "#2e7d32"),
+                metricCard("Avg Rating", String.format("%.1f", user != null
+                        ? DataStore.getInstance().getAverageRating(user.getUsername()).orElse(0) : 0), "#A68137"),
+                metricCard("Reviews", String.valueOf(user != null
+                        ? DataStore.getInstance().getRatingCount(user.getUsername()) : 0), "#2e7d32"),
                 metricCard("Views (demo)", "128", "#1565c0")
         );
         root.getChildren().add(metrics);
@@ -294,7 +295,7 @@ public class SellerDashboardController {
         root.setPadding(new Insets(4));
 
         User user = SessionManager.getCurrentUser();
-        List<Review> reviews = DummyDataService.getInstance()
+        List<Review> reviews = DataStore.getInstance()
                 .getReviewsForSeller(user != null ? user.getUsername() : "");
 
         if (reviews.isEmpty()) {
@@ -307,7 +308,9 @@ public class SellerDashboardController {
                 stars.setStyle("-fx-text-fill: #A68137; -fx-font-size: 16px;");
                 Label comment = new Label(r.getComment());
                 comment.setWrapText(true);
-                Label meta = new Label("by @" + r.getBuyerUsername() + " · " + r.getListingTitle());
+                DataStore store = DataStore.getInstance();
+                Label meta = new Label("by @" + store.getBuyerUsername(r) + " · "
+                        + store.getListingOf(store.findOffer(r.getOfferId())).getTitle());
                 meta.setStyle("-fx-text-fill: #9aa0b0; -fx-font-size: 12px;");
                 HBox actions = new HBox(8);
                 Button reply = new Button("Reply");
@@ -331,7 +334,7 @@ public class SellerDashboardController {
         VBox root = new VBox(12);
         root.setPadding(new Insets(4));
         User user = SessionManager.getCurrentUser();
-        List<Notification> notifs = DummyDataService.getInstance()
+        List<Notification> notifs = DataStore.getInstance()
                 .getNotificationsFor(user != null ? user.getUsername() : "");
         if (notifs.isEmpty()) {
             root.getChildren().add(new Label("No notifications."));
@@ -339,9 +342,9 @@ public class SellerDashboardController {
             for (Notification n : notifs) {
                 VBox item = new VBox(4);
                 item.getStyleClass().add("notif-item");
-                Label t = new Label(n.getTitle());
+                Label t = new Label(n.getCategory().getDisplayName());
                 t.setStyle("-fx-font-weight: bold;");
-                Label m = new Label(n.getMessage());
+                Label m = new Label(n.getContent());
                 m.setWrapText(true);
                 m.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 13px;");
                 Label meta = new Label(n.getCategory() + " · " +
@@ -368,10 +371,13 @@ public class SellerDashboardController {
         TextField name = new TextField(user != null ? user.getFullName() : "");
         PasswordField pass = new PasswordField();
         pass.setPromptText("New password (optional)");
-        TextArea bio = new TextArea(user != null && user.getBio() != null ? user.getBio() : "");
+        Seller seller = user instanceof Seller s ? s : null;
+        TextArea bio = new TextArea(seller != null && seller.getBio() != null ? seller.getBio() : "");
         bio.setPrefRowCount(3);
-        ComboBox<String> meetup = new ComboBox<>(FXCollections.observableArrayList(DummyDataService.HKUST_LOCATIONS));
-        if (user != null && user.getPreferredMeetup() != null) meetup.setValue(user.getPreferredMeetup());
+        ComboBox<MeetupLocation> meetup = new ComboBox<>(FXCollections.observableArrayList(MeetupLocation.values()));
+        if (seller != null && !seller.getPreferredMeetupLocations().isEmpty()) {
+            meetup.setValue(seller.getPreferredMeetupLocations().get(0));
+        }
         meetup.setMaxWidth(Double.MAX_VALUE);
 
         Button save = new Button("Save Changes");

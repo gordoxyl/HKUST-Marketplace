@@ -1,48 +1,44 @@
 package com.hkust.marketplace.models;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
+/**
+ * One item on a user's notification board (Notification in the domain class diagram; UC4).
+ * Notifications are clear, timestamped and categorized (Tasks 1.8, 2.7, 3.6).
+ */
 public class Notification {
+
     private String id;
-    private String username; // recipient
-    private String title;
-    private String message;
-    private String category; // Offer, Chat, System, Rating, etc.
-    private LocalDateTime timestamp;
+    private final String recipientUsername;
+    private final NotificationCategory category;
+    private final String content;
+    private final LocalDateTime timestamp = LocalDateTime.now();
     private boolean read;
 
-    public Notification() {
-        this.timestamp = LocalDateTime.now();
-        this.read = false;
+    public Notification(String recipientUsername, NotificationCategory category, String content) {
+        this.recipientUsername = Objects.requireNonNull(recipientUsername, "recipientUsername");
+        this.category = Objects.requireNonNull(category, "category");
+        this.content = Objects.requireNonNull(content, "content");
     }
 
-    public Notification(String username, String title, String message, String category) {
-        this();
-        this.username = username;
-        this.title = title;
-        this.message = message;
-        this.category = category;
-    }
-
-    // Getters & Setters
+    /** Null until the notification is added to DataStore. */
     public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
 
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
+    /** Called once by DataStore when the notification is added. */
+    public void assignId(String id) {
+        if (this.id != null) {
+            throw new IllegalStateException("Notification already has id " + this.id);
+        }
+        this.id = Objects.requireNonNull(id, "id");
+    }
 
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
-
-    public String getMessage() { return message; }
-    public void setMessage(String message) { this.message = message; }
-
-    public String getCategory() { return category; }
-    public void setCategory(String category) { this.category = category; }
-
+    public String getRecipientUsername() { return recipientUsername; }
+    public NotificationCategory getCategory() { return category; }
+    public String getContent() { return content; }
     public LocalDateTime getTimestamp() { return timestamp; }
-    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
 
+    /** A notification stays unread until its recipient marks it read (UC4 Special Requirement 3). */
     public boolean isRead() { return read; }
-    public void setRead(boolean read) { this.read = read; }
+    public void markRead() { read = true; }
 }

@@ -1,13 +1,13 @@
 package com.hkust.marketplace.controllers.seller;
 
-import com.hkust.marketplace.models.User;
-import com.hkust.marketplace.models.UserRole;
+import com.hkust.marketplace.models.MeetupLocation;
 import com.hkust.marketplace.services.AuthService;
-import com.hkust.marketplace.utils.DummyDataService;
 import com.hkust.marketplace.utils.SceneManager;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+
+import java.util.List;
 
 public class SellerRegisterController {
 
@@ -15,29 +15,25 @@ public class SellerRegisterController {
     @FXML private TextField fullNameField;
     @FXML private PasswordField passwordField;
     @FXML private PasswordField confirmPasswordField;
-    @FXML private ComboBox<String> meetupCombo;
+    @FXML private ComboBox<MeetupLocation> meetupCombo;
     @FXML private TextArea bioArea;
     @FXML private Label errorLabel;
     @FXML private Label successLabel;
 
     @FXML
     public void initialize() {
-        meetupCombo.setItems(FXCollections.observableArrayList(DummyDataService.HKUST_LOCATIONS));
+        meetupCombo.setItems(FXCollections.observableArrayList(MeetupLocation.values()));
     }
 
     @FXML
     private void handleRegister() {
         hideMessages();
-        String username = usernameField.getText().trim();
+        List<MeetupLocation> locations = meetupCombo.getValue() == null ? List.of() : List.of(meetupCombo.getValue());
 
         // Register as Seller: same validation and hashed storage as buyers (UC1)
-        String error = new AuthService().register(username, fullNameField.getText(),
-                passwordField.getText(), confirmPasswordField.getText(), UserRole.SELLER);
+        String error = new AuthService().registerSeller(usernameField.getText().trim(), fullNameField.getText(),
+                passwordField.getText(), confirmPasswordField.getText(), bioArea.getText(), locations);
         if (error != null) { showError(error); return; }
-
-        User user = DummyDataService.getInstance().findUser(username);
-        if (meetupCombo.getValue() != null) user.setPreferredMeetup(meetupCombo.getValue());
-        if (bioArea.getText() != null && !bioArea.getText().isBlank()) user.setBio(bioArea.getText().trim());
 
         showSuccess("Seller account created! You can now login.");
         usernameField.clear(); fullNameField.clear(); passwordField.clear();

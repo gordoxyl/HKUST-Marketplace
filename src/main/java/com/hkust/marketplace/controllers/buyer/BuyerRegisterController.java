@@ -1,8 +1,7 @@
 package com.hkust.marketplace.controllers.buyer;
 
-import com.hkust.marketplace.models.UserRole;
+import com.hkust.marketplace.models.Buyer;
 import com.hkust.marketplace.services.AuthService;
-import com.hkust.marketplace.utils.DummyDataService;
 import com.hkust.marketplace.utils.SceneManager;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
@@ -20,29 +19,19 @@ public class BuyerRegisterController {
 
     @FXML
     public void initialize() {
-        residenceCombo.setItems(FXCollections.observableArrayList(
-                "Hall 1", "Hall 2", "Hall 3", "Hall 4", "Hall 5",
-                "Hall 6", "Hall 7", "Hall 8", "Hall 9",
-                "UG Hall 1", "UG Hall 2", "Off-campus"
-        ));
+        residenceCombo.setItems(FXCollections.observableArrayList(Buyer.RESIDENCE_OPTIONS));
     }
 
     @FXML
     private void handleRegister() {
         hideMessages();
 
-        String username = usernameField.getText().trim();
-        String residence = residenceCombo.getValue();
-
         // UC1 Register as Buyer: validation and hashed storage are shared with sellers
-        String error = new AuthService().register(username, fullNameField.getText(),
-                passwordField.getText(), confirmPasswordField.getText(), UserRole.BUYER);
+        String error = new AuthService().registerBuyer(usernameField.getText().trim(), fullNameField.getText(),
+                passwordField.getText(), confirmPasswordField.getText(), residenceCombo.getValue());
         if (error != null) {
             showError(error);
             return;
-        }
-        if (residence != null) {
-            DummyDataService.getInstance().findUser(username).setResidenceHall(residence);
         }
 
         showSuccess("Registration successful! You can now login.");

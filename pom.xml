@@ -77,4 +77,25 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- DEV-ONLY: "mvnw clean javafx:run -Pdev" pre-fills the login forms with test accounts
+             (see utils/DevLogin.java). Remove this profile before the final release. -->
+        <profile>
+            <id>dev</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.openjfx</groupId>
+                        <artifactId>javafx-maven-plugin</artifactId>
+                        <configuration>
+                            <options>
+                                <option>-Dmarketplace.dev=true</option>
+                            </options>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

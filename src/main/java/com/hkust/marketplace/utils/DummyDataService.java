@@ -160,6 +160,8 @@ public class DummyDataService {
         r1.setRating(5);
         r1.setComment("Very smooth transaction, book in excellent condition!");
         reviews.add(r1);
+
+        DevLogin.seedAccounts(this); // DEV-ONLY: test accounts for dev runs; remove before release
     }
 
     private Listing createListing(String title, String desc, String cat, ListingType type,

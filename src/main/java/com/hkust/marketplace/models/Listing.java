@@ -10,6 +10,12 @@ import java.util.Objects;
  * Every listing is exactly one of {@link SaleListing}, {@link LendListing} or
  * {@link GiveawayListing} ({complete, disjoint}), so the type cannot change after posting.
  *
+ * <p><b>Status.</b> The status changes only through the event methods in the state machine
+ * section below (approve, reject, resubmit, acceptDeal, completeDeal, withdraw, remove).
+ * Each one refuses a change the state machine does not allow, so an impossible status, such
+ * as a sale listing that is "Lent", cannot happen. The diagram and the use case behind each
+ * event are in docs/state-machines.md.
+ *
  * The seller is stored by username, so listings can later be saved to files
  * without object cycles.
  */
@@ -26,10 +32,11 @@ public abstract class Listing {
     private String description;
     private List<String> photos = new ArrayList<>();
     private MeetupLocation meetupLocation;
-    private LocalDateTime postedDate = LocalDateTime.now();
+    private LocalDateTime postedDate;
     private ListingStatus status = ListingStatus.PENDING_REVIEW;
     private int viewCount;
 
+    /** A new listing is Pending Review until the admin approves it (Create Listings step 11). */
     protected Listing(String sellerUsername, String title, Category category, ItemCondition condition,
                       String description, MeetupLocation meetupLocation) {
         this.sellerUsername = Objects.requireNonNull(sellerUsername, "sellerUsername");
@@ -49,12 +56,13 @@ public abstract class Listing {
     /** Null until the listing is added to DataStore. */
     public String getId() { return id; }
 
-    /** Called once by DataStore when the listing is added. */
-    public void assignId(String id) {
+    /** Called once by DataStore when the listing is added: gives it its id and posted date. */
+    public void markAdded(String id, LocalDateTime postedDate) {
         if (this.id != null) {
             throw new IllegalStateException("Listing already has id " + this.id);
         }
         this.id = Objects.requireNonNull(id, "id");
+        this.postedDate = Objects.requireNonNull(postedDate, "postedDate");
     }
 
     public String getSellerUsername() { return sellerUsername; }
@@ -92,14 +100,107 @@ public abstract class Listing {
         this.meetupLocation = Objects.requireNonNull(meetupLocation, "meetupLocation");
     }
 
+    /** Null until the listing is added to DataStore. */
     public LocalDateTime getPostedDate() { return postedDate; }
-    public void setPostedDate(LocalDateTime postedDate) { this.postedDate = Objects.requireNonNull(postedDate, "postedDate"); }
 
     public ListingStatus getStatus() { return status; }
-    public void setStatus(ListingStatus status) { this.status = Objects.requireNonNull(status, "status"); }
 
     public int getViewCount() { return viewCount; }
 
     /** Opening the listing detail screen adds one view (UC8 Special Requirement 2). */
     public void incrementViewCount() { viewCount++; }
+
+    // ========== State machine (docs/state-machines.md) ==========
+
+    /** The status while a deal on this listing is accepted but not completed: Reserved or Lent. */
+    protected abstract ListingStatus statusWhenDealAccepted();
+
+    /** The status once that deal is completed: Sold, Given, or Live again for a returned item. */
+    protected abstract ListingStatus statusWhenDealCompleted();
+
+    /**
+     * True if the seller can no longer edit or delete the listing: it is Reserved, Sold, Lent,
+     * Given or Removed (Manage Listings A2).
+     */
+    public boolean isLocked() {
+        return switch (status) {
+            case RESERVED, SOLD, LENT, GIVEN, REMOVED -> true;
+            case PENDING_REVIEW, LIVE, REJECTED -> false;
+        };
+    }
+
+    /**
+     * The admin approves the listing, so it goes Live (Manage Marketplace Listings 5.2).
+     * A listing the admin adds is approved right after it is created (5.6.4).
+     */
+    public void approve() {
+        requireStatus(ListingStatus.PENDING_REVIEW, "approved");
+        status = ListingStatus.LIVE;
+    }
+
+    /** The admin rejects the listing; the reason is kept in a ListingActionRecord (5.3). */
+    public void reject() {
+        requireStatus(ListingStatus.PENDING_REVIEW, "rejected");
+        status = ListingStatus.REJECTED;
+    }
+
+    /** The seller saved changes, so the listing waits for review again (Manage Listings 3.1.6). */
+    public void resubmit() {
+        requireUnlocked("edited");
+        status = ListingStatus.PENDING_REVIEW;
+    }
+
+    /** The seller deleted the listing. It stays stored with status Removed (Manage Listings 3.2.4). */
+    public void withdraw() {
+        requireUnlocked("deleted");
+        status = ListingStatus.REMOVED;
+    }
+
+    /**
+     * The admin removed the listing (Manage Marketplace Listings 5.5.4). This is allowed until the
+     * listing is Sold, Given or already Removed. A deal accepted before the removal can still be
+     * completed, and the listing then stays Removed (UC12 A1; assumption for Reserved listings).
+     */
+    public void remove() {
+        if (status == ListingStatus.SOLD || status == ListingStatus.GIVEN || status == ListingStatus.REMOVED) {
+            throw new IllegalStateException("A " + status.getDisplayName().toLowerCase() + " listing cannot be removed.");
+        }
+        status = ListingStatus.REMOVED;
+    }
+
+    /**
+     * The seller accepted an offer, borrow request or claim: the listing becomes Reserved for a
+     * sale or giveaway, or Lent for a lend listing (UC7 Special Requirement 5).
+     */
+    public void acceptDeal() {
+        requireStatus(ListingStatus.LIVE, "reserved or lent");
+        status = statusWhenDealAccepted();
+    }
+
+    /**
+     * The accepted deal was completed: a sale becomes Sold, a giveaway Given, and a returned
+     * lend listing Live again (UC7 steps 6 and A2, UC12 step 3). If the admin removed the
+     * listing in the meantime, it stays Removed (UC7 A2, UC12 A1).
+     */
+    public void completeDeal() {
+        if (status == ListingStatus.REMOVED) {
+            return;
+        }
+        requireStatus(statusWhenDealAccepted(), "completed");
+        status = statusWhenDealCompleted();
+    }
+
+    private void requireStatus(ListingStatus required, String action) {
+        if (status != required) {
+            throw new IllegalStateException("Only a " + required.getDisplayName().toLowerCase()
+                    + " listing can be " + action + ", but this one is " + status.getDisplayName().toLowerCase() + ".");
+        }
+    }
+
+    private void requireUnlocked(String action) {
+        if (isLocked()) {
+            throw new IllegalStateException("A " + status.getDisplayName().toLowerCase()
+                    + " listing can no longer be " + action + ".");
+        }
+    }
 }

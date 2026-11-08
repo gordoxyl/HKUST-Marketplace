@@ -21,6 +21,16 @@ public class SaleListing extends Listing {
         return formatPrice(price);
     }
 
+    @Override
+    protected ListingStatus statusWhenDealAccepted() {
+        return ListingStatus.RESERVED;
+    }
+
+    @Override
+    protected ListingStatus statusWhenDealCompleted() {
+        return ListingStatus.SOLD;
+    }
+
     public double getPrice() { return price; }
 
     /** @throws IllegalArgumentException if the price is not a positive number (Create Listings A2) */

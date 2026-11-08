@@ -86,7 +86,7 @@ public class AdminDashboardController {
             conf.showAndWait().ifPresent(r -> {
                 if (r == ButtonType.OK) {
                     DataStore store = DataStore.getInstance();
-                    store.transaction(() -> l.setStatus(ListingStatus.LIVE));
+                    store.transaction(l::approve);
                     store.addListingAction(new ListingActionRecord(l.getId(),
                             SessionManager.getCurrentUser().getUsername(), ListingAction.APPROVE_LISTING, null));
                     store.addNotification(new Notification(l.getSellerUsername(), NotificationCategory.LISTING_APPROVED,
@@ -109,7 +109,7 @@ public class AdminDashboardController {
                     return;
                 }
                 DataStore store = DataStore.getInstance();
-                store.transaction(() -> l.setStatus(ListingStatus.REJECTED));
+                store.transaction(l::reject);
                 // The reason is stored in the action record (ListingActionRecord in the domain class diagram)
                 store.addListingAction(new ListingActionRecord(l.getId(),
                         SessionManager.getCurrentUser().getUsername(), ListingAction.REJECT_LISTING, reason));
@@ -159,11 +159,17 @@ public class AdminDashboardController {
             Button remove = new Button("Remove");
             remove.getStyleClass().addAll("btn-danger", "btn-sm");
             remove.setOnAction(e -> {
+                ListingStatus s = l.getStatus();
+                if (s == ListingStatus.SOLD || s == ListingStatus.GIVEN || s == ListingStatus.REMOVED) {
+                    new Alert(Alert.AlertType.WARNING, "A " + s.getDisplayName().toLowerCase()
+                            + " listing cannot be removed.").showAndWait();
+                    return;
+                }
                 Alert conf = new Alert(Alert.AlertType.CONFIRMATION, "Permanently remove this listing?");
                 conf.showAndWait().ifPresent(r -> {
                     if (r == ButtonType.OK) {
                         // A removed listing keeps its record with status Removed (Manage Marketplace Listings 5.5.4)
-                        DataStore.getInstance().transaction(() -> l.setStatus(ListingStatus.REMOVED));
+                        DataStore.getInstance().transaction(l::remove);
                         showAllListings();
                     }
                 });
@@ -208,7 +214,8 @@ public class AdminDashboardController {
             Button toggle = new Button(u.isActive() ? "Deactivate" : "Activate");
             toggle.getStyleClass().addAll(u.isActive() ? "btn-danger" : "btn-success", "btn-sm");
             toggle.setOnAction(e -> {
-                u.setActive(!u.isActive());
+                // Inside a transaction, so the change is saved (regression log R4)
+                DataStore.getInstance().transaction(() -> u.setActive(!u.isActive()));
                 showUsers();
             });
 
@@ -219,7 +226,7 @@ public class AdminDashboardController {
                         "Permanently delete user @" + u.getUsername() + "?");
                 conf.showAndWait().ifPresent(r -> {
                     if (r == ButtonType.OK) {
-                        u.setActive(false);
+                        DataStore.getInstance().transaction(() -> u.setActive(false)); // saved (R4)
                         new Alert(Alert.AlertType.INFORMATION, "User deactivated (demo safety).").showAndWait();
                         showUsers();
                     }
@@ -304,7 +311,7 @@ public class AdminDashboardController {
             Button hide = new Button(r.isHidden() ? "Unhide" : "Hide");
             hide.getStyleClass().addAll("btn-outline", "btn-sm");
             hide.setOnAction(e -> {
-                r.setHidden(!r.isHidden());
+                DataStore.getInstance().transaction(() -> r.setHidden(!r.isHidden())); // saved (R4)
                 showRatings();
             });
             row.getChildren().addAll(info, hide);

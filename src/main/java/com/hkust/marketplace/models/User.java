@@ -18,7 +18,7 @@ public abstract class User {
     private String fullName;
     private String passwordHash;
     private boolean active = true;
-    private final LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
 
     protected User(String username, String fullName, String passwordHash) {
         this.username = Objects.requireNonNull(username, "username").toLowerCase(Locale.ROOT);
@@ -42,7 +42,16 @@ public abstract class User {
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
 
+    /** When the account was registered (or seeded). Null until the account is added to DataStore. */
     public LocalDateTime getCreatedAt() { return createdAt; }
+
+    /** Called once by DataStore when the account is added: records when it was created. */
+    public void markAdded(LocalDateTime createdAt) {
+        if (this.createdAt != null) {
+            throw new IllegalStateException("Account @" + username + " was already added.");
+        }
+        this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
+    }
 
     @Override
     public String toString() {

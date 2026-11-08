@@ -18,7 +18,7 @@ public class Review {
     private final String offerId;
     private final int rating;
     private final String comment;
-    private final LocalDateTime reviewDate = LocalDateTime.now();
+    private LocalDateTime reviewDate;
     private String sellerReply;
     private boolean flagged;
     private boolean hidden;
@@ -36,12 +36,13 @@ public class Review {
     /** Null until the review is added to DataStore. */
     public String getId() { return id; }
 
-    /** Called once by DataStore when the review is added. */
-    public void assignId(String id) {
+    /** Called once by DataStore when the review is added: gives it its id and review date. */
+    public void markAdded(String id, LocalDateTime reviewDate) {
         if (this.id != null) {
             throw new IllegalStateException("Review already has id " + this.id);
         }
         this.id = Objects.requireNonNull(id, "id");
+        this.reviewDate = Objects.requireNonNull(reviewDate, "reviewDate");
     }
 
     public String getOfferId() { return offerId; }

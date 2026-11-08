@@ -3,6 +3,7 @@ package com.hkust.marketplace.models;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
@@ -10,6 +11,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Tests for the rules built into listings, users, chat threads, reviews, reports and admin records. */
 class ModelRulesTest {
+
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 2, 12, 0);
 
     private SaleListing book() {
         return new SaleListing("sam", "Book", Category.TEXTBOOKS, ItemCondition.USED, "desc", MeetupLocation.LIBRARY, 100);
@@ -81,10 +84,14 @@ class ModelRulesTest {
     }
 
     @Test
-    void listing_idIsAssignedOnlyOnce() {
+    void listing_isAddedOnlyOnce_andGetsItsPostedDateThen() {
         Listing listing = book();
-        listing.assignId("L1");
-        assertThrows(IllegalStateException.class, () -> listing.assignId("L2"));
+        assertNull(listing.getPostedDate());
+
+        listing.markAdded("L1", NOW);
+
+        assertEquals(NOW, listing.getPostedDate());
+        assertThrows(IllegalStateException.class, () -> listing.markAdded("L2", NOW));
     }
 
     // ---------- Chat ----------
@@ -92,15 +99,15 @@ class ModelRulesTest {
     @Test
     void chatThread_onlyTheBuyerAndSellerCanWrite() {
         Listing listing = book();
-        listing.assignId("L1");
+        listing.markAdded("L1", NOW);
         ChatThread thread = new ChatThread("bea", listing);
 
-        thread.addMessage(new Message("bea", "Is it available?"));
-        thread.addMessage(new Message("sam", "Yes"));
+        thread.addMessage(new Message("bea", "Is it available?", NOW));
+        thread.addMessage(new Message("sam", "Yes", NOW.plusMinutes(1)));
 
         assertEquals(2, thread.getMessages().size());
-        assertThrows(IllegalArgumentException.class, () -> thread.addMessage(new Message("eve", "Hi")));
-        assertThrows(IllegalArgumentException.class, () -> thread.addMessage(new Message("bea", "  ")));
+        assertThrows(IllegalArgumentException.class, () -> thread.addMessage(new Message("eve", "Hi", NOW)));
+        assertThrows(IllegalArgumentException.class, () -> thread.addMessage(new Message("bea", "  ", NOW)));
     }
 
     // ---------- Reviews ----------

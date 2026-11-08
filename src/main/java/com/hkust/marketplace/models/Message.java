@@ -10,10 +10,11 @@ public class Message {
     private final String content;
     private final LocalDateTime sentAt;
 
-    public Message(String senderUsername, String content) {
+    /** @param sentAt the time it was sent; services pass {@code store.now()} */
+    public Message(String senderUsername, String content, LocalDateTime sentAt) {
         this.senderUsername = Objects.requireNonNull(senderUsername, "senderUsername");
         this.content = Objects.requireNonNull(content, "content");
-        this.sentAt = LocalDateTime.now();
+        this.sentAt = Objects.requireNonNull(sentAt, "sentAt");
     }
 
     public String getSenderUsername() { return senderUsername; }

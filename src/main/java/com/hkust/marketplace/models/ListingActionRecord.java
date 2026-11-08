@@ -11,7 +11,7 @@ public class ListingActionRecord {
     private final String adminUsername;
     private final ListingAction typeOfAction;
     private final String reason;
-    private final LocalDateTime actionDate = LocalDateTime.now();
+    private LocalDateTime actionDate;
 
     /**
      * @param reason may be null, except for the actions that require one
@@ -32,12 +32,13 @@ public class ListingActionRecord {
     /** Null until the record is added to DataStore. */
     public String getId() { return id; }
 
-    /** Called once by DataStore when the record is added. */
-    public void assignId(String id) {
+    /** Called once by DataStore when the record is added: gives it its id and action date. */
+    public void markAdded(String id, LocalDateTime actionDate) {
         if (this.id != null) {
             throw new IllegalStateException("Listing action record already has id " + this.id);
         }
         this.id = Objects.requireNonNull(id, "id");
+        this.actionDate = Objects.requireNonNull(actionDate, "actionDate");
     }
 
     public String getListingId() { return listingId; }

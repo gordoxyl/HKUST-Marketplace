@@ -29,6 +29,8 @@ Run from the repository root (the folder containing `pom.xml`):
 
 Optional: for a reusable ▶ button, go to **Run → Edit Configurations… → + → Maven**, set Command line to `clean javafx:run`, and leave **Store as project file** unchecked.
 
+**Stopping the app:** close its window, and Maven finishes by itself. On Windows, IntelliJ's red Stop button can leave the console asking `Terminate batch job (Y/N)?`. If so, type `Y` and press Enter, or click Stop again (regression log T2). To avoid the prompt entirely, set **Settings → Build, Execution, Deployment → Build Tools → Maven → Maven home path** to **Bundled (Maven 3)**.
+
 **Do not** right-click `MarketplaceApp.java` → **Run**. It fails with `Error: JavaFX runtime components are missing, and are required to run this application`, because the project has no `module-info.java` and the IDE puts JavaFX on the classpath. Running through Maven avoids this.
 
 ### Dev mode: pre-filled logins (DEV-ONLY, remove before release)
@@ -89,6 +91,29 @@ mvn clean javafx:run
 3. Run `MarketplaceApp.java`
 
 > **⚠️ Outdated for our team:** running `MarketplaceApp.java` directly fails for the same reason as in IntelliJ. Use the terminal command in [Team Setup](#team-setup-read-this-first) instead.
+
+## Saved Data
+
+The app keeps its data between runs in the `marketplace-data` folder, which is created in the folder you run the app from (the repository root):
+
+| File | Contents |
+|---|---|
+| `marketplace.dat` | All accounts, listings, offers, chats, reviews, reports, notifications and admin records |
+| `marketplace-audit/<ref>.txt` | Data snapshot of a deleted account, one file per Audit Log entry |
+| `marketplace-dev.dat` | The same as `marketplace.dat`, for dev runs (`-Pdev`) only, so dev accounts never mix with normal data |
+
+- **Encrypted, never plain text.** Every file is JSON encrypted with AES-GCM (`data/DataCipher`). A file that was edited or damaged is detected and refused. The key is built into the code, so any copy of the app can read the files, and so could anyone with the source code.
+- **Saved automatically** after every change. On the first run, or when the folder is missing, the demo data below is created.
+- **Unreadable file:** the app keeps it, renamed `marketplace.dat.unreadable-<date>`, starts with the demo data, and shows a warning.
+- **To reset to the demo data** (for example before a round of testing), close the app and run, from the repository root:
+
+  | OS | Command |
+  |----|---------|
+  | Windows | `scripts\reset-data.cmd` |
+  | macOS | `sh scripts/reset-data.sh` |
+
+  The script moves the current save files into `marketplace-data/backups/<date-time>/`, so a reset can be undone, and the next start of the app creates fresh demo data. Add `normal` or `dev` to reset only that file, and `-NoBackup` (Windows) or `--no-backup` (macOS) to erase instead of keeping a backup. It refuses to run while the app is open, because the running app would save its data straight back.
+- The folder is in `.gitignore`. Don't commit it or put it in the submission ZIP: each machine makes its own on the first run.
 
 ## Demo Credentials
 
@@ -151,23 +176,62 @@ The model follows the domain class diagram in our use-case specification:
 | Base class (abstract) | Subclasses | Notes |
 |---|---|---|
 | `User` | `Buyer`, `Seller`, `Admin` | `getRole()` gives the account type. Usernames are lower case and cannot change. |
-| `Listing` | `SaleListing` (price), `LendListing` (`Duration`), `GiveawayListing` | Up to 6 photos; the first is the thumbnail. New listings are Pending Review. |
+| `Listing` | `SaleListing` (price), `LendListing` (`Duration`), `GiveawayListing` | Up to 6 photos; the first is the thumbnail. New listings are Pending Review. Change status only with the state machine events (`approve`, `reject`, `resubmit`, `withdraw`, `remove`, `acceptDeal`, `completeDeal`), which refuse invalid changes. |
 | `Offer` | `PriceOffer`, `BorrowRequest`, `Claim` | Called a "deal" in the use cases. Change status only with `accept`, `decline`, `counter`, `complete`, which refuse invalid changes. |
+
+Both state machines, with the use case and role behind every event, are in [docs/state-machines.md](docs/state-machines.md).
 
 Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `ListingActionRecord`, `AuditLogEntry`, and enums such as `Category`, `MeetupLocation` and `NotificationCategory` (their `toString()` is the display name, so they can go straight into a `ComboBox`).
 
 **Getting data.** Use `DataStore.getInstance()`. It already implements the shared rules, so reuse them instead of rewriting them:
 - `getLiveListings()`, `isAvailable(listing)`: the glossary's "live" and "available" listings
 - `addOffer(offer)`: checks the offer type matches the listing type and creates the chat thread
-- `getAverageRating(seller)`, `getVisibleReviewsForSeller(seller)`: leave out reviews the admin hid
+- `getReviewsForSeller(seller)`, `getAverageRating(seller)`: leave out reviews the admin hid, because hidden reviews are shown to no one (UC10 SR4). Only the admin's moderation screen uses `getReviewsForSellerIncludingHidden(seller)`
 - `addReview`, `addReport`, `addUser`: refuse a second review of a deal, a second report by the same buyer, and a taken username
-- A deleted listing is not removed from the store: set its status to `REMOVED`.
+- A deleted listing is not removed from the store: the seller's delete is `listing.withdraw()` and the admin's removal is `listing.remove()`, both giving status Removed.
+
+**Shared services: reuse these, don't rewrite them.**
+- `DealRules`: the deal lifecycle that crosses roles. `accept(offer)` (Reserved or Lent, declines the other open offers, notifies), `declineOpenOffers(listing, category, because)` (for edits, deletes, admin removal, deactivation), `complete(deal)`, `returnItem(request, automatic)`. Check the role first, then call these.
+- `NotificationService`: `send(user, category, text)` and `sendToAdmins(category, text)` when something happens; `getMyNotifications()`, `markRead(id)` and `getUnreadCount()` for the board (UC4).
+- `AuthService`: registration and login (UC1, UC2).
+
+**How a service method is shaped.** One control class per actor and use case (Lecture 16), each method in this order:
+```java
+public void acceptOffer(String offerId) {
+    Seller seller = AccessControl.requireSeller();                  // 1. role check
+    store.transaction(() -> {                                       // 2. one atomic step
+        Offer offer = store.findOffer(offerId);
+        if (offer == null || !store.getListingOf(offer).getSellerUsername().equals(seller.getUsername())) {
+            throw new ServiceException("This offer is no longer available.");   // 3. validate (the barricade)
+        }
+        dealRules.accept(offer);                                    // 4. shared rules
+    });
+}
+```
+The screen calls the service and shows any `ServiceException` message to the user as it is. `AccessDeniedException` is one too. Screens don't call `DataStore` directly in new code; the skeleton dashboards still do until each feature is rebuilt.
 
 **Several steps as one.** Wrap them in `store.transaction(() -> { ... })` so another thread cannot run in between. Use it when you check something and then change data based on it, and when you change model objects you got from the store.
 
 **Role checks.** Start every portal-specific service method with `AccessControl.requireBuyer()`, `requireSeller()` or `requireAdmin()` (UC2 Special Requirement 3). They return the logged-in user, or throw `AccessDeniedException`.
 
-**Storage.** Data is in memory for now and is lost when the app closes. Saving to files is planned; keep all data access going through `DataStore` so only it has to change.
+**Time.** Never call `LocalDateTime.now()`; use `store.now()`. The store dates records when they're added (posted date, offer date, timestamps), and tests replace its clock.
+
+**Storage.** `DataStore` saves everything after every change and loads it at start-up, so keep all data access going through it. Nothing else needs to know about files. See [Saved Data](#saved-data).
+
+## How We Build and Test
+
+We use **sandwich integration** (COMP 3111 Lecture 15). The bottom layer (models and `DataStore`) and the top layer (the portal screens from the skeleton) already exist, and we meet in the middle:
+- **The shared middle** (`DealRules`, `NotificationService`, the state machines and the conventions above) is built first, bottom-up, and tested with JUnit tests acting as drivers. It holds the critical subsystems: the deal lifecycle, concurrency and the borrowing-deadline timer.
+- **Each portal** (buyer, seller, admin) is then built in parallel by its owner, one use case at a time: control class plus tests, then the screen.
+
+| Level | What | Where |
+|---|---|---|
+| Unit | Equivalence partitions and boundary values (e.g. rating 0/1/5/6, photos 6/7, borrow time 4 s/5 s); state-based tests for each state machine | `src/test/.../models`, `AccountValidatorTest` |
+| Integration | Use-case flow tests at service level, including flows across roles (offer → accept → complete → review); run all tests again after every change | `DealRulesTest`, `DataStoreTest`, `PersistenceTest` |
+| Regression | Every bug found gets a test that reproduces it, with its input and correct output recorded in [docs/regression-log.md](docs/regression-log.md) | e.g. `AppStoreStartupTest` |
+| System / acceptance | One demo scenario per requirement (Tasks 1.x, 2.x, 3.x); teammates test each other's portals | to be written |
+
+Test tools in `src/test/.../testsupport`: `TestClock` (a clock the test moves by hand, so a 5-second borrow is tested instantly) and `Fixtures` (accounts and listings in any state, built through the state machine). `StoreProbe` is a tiny program a test runs in a separate JVM. Run all tests with `.\mvnw.cmd clean test`: without `clean`, Maven can run outdated compiled tests (regression log T1).
 
 ## Troubleshooting
 
@@ -192,7 +256,7 @@ Copy the lines that start with `Exception in thread` or `Caused by`.
 
 ## For Students — Next Steps (Backend)
 
-> **⚠️ Outdated for our team:** items 1–3 are done (`DataStore`, PBKDF2 password hashing, `AccessControl`). For item 4, we are saving to files rather than a database.
+> **⚠️ Outdated for our team:** items 1–4 are done: `DataStore`, PBKDF2 password hashing, `AccessControl`, and an encrypted save file instead of a database (see [Saved Data](#saved-data)).
 
 1. Replace `DummyDataService` with real repositories / REST clients
 2. Hash passwords (BCrypt) — never store plaintext

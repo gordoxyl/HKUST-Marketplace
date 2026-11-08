@@ -17,4 +17,14 @@ public class GiveawayListing extends Listing {
     public String getPriceDisplay() {
         return "Free";
     }
+
+    @Override
+    protected ListingStatus statusWhenDealAccepted() {
+        return ListingStatus.RESERVED;
+    }
+
+    @Override
+    protected ListingStatus statusWhenDealCompleted() {
+        return ListingStatus.GIVEN;
+    }
 }

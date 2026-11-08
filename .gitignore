@@ -13,3 +13,6 @@ target/
 
 # Windows
 Thumbs.db
+
+# The app's saved data (encrypted). Each person's copy is their own; never commit or ship it
+/marketplace-data/

@@ -21,9 +21,14 @@ public class ChatThread {
 
     /** Only the buyer starts a thread (UC6 Special Requirement 1). */
     public ChatThread(String buyerUsername, Listing listing) {
+        this(buyerUsername, listing.getId(), listing.getSellerUsername());
+    }
+
+    /** Used by the public constructor, and when a saved thread is loaded from file. */
+    private ChatThread(String buyerUsername, String listingId, String sellerUsername) {
         this.buyerUsername = Objects.requireNonNull(buyerUsername, "buyerUsername");
-        this.listingId = Objects.requireNonNull(listing.getId(), "listing id");
-        this.sellerUsername = listing.getSellerUsername();
+        this.listingId = Objects.requireNonNull(listingId, "listing id");
+        this.sellerUsername = Objects.requireNonNull(sellerUsername, "sellerUsername");
     }
 
     /** Null until the thread is added to DataStore. */

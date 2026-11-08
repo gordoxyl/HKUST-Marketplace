@@ -1,7 +1,9 @@
 package com.hkust.marketplace.data;
 
 import com.hkust.marketplace.models.*;
+import com.hkust.marketplace.utils.DevLogin;
 
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -32,8 +34,11 @@ import java.util.function.Supplier;
  * offer date, a notification's timestamp, ...). Tests give the store a clock they control,
  * so time-based rules such as the 5-second borrow (UC12) are tested without waiting.
  *
- * <p><b>Storage.</b> Data is kept in memory and lost when the app closes. Saving to files is
- * planned; all data access goes through this class, so only this class will need to change.
+ * <p><b>Storage.</b> The app's store ({@link #getInstance()}) saves everything to an encrypted
+ * file after every change and loads it at start-up ({@link EncryptedJsonStorage}). A change
+ * is saved when the outermost {@link #transaction} or add method finishes; reads never save.
+ * Stores made with {@code new DataStore(...)} and no storage, as in the tests, keep their
+ * data in memory only.
  *
  * <p><b>Access control.</b> This class does not check roles. Service methods check the
  * logged-in user with {@code AccessControl} before calling it (UC2 Special Requirement 3).
@@ -42,9 +47,12 @@ import java.util.function.Supplier;
  */
 public class DataStore {
 
-    private static final DataStore INSTANCE = createSeeded();
+    /** Where the app keeps its saved data, relative to the folder the app is started from. */
+    public static final Path DATA_FOLDER = Path.of("marketplace-data");
 
     private final ReentrantLock lock = new ReentrantLock();
+    private final Storage storage;
+    private String loadProblem;
 
     private final Map<String, User> users = new LinkedHashMap<>();
     private final Map<String, Listing> listings = new LinkedHashMap<>();
@@ -59,24 +67,47 @@ public class DataStore {
     private int nextId = 1;
     private volatile Clock clock;
 
-    /** An empty store using the computer's clock. The app uses {@link #getInstance()}, which holds the demo data. */
+    /** An empty in-memory store using the computer's clock. The app uses {@link #getInstance()}. */
     public DataStore() {
         this(Clock.systemDefaultZone());
     }
 
-    /** An empty store using the given clock; tests pass a clock they can move forward. */
+    /** An empty in-memory store using the given clock; tests pass a clock they can move forward. */
     public DataStore(Clock clock) {
+        this(clock, null);
+    }
+
+    /**
+     * An empty store that saves every change to the storage. Call {@link #loadOrSeed()} to
+     * load what was saved before.
+     */
+    public DataStore(Clock clock, Storage storage) {
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.storage = storage;
     }
 
-    /** The app's store, filled with the demo data from {@link SeedData}. */
+    /** The app's store: the saved data, or the demo data from {@link SeedData} on the first run. */
     public static DataStore getInstance() {
-        return INSTANCE;
+        return AppStore.INSTANCE;
     }
 
-    private static DataStore createSeeded() {
-        DataStore store = new DataStore();
-        SeedData.populate(store);
+    /**
+     * Holds the app's store, created the first time {@link #getInstance()} is called. It is in
+     * its own class so that making other stores (as tests do) never loads or writes the app's
+     * save file: Java creates INSTANCE only when this class is first used.
+     */
+    private static final class AppStore {
+        static final DataStore INSTANCE = createAppStore();
+    }
+
+    private static DataStore createAppStore() {
+        String fileName = DevLogin.isEnabled() ? "marketplace-dev.dat" : "marketplace.dat"; // DEV-ONLY: dev runs use their own file; make it "marketplace.dat" before release
+        DataStore store = new DataStore(Clock.systemDefaultZone(), new EncryptedJsonStorage(DATA_FOLDER.resolve(fileName)));
+        store.loadOrSeed();
+        if (store.getLoadProblem() != null) {
+            // Only the app's store logs this; MarketplaceApp also shows it in a dialog
+            System.err.println("[DataStore] " + store.getLoadProblem());
+        }
         return store;
     }
 
@@ -98,21 +129,36 @@ public class DataStore {
 
     // ========== Transactions ==========
 
-    /** Runs work as one atomic step and returns its result. Transactions may be nested. */
+    /**
+     * Runs work as one atomic step and returns its result. Transactions may be nested; when
+     * the outermost one finishes without an exception, the data is saved.
+     */
     public <T> T transaction(Supplier<T> work) {
         lock.lock();
         try {
-            return work.get();
+            T result = work.get();
+            if (lock.getHoldCount() == 1) {
+                persist();
+            }
+            return result;
         } finally {
             lock.unlock();
         }
     }
 
-    /** Runs work as one atomic step. Transactions may be nested. */
+    /** Runs work as one atomic step, like {@link #transaction(Supplier)}. */
     public void transaction(Runnable work) {
+        transaction(() -> {
+            work.run();
+            return null;
+        });
+    }
+
+    /** Runs a read under the lock without saving. */
+    private <T> T read(Supplier<T> work) {
         lock.lock();
         try {
-            work.run();
+            return work.get();
         } finally {
             lock.unlock();
         }
@@ -124,7 +170,7 @@ public class DataStore {
     }
 
     private <T> List<T> select(Collection<T> items, Predicate<T> filter) {
-        return transaction(() -> items.stream().filter(filter).toList());
+        return read(() -> items.stream().filter(filter).toList());
     }
 
     // ========== Users ==========
@@ -151,7 +197,7 @@ public class DataStore {
             return null;
         }
         String key = username.trim().toLowerCase(Locale.ROOT);
-        return transaction(() -> users.get(key));
+        return read(() -> users.get(key));
     }
 
     public boolean usernameExists(String username) {
@@ -185,7 +231,7 @@ public class DataStore {
 
     /** Returns null if there is no such listing. */
     public Listing findListing(String id) {
-        return transaction(() -> listings.get(id));
+        return read(() -> listings.get(id));
     }
 
     public List<Listing> getAllListings() {
@@ -220,7 +266,7 @@ public class DataStore {
      * claim, and its seller is active (a deactivated seller's listings are hidden).
      */
     public boolean isAvailable(Listing listing) {
-        return transaction(() -> listing.getStatus() == ListingStatus.LIVE
+        return read(() -> listing.getStatus() == ListingStatus.LIVE
                 && isSellerActive(listing)
                 && !(listing instanceof GiveawayListing && hasPendingClaim(listing.getId())));
     }
@@ -273,7 +319,7 @@ public class DataStore {
 
     /** Returns null if there is no such offer. */
     public Offer findOffer(String id) {
-        return transaction(() -> offers.get(id));
+        return read(() -> offers.get(id));
     }
 
     public List<Offer> getAllOffers() {
@@ -308,7 +354,7 @@ public class DataStore {
 
     /** The thread between a buyer and a listing, or null if the buyer has not started one. */
     public ChatThread findThread(String buyerUsername, String listingId) {
-        return transaction(() -> threads.values().stream()
+        return read(() -> threads.values().stream()
                 .filter(t -> t.getListingId().equals(listingId) && t.getBuyerUsername().equalsIgnoreCase(buyerUsername))
                 .findFirst().orElse(null));
     }
@@ -340,7 +386,7 @@ public class DataStore {
 
     /** Returns null if there is no such thread. */
     public ChatThread findThreadById(String id) {
-        return transaction(() -> threads.get(id));
+        return read(() -> threads.get(id));
     }
 
     public List<ChatThread> getThreadsForBuyer(String buyerUsername) {
@@ -375,7 +421,7 @@ public class DataStore {
 
     /** The review of a deal, or null if it has none. */
     public Review findReviewForOffer(String offerId) {
-        return transaction(() -> reviews.values().stream()
+        return read(() -> reviews.values().stream()
                 .filter(r -> r.getOfferId().equals(offerId)).findFirst().orElse(null));
     }
 
@@ -383,34 +429,42 @@ public class DataStore {
         return select(reviews.values(), r -> true);
     }
 
-    /** Every review of the seller, including hidden ones (for the seller and the admin). */
+    /**
+     * The seller's reviews that are shown to users, without the ones the admin hid: reviews
+     * are "visible to all users unless the admin hides them" (UC10 Special Requirement 4;
+     * UC8 Special Requirement 5; Manage All User Accounts Special Requirement 3).
+     * Use this for every screen that shows reviews, the seller's own included.
+     */
     public List<Review> getReviewsForSeller(String sellerUsername) {
-        return select(reviews.values(), r -> sellerUsername.equalsIgnoreCase(getSellerUsername(r)));
-    }
-
-    /** The seller's reviews that are not hidden, as shown to buyers (UC8 Special Requirement 5). */
-    public List<Review> getVisibleReviewsForSeller(String sellerUsername) {
         return select(reviews.values(), r -> !r.isHidden() && sellerUsername.equalsIgnoreCase(getSellerUsername(r)));
     }
 
-    /** The average of the seller's visible ratings, or empty if there are none. */
-    public OptionalDouble getAverageRating(String sellerUsername) {
-        return getVisibleReviewsForSeller(sellerUsername).stream().mapToInt(Review::getRating).average();
+    /**
+     * Every review of the seller, hidden ones included. Only for the admin's moderation
+     * (hiding and unhiding reviews, Task 3.8); never show this list to buyers or sellers.
+     */
+    public List<Review> getReviewsForSellerIncludingHidden(String sellerUsername) {
+        return select(reviews.values(), r -> sellerUsername.equalsIgnoreCase(getSellerUsername(r)));
     }
 
-    /** The number of the seller's visible ratings. */
+    /** The average of the seller's shown ratings (hidden ones are not counted), or empty if there are none. */
+    public OptionalDouble getAverageRating(String sellerUsername) {
+        return getReviewsForSeller(sellerUsername).stream().mapToInt(Review::getRating).average();
+    }
+
+    /** The number of the seller's shown ratings (hidden ones are not counted). */
     public int getRatingCount(String sellerUsername) {
-        return getVisibleReviewsForSeller(sellerUsername).size();
+        return getReviewsForSeller(sellerUsername).size();
     }
 
     /** The seller who was reviewed: the seller of the reviewed deal's listing. */
     public String getSellerUsername(Review review) {
-        return transaction(() -> listings.get(offers.get(review.getOfferId()).getListingId()).getSellerUsername());
+        return read(() -> listings.get(offers.get(review.getOfferId()).getListingId()).getSellerUsername());
     }
 
     /** The buyer who wrote the review. */
     public String getBuyerUsername(Review review) {
-        return transaction(() -> offers.get(review.getOfferId()).getBuyerUsername());
+        return read(() -> offers.get(review.getOfferId()).getBuyerUsername());
     }
 
     // ========== Reports ==========
@@ -432,7 +486,7 @@ public class DataStore {
     }
 
     public boolean hasReported(String buyerUsername, String listingId) {
-        return transaction(() -> reports.values().stream().anyMatch(r -> r.getListingId().equals(listingId)
+        return read(() -> reports.values().stream().anyMatch(r -> r.getListingId().equals(listingId)
                 && r.getBuyerUsername().equalsIgnoreCase(buyerUsername)));
     }
 
@@ -457,7 +511,7 @@ public class DataStore {
 
     /** Returns null if there is no such notification. */
     public Notification findNotification(String id) {
-        return transaction(() -> notifications.stream()
+        return read(() -> notifications.stream()
                 .filter(n -> n.getId().equals(id)).findFirst().orElse(null));
     }
 
@@ -466,7 +520,7 @@ public class DataStore {
      * timestamp are listed in reverse order of adding, so the latest still comes first.
      */
     public List<Notification> getNotificationsFor(String username) {
-        return transaction(() -> {
+        return read(() -> {
             List<Notification> mine = new ArrayList<>(notifications.stream()
                     .filter(n -> n.getRecipientUsername().equalsIgnoreCase(username))
                     .toList());
@@ -494,15 +548,104 @@ public class DataStore {
         return select(listingActions, r -> true);
     }
 
+    /**
+     * Gives the entry its log reference and date, and adds it. If it has a data snapshot and
+     * the store saves to storage, the snapshot is also saved as its own encrypted .txt file
+     * (class diagram: "Cascade with audit log with .txt file as data snapshot").
+     */
     public AuditLogEntry addAuditLogEntry(AuditLogEntry entry) {
         return transaction(() -> {
             entry.markAdded(newId("G"), now());
             auditLog.add(entry);
+            if (storage != null && entry.getDataSnapshot() != null) {
+                storage.saveAuditSnapshot(entry.getLogReference(), entry.getDataSnapshot());
+            }
             return entry;
         });
     }
 
     public List<AuditLogEntry> getAuditLog() {
         return select(auditLog, e -> true);
+    }
+
+    /** The snapshot file saved for an audit log entry, or empty if there is none (or no storage). */
+    public Optional<String> readAuditSnapshotFile(String logReference) {
+        return storage == null ? Optional.empty() : storage.loadAuditSnapshot(logReference);
+    }
+
+    // ========== Saving and loading ==========
+
+    /**
+     * Loads the saved data into this empty store, or, if nothing is saved yet, fills it with
+     * the demo data and saves that. If the saved file cannot be read (changed, damaged, or
+     * saved with another key), it is moved aside, not deleted, the demo data is used instead,
+     * and {@link #getLoadProblem()} explains what happened.
+     */
+    public void loadOrSeed() {
+        if (storage == null) {
+            throw new IllegalStateException("This store has no storage to load from.");
+        }
+        try {
+            Optional<StoreSnapshot> saved = storage.load();
+            if (saved.isPresent()) {
+                restore(saved.get());
+                return;
+            }
+        } catch (StorageException e) {
+            String movedTo = storage.setAsideUnreadable();
+            loadProblem = "The saved data could not be read: " + e.getMessage() + " It was kept as "
+                    + movedTo + ", and the demo data was loaded instead.";
+        }
+        transaction(() -> SeedData.populate(this)); // one transaction, so it is saved once at the end
+    }
+
+    /** Why the saved data could not be loaded at start-up, or null if it loaded normally. */
+    public String getLoadProblem() {
+        return loadProblem;
+    }
+
+    /** Everything in the store at this moment, for saving. */
+    StoreSnapshot snapshot() {
+        return read(() -> {
+            StoreSnapshot s = new StoreSnapshot();
+            s.nextId = nextId;
+            s.users = List.copyOf(users.values());
+            s.listings = List.copyOf(listings.values());
+            s.offers = List.copyOf(offers.values());
+            s.threads = List.copyOf(threads.values());
+            s.reviews = List.copyOf(reviews.values());
+            s.reports = List.copyOf(reports.values());
+            s.notifications = List.copyOf(notifications);
+            s.listingActions = List.copyOf(listingActions);
+            s.auditLog = List.copyOf(auditLog);
+            return s;
+        });
+    }
+
+    /** Puts loaded records back into this empty store. They keep their ids and dates. */
+    private void restore(StoreSnapshot s) {
+        read(() -> {
+            if (!users.isEmpty() || !listings.isEmpty()) {
+                throw new IllegalStateException("Saved data can only be loaded into an empty store.");
+            }
+            s.users.forEach(u -> users.put(u.getUsername(), u));
+            s.listings.forEach(l -> listings.put(l.getId(), l));
+            s.offers.forEach(o -> offers.put(o.getId(), o));
+            s.threads.forEach(t -> threads.put(t.getId(), t));
+            s.reviews.forEach(r -> reviews.put(r.getId(), r));
+            s.reports.forEach(r -> reports.put(r.getId(), r));
+            notifications.addAll(s.notifications);
+            listingActions.addAll(s.listingActions);
+            auditLog.addAll(s.auditLog);
+            nextId = s.nextId;
+            return null;
+        });
+    }
+
+    /** Saves everything, if this store has storage. Called after each outermost write. */
+    private void persist() {
+        if (storage != null) {
+            storage.save(snapshot()); // the storage skips the write if nothing changed
+        }
     }
 }

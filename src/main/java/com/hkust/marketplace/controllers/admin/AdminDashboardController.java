@@ -214,7 +214,8 @@ public class AdminDashboardController {
             Button toggle = new Button(u.isActive() ? "Deactivate" : "Activate");
             toggle.getStyleClass().addAll(u.isActive() ? "btn-danger" : "btn-success", "btn-sm");
             toggle.setOnAction(e -> {
-                u.setActive(!u.isActive());
+                // Inside a transaction, so the change is saved (regression log R4)
+                DataStore.getInstance().transaction(() -> u.setActive(!u.isActive()));
                 showUsers();
             });
 
@@ -225,7 +226,7 @@ public class AdminDashboardController {
                         "Permanently delete user @" + u.getUsername() + "?");
                 conf.showAndWait().ifPresent(r -> {
                     if (r == ButtonType.OK) {
-                        u.setActive(false);
+                        DataStore.getInstance().transaction(() -> u.setActive(false)); // saved (R4)
                         new Alert(Alert.AlertType.INFORMATION, "User deactivated (demo safety).").showAndWait();
                         showUsers();
                     }
@@ -310,7 +311,7 @@ public class AdminDashboardController {
             Button hide = new Button(r.isHidden() ? "Unhide" : "Hide");
             hide.getStyleClass().addAll("btn-outline", "btn-sm");
             hide.setOnAction(e -> {
-                r.setHidden(!r.isHidden());
+                DataStore.getInstance().transaction(() -> r.setHidden(!r.isHidden())); // saved (R4)
                 showRatings();
             });
             row.getChildren().addAll(info, hide);

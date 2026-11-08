@@ -192,7 +192,21 @@ class DataStoreTest {
         five.setHidden(true);
         assertEquals(2.0, store.getAverageRating("sam").getAsDouble());
         assertEquals(1, store.getRatingCount("sam"));
-        assertEquals(2, store.getReviewsForSeller("sam").size()); // still stored
+        assertEquals(1, store.getReviewsForSeller("sam").size());
+        assertEquals(2, store.getReviewsForSellerIncludingHidden("sam").size()); // still stored
+    }
+
+    @Test
+    void hiddenReview_isNotListedForTheSeller() {
+        // Regression test for R5 (docs/regression-log.md): the seller's Reviews screen lists
+        // getReviewsForSeller(...); a review the admin hid must not appear there (UC10 SR4)
+        Review hidden = completedDealReview("bea", 1);
+        Review shown = completedDealReview("ben", 4);
+
+        hidden.setHidden(true);
+
+        assertEquals(List.of(shown), store.getReviewsForSeller("sam"));
+        assertEquals(List.of(hidden, shown), store.getReviewsForSellerIncludingHidden("sam")); // admin can still unhide it
     }
 
     private Review completedDealReview(String buyer, int rating) {

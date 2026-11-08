@@ -31,6 +31,11 @@ public class BorrowRequest extends Offer {
         return listing instanceof LendListing;
     }
 
+    @Override
+    public String getKindName() {
+        return "borrow request";
+    }
+
     public LocalDateTime getProposedStartDate() { return proposedStartDate; }
     public LocalDateTime getProposedEndDate() { return proposedEndDate; }
 

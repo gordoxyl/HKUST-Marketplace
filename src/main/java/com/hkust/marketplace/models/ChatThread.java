@@ -16,7 +16,7 @@ public class ChatThread {
     private final String buyerUsername;
     private final String listingId;
     private final String sellerUsername;
-    private final LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
     private final List<Message> messages = new ArrayList<>();
 
     /** Only the buyer starts a thread (UC6 Special Requirement 1). */
@@ -29,17 +29,20 @@ public class ChatThread {
     /** Null until the thread is added to DataStore. */
     public String getId() { return id; }
 
-    /** Called once by DataStore when the thread is added. */
-    public void assignId(String id) {
+    /** Called once by DataStore when the thread is added: gives it its id and creation time. */
+    public void markAdded(String id, LocalDateTime createdAt) {
         if (this.id != null) {
             throw new IllegalStateException("Chat thread already has id " + this.id);
         }
         this.id = Objects.requireNonNull(id, "id");
+        this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
     }
 
     public String getBuyerUsername() { return buyerUsername; }
     public String getListingId() { return listingId; }
     public String getSellerUsername() { return sellerUsername; }
+
+    /** Null until the thread is added to DataStore. */
     public LocalDateTime getCreatedAt() { return createdAt; }
 
     /** True for the thread's buyer and the listing's seller, the only people who may read or write it. */

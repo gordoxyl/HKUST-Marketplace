@@ -25,8 +25,8 @@ public class Report {
     /** Null until the report is added to DataStore. */
     public String getId() { return id; }
 
-    /** Called once by DataStore when the report is added. */
-    public void assignId(String id) {
+    /** Called once by DataStore when the report is added: gives it its id. A report has no date (diagram). */
+    public void markAdded(String id) {
         if (this.id != null) {
             throw new IllegalStateException("Report already has id " + this.id);
         }

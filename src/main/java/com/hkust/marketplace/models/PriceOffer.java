@@ -17,6 +17,11 @@ public class PriceOffer extends Offer {
         return listing instanceof SaleListing;
     }
 
+    @Override
+    public String getKindName() {
+        return "price offer";
+    }
+
     public double getOfferedPrice() { return offeredPrice; }
 
     /** Null unless the seller countered. */

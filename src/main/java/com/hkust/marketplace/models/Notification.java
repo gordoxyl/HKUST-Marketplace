@@ -13,7 +13,7 @@ public class Notification {
     private final String recipientUsername;
     private final NotificationCategory category;
     private final String content;
-    private final LocalDateTime timestamp = LocalDateTime.now();
+    private LocalDateTime timestamp;
     private boolean read;
 
     public Notification(String recipientUsername, NotificationCategory category, String content) {
@@ -25,17 +25,20 @@ public class Notification {
     /** Null until the notification is added to DataStore. */
     public String getId() { return id; }
 
-    /** Called once by DataStore when the notification is added. */
-    public void assignId(String id) {
+    /** Called once by DataStore when the notification is added: gives it its id and timestamp. */
+    public void markAdded(String id, LocalDateTime timestamp) {
         if (this.id != null) {
             throw new IllegalStateException("Notification already has id " + this.id);
         }
         this.id = Objects.requireNonNull(id, "id");
+        this.timestamp = Objects.requireNonNull(timestamp, "timestamp");
     }
 
     public String getRecipientUsername() { return recipientUsername; }
     public NotificationCategory getCategory() { return category; }
     public String getContent() { return content; }
+
+    /** Null until the notification is added to DataStore. */
     public LocalDateTime getTimestamp() { return timestamp; }
 
     /** A notification stays unread until its recipient marks it read (UC4 Special Requirement 3). */

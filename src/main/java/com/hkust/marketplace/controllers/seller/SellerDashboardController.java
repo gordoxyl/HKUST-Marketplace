@@ -101,11 +101,15 @@ public class SellerDashboardController {
         Button delBtn = new Button("Delete");
         delBtn.getStyleClass().addAll("btn-danger", "btn-sm");
         delBtn.setOnAction(e -> {
+            if (l.isLocked()) { // Manage Listings A2
+                new Alert(Alert.AlertType.WARNING, "This listing can no longer be edited or deleted.").showAndWait();
+                return;
+            }
             Alert conf = new Alert(Alert.AlertType.CONFIRMATION, "Delete this listing?");
             conf.showAndWait().ifPresent(r -> {
                 if (r == ButtonType.OK) {
                     // Manage Listings step 3.2.4: a deleted listing keeps its record with status Removed
-                    DataStore.getInstance().transaction(() -> l.setStatus(ListingStatus.REMOVED));
+                    DataStore.getInstance().transaction(l::withdraw);
                     showMyListings();
                 }
             });

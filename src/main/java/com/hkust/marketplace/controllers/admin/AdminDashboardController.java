@@ -86,7 +86,7 @@ public class AdminDashboardController {
             conf.showAndWait().ifPresent(r -> {
                 if (r == ButtonType.OK) {
                     DataStore store = DataStore.getInstance();
-                    store.transaction(() -> l.setStatus(ListingStatus.LIVE));
+                    store.transaction(l::approve);
                     store.addListingAction(new ListingActionRecord(l.getId(),
                             SessionManager.getCurrentUser().getUsername(), ListingAction.APPROVE_LISTING, null));
                     store.addNotification(new Notification(l.getSellerUsername(), NotificationCategory.LISTING_APPROVED,
@@ -109,7 +109,7 @@ public class AdminDashboardController {
                     return;
                 }
                 DataStore store = DataStore.getInstance();
-                store.transaction(() -> l.setStatus(ListingStatus.REJECTED));
+                store.transaction(l::reject);
                 // The reason is stored in the action record (ListingActionRecord in the domain class diagram)
                 store.addListingAction(new ListingActionRecord(l.getId(),
                         SessionManager.getCurrentUser().getUsername(), ListingAction.REJECT_LISTING, reason));
@@ -159,11 +159,17 @@ public class AdminDashboardController {
             Button remove = new Button("Remove");
             remove.getStyleClass().addAll("btn-danger", "btn-sm");
             remove.setOnAction(e -> {
+                ListingStatus s = l.getStatus();
+                if (s == ListingStatus.SOLD || s == ListingStatus.GIVEN || s == ListingStatus.REMOVED) {
+                    new Alert(Alert.AlertType.WARNING, "A " + s.getDisplayName().toLowerCase()
+                            + " listing cannot be removed.").showAndWait();
+                    return;
+                }
                 Alert conf = new Alert(Alert.AlertType.CONFIRMATION, "Permanently remove this listing?");
                 conf.showAndWait().ifPresent(r -> {
                     if (r == ButtonType.OK) {
                         // A removed listing keeps its record with status Removed (Manage Marketplace Listings 5.5.4)
-                        DataStore.getInstance().transaction(() -> l.setStatus(ListingStatus.REMOVED));
+                        DataStore.getInstance().transaction(l::remove);
                         showAllListings();
                     }
                 });

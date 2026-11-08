@@ -11,4 +11,9 @@ public class Claim extends Offer {
     public boolean canBeMadeOn(Listing listing) {
         return listing instanceof GiveawayListing;
     }
+
+    @Override
+    public String getKindName() {
+        return "claim";
+    }
 }

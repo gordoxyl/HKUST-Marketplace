@@ -25,6 +25,17 @@ public class LendListing extends Listing {
         return "Borrow";
     }
 
+    @Override
+    protected ListingStatus statusWhenDealAccepted() {
+        return ListingStatus.LENT;
+    }
+
+    /** A returned item can be lent again. */
+    @Override
+    protected ListingStatus statusWhenDealCompleted() {
+        return ListingStatus.LIVE;
+    }
+
     public Duration getLendingDuration() { return lendingDuration; }
 
     /**

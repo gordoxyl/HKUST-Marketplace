@@ -16,7 +16,7 @@ public class AuditLogEntry {
     private final String username;
     private final String actionTaken;
     private final String reason;
-    private final LocalDateTime actionDate = LocalDateTime.now();
+    private LocalDateTime actionDate;
     private final String dataSnapshot;
 
     /**
@@ -34,12 +34,13 @@ public class AuditLogEntry {
     /** Null until the entry is added to DataStore. */
     public String getLogReference() { return logReference; }
 
-    /** Called once by DataStore when the entry is added. */
-    public void assignLogReference(String logReference) {
+    /** Called once by DataStore when the entry is added: gives it its log reference and action date. */
+    public void markAdded(String logReference, LocalDateTime actionDate) {
         if (this.logReference != null) {
             throw new IllegalStateException("Audit log entry already has reference " + this.logReference);
         }
         this.logReference = Objects.requireNonNull(logReference, "logReference");
+        this.actionDate = Objects.requireNonNull(actionDate, "actionDate");
     }
 
     public String getAdminUsername() { return adminUsername; }

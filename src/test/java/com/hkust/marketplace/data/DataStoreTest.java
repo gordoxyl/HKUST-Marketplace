@@ -1,6 +1,8 @@
 package com.hkust.marketplace.data;
 
 import com.hkust.marketplace.models.*;
+import com.hkust.marketplace.testsupport.Fixtures;
+import com.hkust.marketplace.testsupport.TestClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -19,12 +21,14 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Tests for the shared rules and thread safety of DataStore. */
 class DataStoreTest {
 
+    private TestClock clock;
     private DataStore store;
     private Seller sam;
 
     @BeforeEach
     void setUp() {
-        store = new DataStore();
+        clock = Fixtures.clock();
+        store = Fixtures.store(clock);
         sam = new Seller("sam", "Sam Seller", "hash");
         store.addUser(sam);
         store.addUser(new Buyer("bea", "Bea Buyer", "hash", null));
@@ -32,8 +36,16 @@ class DataStoreTest {
     }
 
     private Listing live(Listing listing) {
-        listing.setStatus(ListingStatus.LIVE);
-        return store.addListing(listing);
+        store.addListing(listing);
+        listing.approve();
+        return listing;
+    }
+
+    /** A sale listing added to the store and moved to the status (not live). */
+    private Listing saleIn(ListingStatus status) {
+        Listing listing = new SaleListing("sam", "Book", Category.TEXTBOOKS, ItemCondition.USED, "desc", MeetupLocation.LIBRARY, 100);
+        store.addListing(listing);
+        return Fixtures.moveTo(listing, status);
     }
 
     private Listing sale() {
@@ -67,14 +79,18 @@ class DataStoreTest {
     @Test
     void liveListings_includeReservedAndLentButNotOtherStatuses() {
         Listing live = sale();
-        Listing reserved = sale();
-        reserved.setStatus(ListingStatus.RESERVED);
-        Listing lent = sale();
-        lent.setStatus(ListingStatus.LENT);
+        Listing reserved = saleIn(ListingStatus.RESERVED);
+        Listing lent = new LendListing("sam", "Calc", Category.ELECTRONICS, ItemCondition.USED, "desc",
+                MeetupLocation.LIBRARY, Duration.ofDays(7));
+        store.addListing(lent);
+        Fixtures.moveTo(lent, ListingStatus.LENT);
         for (ListingStatus hidden : List.of(ListingStatus.PENDING_REVIEW, ListingStatus.REJECTED,
-                ListingStatus.SOLD, ListingStatus.GIVEN, ListingStatus.REMOVED)) {
-            sale().setStatus(hidden);
+                ListingStatus.SOLD, ListingStatus.REMOVED)) {
+            saleIn(hidden);
         }
+        Listing given = new GiveawayListing("sam", "Lamp", Category.FURNITURE, ItemCondition.USED, "desc", MeetupLocation.LIBRARY);
+        store.addListing(given);
+        Fixtures.moveTo(given, ListingStatus.GIVEN);
 
         assertEquals(List.of(live, reserved, lent), store.getLiveListings());
     }
@@ -92,7 +108,7 @@ class DataStoreTest {
     void availability_followsStatusAndPendingClaims() {
         Listing book = sale();
         assertTrue(store.isAvailable(book));
-        book.setStatus(ListingStatus.RESERVED);
+        book.acceptDeal(); // Reserved
         assertFalse(store.isAvailable(book));
 
         Listing lamp = giveaway();
@@ -181,8 +197,8 @@ class DataStoreTest {
 
     private Review completedDealReview(String buyer, int rating) {
         Offer offer = store.addOffer(new PriceOffer(sale().getId(), buyer, 50));
-        offer.accept(LocalDateTime.now());
-        offer.complete(LocalDateTime.now());
+        offer.accept(store.now());
+        offer.complete(store.now());
         return store.addReview(new Review(offer.getId(), rating, null));
     }
 
@@ -199,13 +215,40 @@ class DataStoreTest {
     }
 
     @Test
-    void notifications_areListedNewestFirstForTheirRecipient() throws InterruptedException {
+    void notifications_areListedNewestFirstForTheirRecipient() {
         Notification older = store.addNotification(new Notification("bea", NotificationCategory.ANNOUNCEMENT, "first"));
-        Thread.sleep(5);
+        clock.advance(Duration.ofSeconds(1));
         Notification newer = store.addNotification(new Notification("bea", NotificationCategory.ANNOUNCEMENT, "second"));
         store.addNotification(new Notification("ben", NotificationCategory.ANNOUNCEMENT, "other"));
 
         assertEquals(List.of(newer, older), store.getNotificationsFor("bea"));
+    }
+
+    // ---------- Time ----------
+
+    @Test
+    void records_areDatedByTheStoreClockWhenAdded() {
+        LocalDateTime start = clock.now();
+        assertEquals(start, store.findUser("bea").getCreatedAt());
+
+        clock.advance(Duration.ofMinutes(5));
+        Listing listing = sale();
+        Offer offer = store.addOffer(new PriceOffer(listing.getId(), "bea", 80));
+        clock.advance(Duration.ofMinutes(5));
+        Notification notification = store.addNotification(new Notification("bea", NotificationCategory.ANNOUNCEMENT, "hi"));
+
+        assertEquals(start.plusMinutes(5), listing.getPostedDate());
+        assertEquals(start.plusMinutes(5), offer.getOfferDate());
+        assertEquals(start.plusMinutes(5), store.findThread("bea", listing.getId()).getCreatedAt());
+        assertEquals(start.plusMinutes(10), notification.getTimestamp());
+        assertEquals(start.plusMinutes(10), store.now());
+    }
+
+    @Test
+    void addingARecordTwice_isRefused() {
+        Listing listing = sale();
+        assertThrows(IllegalStateException.class, () -> store.addListing(listing));
+        assertEquals(1, store.getAllListings().size());
     }
 
     // ---------- Thread safety ----------

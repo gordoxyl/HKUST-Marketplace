@@ -2,6 +2,8 @@ package com.hkust.marketplace.data;
 
 import com.hkust.marketplace.models.*;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
@@ -24,6 +26,11 @@ import java.util.function.Supplier;
  * }</pre>
  * Change model objects you got from the store inside a transaction too, because the
  * borrowing-deadline timer (UC12) changes them from another thread.
+ *
+ * <p><b>Time.</b> Every date the system records comes from {@link #now()}, which reads the
+ * store's clock. Records are dated when they are added (a listing's posted date, an offer's
+ * offer date, a notification's timestamp, ...). Tests give the store a clock they control,
+ * so time-based rules such as the 5-second borrow (UC12) are tested without waiting.
  *
  * <p><b>Storage.</b> Data is kept in memory and lost when the app closes. Saving to files is
  * planned; all data access goes through this class, so only this class will need to change.
@@ -50,9 +57,16 @@ public class DataStore {
     private final List<AuditLogEntry> auditLog = new ArrayList<>();
 
     private int nextId = 1;
+    private volatile Clock clock;
 
-    /** An empty store, for tests. The app uses {@link #getInstance()}, which holds the demo data. */
+    /** An empty store using the computer's clock. The app uses {@link #getInstance()}, which holds the demo data. */
     public DataStore() {
+        this(Clock.systemDefaultZone());
+    }
+
+    /** An empty store using the given clock; tests pass a clock they can move forward. */
+    public DataStore(Clock clock) {
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     /** The app's store, filled with the demo data from {@link SeedData}. */
@@ -64,6 +78,22 @@ public class DataStore {
         DataStore store = new DataStore();
         SeedData.populate(store);
         return store;
+    }
+
+    // ========== Time ==========
+
+    /** The current date and time, from the store's clock. Use this instead of LocalDateTime.now(). */
+    public LocalDateTime now() {
+        return LocalDateTime.now(clock);
+    }
+
+    public Clock getClock() {
+        return clock;
+    }
+
+    /** Replaces the clock. Only for SeedData (to date the demo records) and tests. */
+    public void setClock(Clock clock) {
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     // ========== Transactions ==========
@@ -105,7 +135,14 @@ public class DataStore {
      * @return false if the username is already used by any account
      */
     public boolean addUser(User user) {
-        return transaction(() -> users.putIfAbsent(user.getUsername(), user) == null);
+        return transaction(() -> {
+            if (users.containsKey(user.getUsername())) {
+                return false;
+            }
+            user.markAdded(now());
+            users.put(user.getUsername(), user);
+            return true;
+        });
     }
 
     /** Usernames are matched ignoring case and surrounding spaces. Returns null if there is no such account. */
@@ -137,10 +174,10 @@ public class DataStore {
 
     // ========== Listings ==========
 
-    /** Gives the listing an id and adds it. */
+    /** Gives the listing an id, dates it as posted now, and adds it. */
     public Listing addListing(Listing listing) {
         return transaction(() -> {
-            listing.assignId(newId("L"));
+            listing.markAdded(newId("L"), now());
             listings.put(listing.getId(), listing);
             return listing;
         });
@@ -228,7 +265,7 @@ public class DataStore {
                         + "a borrow request on a lend listing, and a claim on a giveaway listing.");
             }
             getOrCreateThread(offer.getBuyerUsername(), listing.getId());
-            offer.assignId(newId("O"));
+            offer.markAdded(newId("O"), now());
             offers.put(offer.getId(), offer);
             return offer;
         });
@@ -295,7 +332,7 @@ public class DataStore {
                 throw new IllegalArgumentException("Only a buyer can start a chat thread.");
             }
             ChatThread thread = new ChatThread(buyer.getUsername(), listing);
-            thread.assignId(newId("T"));
+            thread.markAdded(newId("T"), now());
             threads.put(thread.getId(), thread);
             return thread;
         });
@@ -330,7 +367,7 @@ public class DataStore {
             if (findReviewForOffer(offer.getId()) != null) {
                 throw new IllegalStateException("This deal has already been reviewed.");
             }
-            review.assignId(newId("R"));
+            review.markAdded(newId("R"), now());
             reviews.put(review.getId(), review);
             return review;
         });
@@ -388,7 +425,7 @@ public class DataStore {
             if (hasReported(report.getBuyerUsername(), report.getListingId())) {
                 return false;
             }
-            report.assignId(newId("P"));
+            report.markAdded(newId("P"));
             reports.put(report.getId(), report);
             return true;
         });
@@ -409,28 +446,41 @@ public class DataStore {
 
     // ========== Notifications ==========
 
-    /** Gives the notification an id and adds it to its recipient's board. */
+    /** Gives the notification an id and a timestamp, and adds it to its recipient's board. */
     public Notification addNotification(Notification notification) {
         return transaction(() -> {
-            notification.assignId(newId("N"));
+            notification.markAdded(newId("N"), now());
             notifications.add(notification);
             return notification;
         });
     }
 
-    /** The user's notifications, newest first (UC4 step 2). */
-    public List<Notification> getNotificationsFor(String username) {
+    /** Returns null if there is no such notification. */
+    public Notification findNotification(String id) {
         return transaction(() -> notifications.stream()
-                .filter(n -> n.getRecipientUsername().equalsIgnoreCase(username))
-                .sorted(Comparator.comparing(Notification::getTimestamp).reversed())
-                .toList());
+                .filter(n -> n.getId().equals(id)).findFirst().orElse(null));
+    }
+
+    /**
+     * The user's notifications, newest first (UC4 step 2). Notifications with the same
+     * timestamp are listed in reverse order of adding, so the latest still comes first.
+     */
+    public List<Notification> getNotificationsFor(String username) {
+        return transaction(() -> {
+            List<Notification> mine = new ArrayList<>(notifications.stream()
+                    .filter(n -> n.getRecipientUsername().equalsIgnoreCase(username))
+                    .toList());
+            Collections.reverse(mine);
+            mine.sort(Comparator.comparing(Notification::getTimestamp).reversed()); // stable sort
+            return List.copyOf(mine);
+        });
     }
 
     // ========== Admin records ==========
 
     public ListingActionRecord addListingAction(ListingActionRecord record) {
         return transaction(() -> {
-            record.assignId(newId("A"));
+            record.markAdded(newId("A"), now());
             listingActions.add(record);
             return record;
         });
@@ -446,7 +496,7 @@ public class DataStore {
 
     public AuditLogEntry addAuditLogEntry(AuditLogEntry entry) {
         return transaction(() -> {
-            entry.assignLogReference(newId("G"));
+            entry.markAdded(newId("G"), now());
             auditLog.add(entry);
             return entry;
         });

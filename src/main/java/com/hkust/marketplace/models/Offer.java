@@ -23,7 +23,7 @@ public abstract class Offer {
     private final String listingId;
     private final String buyerUsername;
     private OfferStatus status = OfferStatus.PENDING;
-    private final LocalDateTime offerDate = LocalDateTime.now();
+    private LocalDateTime offerDate;
     private LocalDateTime acceptedDate;
     private LocalDateTime completedDate;
 
@@ -38,20 +38,26 @@ public abstract class Offer {
      */
     public abstract boolean canBeMadeOn(Listing listing);
 
+    /** "price offer", "borrow request" or "claim", for messages such as "Your claim on ... was accepted". */
+    public abstract String getKindName();
+
     /** Null until the offer is added to DataStore. */
     public String getId() { return id; }
 
-    /** Called once by DataStore when the offer is added. */
-    public void assignId(String id) {
+    /** Called once by DataStore when the offer is added: gives it its id and offer date. */
+    public void markAdded(String id, LocalDateTime offerDate) {
         if (this.id != null) {
             throw new IllegalStateException("Offer already has id " + this.id);
         }
         this.id = Objects.requireNonNull(id, "id");
+        this.offerDate = Objects.requireNonNull(offerDate, "offerDate");
     }
 
     public String getListingId() { return listingId; }
     public String getBuyerUsername() { return buyerUsername; }
     public OfferStatus getStatus() { return status; }
+
+    /** Null until the offer is added to DataStore. */
     public LocalDateTime getOfferDate() { return offerDate; }
 
     /** Null unless the offer was accepted. */

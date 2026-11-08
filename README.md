@@ -151,8 +151,10 @@ The model follows the domain class diagram in our use-case specification:
 | Base class (abstract) | Subclasses | Notes |
 |---|---|---|
 | `User` | `Buyer`, `Seller`, `Admin` | `getRole()` gives the account type. Usernames are lower case and cannot change. |
-| `Listing` | `SaleListing` (price), `LendListing` (`Duration`), `GiveawayListing` | Up to 6 photos; the first is the thumbnail. New listings are Pending Review. |
+| `Listing` | `SaleListing` (price), `LendListing` (`Duration`), `GiveawayListing` | Up to 6 photos; the first is the thumbnail. New listings are Pending Review. Change status only with the state machine events (`approve`, `reject`, `resubmit`, `withdraw`, `remove`, `acceptDeal`, `completeDeal`), which refuse invalid changes. |
 | `Offer` | `PriceOffer`, `BorrowRequest`, `Claim` | Called a "deal" in the use cases. Change status only with `accept`, `decline`, `counter`, `complete`, which refuse invalid changes. |
+
+Both state machines, with the use case and role behind every event, are in [docs/state-machines.md](docs/state-machines.md).
 
 Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `ListingActionRecord`, `AuditLogEntry`, and enums such as `Category`, `MeetupLocation` and `NotificationCategory` (their `toString()` is the display name, so they can go straight into a `ComboBox`).
 
@@ -161,13 +163,49 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `addOffer(offer)`: checks the offer type matches the listing type and creates the chat thread
 - `getAverageRating(seller)`, `getVisibleReviewsForSeller(seller)`: leave out reviews the admin hid
 - `addReview`, `addReport`, `addUser`: refuse a second review of a deal, a second report by the same buyer, and a taken username
-- A deleted listing is not removed from the store: set its status to `REMOVED`.
+- A deleted listing is not removed from the store: the seller's delete is `listing.withdraw()` and the admin's removal is `listing.remove()`, both giving status Removed.
+
+**Shared services: reuse these, don't rewrite them.**
+- `DealRules`: the deal lifecycle that crosses roles. `accept(offer)` (Reserved or Lent, declines the other open offers, notifies), `declineOpenOffers(listing, category, because)` (for edits, deletes, admin removal, deactivation), `complete(deal)`, `returnItem(request, automatic)`. Check the role first, then call these.
+- `NotificationService`: `send(user, category, text)` and `sendToAdmins(category, text)` when something happens; `getMyNotifications()`, `markRead(id)` and `getUnreadCount()` for the board (UC4).
+- `AuthService`: registration and login (UC1, UC2).
+
+**How a service method is shaped.** One control class per actor and use case (Lecture 16), each method in this order:
+```java
+public void acceptOffer(String offerId) {
+    Seller seller = AccessControl.requireSeller();                  // 1. role check
+    store.transaction(() -> {                                       // 2. one atomic step
+        Offer offer = store.findOffer(offerId);
+        if (offer == null || !store.getListingOf(offer).getSellerUsername().equals(seller.getUsername())) {
+            throw new ServiceException("This offer is no longer available.");   // 3. validate (the barricade)
+        }
+        dealRules.accept(offer);                                    // 4. shared rules
+    });
+}
+```
+The screen calls the service and shows any `ServiceException` message to the user as it is. `AccessDeniedException` is one too. Screens don't call `DataStore` directly in new code; the skeleton dashboards still do until each feature is rebuilt.
 
 **Several steps as one.** Wrap them in `store.transaction(() -> { ... })` so another thread cannot run in between. Use it when you check something and then change data based on it, and when you change model objects you got from the store.
 
 **Role checks.** Start every portal-specific service method with `AccessControl.requireBuyer()`, `requireSeller()` or `requireAdmin()` (UC2 Special Requirement 3). They return the logged-in user, or throw `AccessDeniedException`.
 
+**Time.** Never call `LocalDateTime.now()`; use `store.now()`. The store dates records when they're added (posted date, offer date, timestamps), and tests replace its clock.
+
 **Storage.** Data is in memory for now and is lost when the app closes. Saving to files is planned; keep all data access going through `DataStore` so only it has to change.
+
+## How We Build and Test
+
+We use **sandwich integration** (COMP 3111 Lecture 15). The bottom layer (models and `DataStore`) and the top layer (the portal screens from the skeleton) already exist, and we meet in the middle:
+- **The shared middle** (`DealRules`, `NotificationService`, the state machines and the conventions above) is built first, bottom-up, and tested with JUnit tests acting as drivers. It holds the critical subsystems: the deal lifecycle, concurrency and the borrowing-deadline timer.
+- **Each portal** (buyer, seller, admin) is then built in parallel by its owner, one use case at a time: control class plus tests, then the screen.
+
+| Level | What | Where |
+|---|---|---|
+| Unit | Equivalence partitions and boundary values (e.g. rating 0/1/5/6, photos 6/7, borrow time 4 s/5 s); state-based tests for each state machine | `src/test/.../models`, `AccountValidatorTest` |
+| Integration | Use-case flow tests at service level, including flows across roles (offer → accept → complete → review); run all tests again after every change (regression) | `DealRulesTest`, `DataStoreTest` |
+| System / acceptance | One demo scenario per requirement (Tasks 1.x, 2.x, 3.x); teammates test each other's portals | to be written |
+
+Test tools in `src/test/.../testsupport`: `TestClock` (a clock the test moves by hand, so a 5-second borrow is tested instantly) and `Fixtures` (accounts and listings in any state, built through the state machine). Run all tests with `.\mvnw.cmd test`.
 
 ## Troubleshooting
 

@@ -9,19 +9,21 @@ import com.hkust.marketplace.models.ListingType;
 import com.hkust.marketplace.models.Notification;
 import com.hkust.marketplace.models.SaleListing;
 import com.hkust.marketplace.models.User;
+import com.hkust.marketplace.ui.ContentHost;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-public class BuyerDashboardController {
+public class BuyerDashboardController implements ContentHost {
 
     @FXML private StackPane contentPane;
     @FXML private Label pageTitle;
@@ -47,6 +49,13 @@ public class BuyerDashboardController {
         btn.getStyleClass().add("sidebar-btn-active");
         currentActiveBtn = btn;
         pageTitle.setText(title);
+    }
+
+    /** Lets shared components open a screen here, such as a listing or a chat thread. */
+    @Override
+    public void show(String title, Node content) {
+        pageTitle.setText(title);
+        contentPane.getChildren().setAll(content);
     }
 
     @FXML

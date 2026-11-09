@@ -195,6 +195,11 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `NotificationService`: `send(user, category, text)` and `sendToAdmins(category, text)` when something happens; `getMyNotifications()`, `markRead(id)` and `getUnreadCount()` for the board (UC4).
 - `AuthService`: registration and login (UC1, UC2).
 
+**Shared UI kit (`ui/`): use it on every screen, so the three portals look and behave the same.**
+- `Formats`: dates (`09 Nov 2026 14:05`), prices (`HK$ 180`), stars (`★★★★☆`), average ratings (`4.5 / 5 (2 ratings)` or `No ratings yet`), borrow periods, durations.
+- `Dialogs`: `confirm` (ask before every destructive action), `info`, `error`, `problem(ServiceException)`, and `askReason` (asks again until a reason is typed).
+- `ContentHost`: implemented by each dashboard as `show(title, content)`. Shared components get the dashboard as a `ContentHost`, so they can open another screen with its data, such as a listing's chat from a notification.
+
 **How a service method is shaped.** One control class per actor and use case (Lecture 16), each method in this order:
 ```java
 public void acceptOffer(String offerId) {

@@ -18,6 +18,9 @@
         <javafx.maven.plugin.version>0.0.8</javafx.maven.plugin.version>
         <junit.version>5.11.4</junit.version>
         <jackson.version>2.18.2</jackson.version>
+        <jacoco.version>0.8.12</jacoco.version>
+        <!-- Screens and app start-up: no logic of their own, so not part of the coverage rule (see jacoco below) -->
+        <jacoco.ui.excludes>com/hkust/marketplace/controllers/**,com/hkust/marketplace/MarketplaceApp.class,com/hkust/marketplace/utils/SceneManager.class,com/hkust/marketplace/utils/DevLogin.class</jacoco.ui.excludes>
     </properties>
 
     <dependencies>
@@ -88,6 +91,105 @@
                 <configuration>
                     <mainClass>com.hkust.marketplace.MarketplaceApp</mainClass>
                 </configuration>
+            </plugin>
+
+            <!-- ===== Submission reports: all produced by "mvnw clean verify" (see README, "Reports") ===== -->
+
+            <plugin>
+                <!-- Code coverage. Two reports: the measured code (models, data, services, utils) that the
+                     >65% branch-coverage rule applies to, and everything, screens included, for reference.
+                     Screens are excluded from the rule because they hold no logic of their own (they call
+                     the tested services) and are checked by the manual acceptance tests instead. -->
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report-measured</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/reports/jacoco</outputDirectory>
+                            <excludes>${jacoco.ui.excludes}</excludes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>report-all</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/reports/jacoco-all</outputDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>check-branch-coverage</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>${jacoco.ui.excludes}</excludes>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.65</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <!-- HTML unit-test report (target/reports/surefire.html) -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-report-plugin</artifactId>
+                <version>3.5.2</version>
+                <executions>
+                    <execution>
+                        <id>test-report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report-only</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <!-- JavaDoc of all classes (target/reports/apidocs/index.html) -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.11.2</version>
+                <configuration>
+                    <doctitle>HKUST Marketplace API</doctitle>
+                    <windowtitle>HKUST Marketplace API</windowtitle>
+                    <!-- Check links, HTML and syntax, but don't demand @param/@return on every simple getter -->
+                    <doclint>all,-missing</doclint>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>javadoc</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>javadoc</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

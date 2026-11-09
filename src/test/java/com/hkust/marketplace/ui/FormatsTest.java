@@ -1,0 +1,61 @@
+package com.hkust.marketplace.ui;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.OptionalDouble;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/** Tests for the shared display formats (boundary values from Lecture 14). */
+class FormatsTest {
+
+    private static final LocalDateTime TIME = LocalDateTime.of(2026, 11, 9, 14, 5);
+
+    @Test
+    void dates_useOneFormat_andShowADashWhenMissing() {
+        assertEquals("09 Nov 2026", Formats.date(TIME));
+        assertEquals("09 Nov 2026 14:05", Formats.dateTime(TIME));
+        assertEquals(Formats.NONE, Formats.date(null));
+        assertEquals(Formats.NONE, Formats.dateTime(null));
+        assertEquals("09 Nov 2026 14:05 – 10 Nov 2026 14:05", Formats.period(TIME, TIME.plusDays(1)));
+    }
+
+    @Test
+    void prices_showCentsOnlyWhenThereAreSome() {
+        assertEquals("HK$ 180", Formats.price(180));
+        assertEquals("HK$ 0.50", Formats.price(0.5));
+        assertEquals("HK$ 99.99", Formats.price(99.99));
+    }
+
+    @Test
+    void durations_readAsText() {
+        assertEquals("5 seconds", Formats.duration(Duration.ofSeconds(5)));
+        assertEquals("1 day 2 hours", Formats.duration(Duration.ofHours(26)));
+    }
+
+    @Test
+    void stars_atTheBoundaries() {
+        assertEquals("☆☆☆☆☆", Formats.stars(0));
+        assertEquals("★☆☆☆☆", Formats.stars(1));
+        assertEquals("★★★★☆", Formats.stars(4));
+        assertEquals("★★★★★", Formats.stars(5));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {-1, 6})
+    void stars_outsideZeroToFive_areRefused(int rating) {
+        assertThrows(IllegalArgumentException.class, () -> Formats.stars(rating));
+    }
+
+    @Test
+    void averageRating_saysNoRatingsYet_whenThereAreNone() {
+        assertEquals("No ratings yet", Formats.averageRating(OptionalDouble.empty(), 0));
+        assertEquals("No ratings yet", Formats.averageRating(OptionalDouble.of(4), 0)); // inconsistent input: count wins
+        assertEquals("5.0 / 5 (1 rating)", Formats.averageRating(OptionalDouble.of(5), 1));
+        assertEquals("3.5 / 5 (2 ratings)", Formats.averageRating(OptionalDouble.of(3.5), 2));
+    }
+}

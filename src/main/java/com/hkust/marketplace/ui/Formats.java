@@ -1,0 +1,75 @@
+package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.models.LendListing;
+import com.hkust.marketplace.models.Review;
+import com.hkust.marketplace.models.SaleListing;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+import java.util.OptionalDouble;
+
+/**
+ * One way to show dates, prices, ratings and periods on every screen, so all three portals
+ * look and read the same (non-functional requirement: a consistent interface).
+ */
+public final class Formats {
+
+    /** Shown when there is no value, such as a deal that is not completed yet. */
+    public static final String NONE = "—";
+
+    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH);
+    private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", Locale.ENGLISH);
+
+    private Formats() {
+        // Utility class
+    }
+
+    /** "09 Nov 2026", or {@link #NONE} for no date. */
+    public static String date(LocalDateTime time) {
+        return time == null ? NONE : time.format(DATE);
+    }
+
+    /** "09 Nov 2026 14:20", or {@link #NONE} for no date. */
+    public static String dateTime(LocalDateTime time) {
+        return time == null ? NONE : time.format(DATE_TIME);
+    }
+
+    /** A borrow period: "10 Nov 2026 09:00 – 17 Nov 2026 09:00". */
+    public static String period(LocalDateTime start, LocalDateTime end) {
+        return dateTime(start) + " – " + dateTime(end);
+    }
+
+    /** "HK$ 180", or "HK$ 99.50" when there are cents. */
+    public static String price(double amount) {
+        return SaleListing.formatPrice(amount);
+    }
+
+    /** A length of time: "90 days", "1 day 2 hours", "5 seconds". */
+    public static String duration(Duration duration) {
+        return LendListing.formatDuration(duration);
+    }
+
+    /**
+     * A 1-5 star rating as stars: 4 → "★★★★☆". 0 gives five empty stars.
+     * @throws IllegalArgumentException outside 0 to 5
+     */
+    public static String stars(int rating) {
+        if (rating < 0 || rating > Review.MAX_RATING) {
+            throw new IllegalArgumentException("A rating is 0 to " + Review.MAX_RATING + " stars, not " + rating + ".");
+        }
+        return "★".repeat(rating) + "☆".repeat(Review.MAX_RATING - rating);
+    }
+
+    /**
+     * A seller's average rating: "4.5 / 5 (2 ratings)", or "No ratings yet" when there are none
+     * (View Seller Stats A2).
+     */
+    public static String averageRating(OptionalDouble average, int count) {
+        if (average.isEmpty() || count == 0) {
+            return "No ratings yet";
+        }
+        return String.format(Locale.ENGLISH, "%.1f / 5 (%d rating%s)", average.getAsDouble(), count, count == 1 ? "" : "s");
+    }
+}

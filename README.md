@@ -233,6 +233,28 @@ We use **sandwich integration** (COMP 3111 Lecture 15). The bottom layer (models
 
 Test tools in `src/test/.../testsupport`: `TestClock` (a clock the test moves by hand, so a 5-second borrow is tested instantly) and `Fixtures` (accounts and listings in any state, built through the state machine). `StoreProbe` is a tiny program a test runs in a separate JVM. Run all tests with `.\mvnw.cmd clean test`: without `clean`, Maven can run outdated compiled tests (regression log T1).
 
+## Reports
+
+One command runs all tests and produces every report the submission needs:
+
+| OS | Command |
+|----|---------|
+| Windows | `.\mvnw.cmd clean verify` |
+| macOS | `./mvnw clean verify` |
+
+| Report | Open in a browser |
+|---|---|
+| Unit-test report (every test, pass/fail) | `target/reports/surefire.html` |
+| Coverage of the measured code (the >65% branch rule) | `target/reports/jacoco/index.html` |
+| Coverage of everything, screens included (for reference) | `target/reports/jacoco-all/index.html` |
+| JavaDoc | `target/reports/apidocs/index.html` |
+
+The build **fails** if any test fails, or if the measured code's **branch coverage drops below 65%**. `target/` is not committed, so run the command again to get fresh reports. JavaDoc checks links, HTML and syntax, but not missing `@param`/`@return` tags on simple methods.
+
+**Coverage policy.** The 65% rule is measured on the models, data, services and utils, where all the logic lives. It leaves out the JavaFX screen controllers, `MarketplaceApp`, `SceneManager` and the dev-only `DevLogin` (the excluded list is `jacoco.ui.excludes` in `pom.xml`). Screens hold no logic of their own: they read the input, call a tested service and show the result, and the manual acceptance tests check them. That only stays true if **screens stay thin**: any check, rule or calculation goes into a service with tests, never into a controller.
+
+Figures on 9 Nov 2026: measured code **83.3% branch** (88.8% line); everything 56.4% branch. By package: services 93.8%, models 85.4%, data 76.8%.
+
 ## Troubleshooting
 
 ### `mvn` is not recognized

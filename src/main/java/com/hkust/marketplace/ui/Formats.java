@@ -62,6 +62,14 @@ public final class Formats {
         return "★".repeat(rating) + "☆".repeat(Review.MAX_RATING - rating);
     }
 
+    /** The heading of a notification board: "No unread notifications", "1 unread notification", "3 unread notifications". */
+    public static String unreadSummary(int unread) {
+        if (unread <= 0) {
+            return "No unread notifications";
+        }
+        return unread + " unread notification" + (unread == 1 ? "" : "s");
+    }
+
     /**
      * A seller's average rating: "4.5 / 5 (2 ratings)", or "No ratings yet" when there are none
      * (View Seller Stats A2).

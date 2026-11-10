@@ -276,9 +276,13 @@ public class DataStore {
         return seller != null && seller.isActive();
     }
 
-    private boolean hasPendingClaim(String listingId) {
-        return offers.values().stream().anyMatch(o -> o instanceof Claim
-                && o.getListingId().equals(listingId) && o.getStatus() == OfferStatus.PENDING);
+    /**
+     * True if the listing has a pending claim. A giveaway is unavailable while it has one
+     * (UC5 Special Requirement 1), and Browse shows that as its availability status (UC8).
+     */
+    public boolean hasPendingClaim(String listingId) {
+        return read(() -> offers.values().stream().anyMatch(o -> o instanceof Claim
+                && o.getListingId().equals(listingId) && o.getStatus() == OfferStatus.PENDING));
     }
 
     /** Adds one view when a listing's detail screen is opened (UC8 Special Requirement 2). */

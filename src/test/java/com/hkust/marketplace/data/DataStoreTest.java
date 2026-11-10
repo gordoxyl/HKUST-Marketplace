@@ -112,7 +112,9 @@ class DataStoreTest {
         assertFalse(store.isAvailable(book));
 
         Listing lamp = giveaway();
+        assertFalse(store.hasPendingClaim(lamp.getId()));
         store.addOffer(new Claim(lamp.getId(), "bea"));
+        assertTrue(store.hasPendingClaim(lamp.getId()));
         assertFalse(store.isAvailable(lamp)); // a giveaway with a pending claim is unavailable
     }
 

@@ -2,7 +2,12 @@ package com.hkust.marketplace.controllers.seller;
 
 import com.hkust.marketplace.models.*;
 import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.services.NotificationService;
+import com.hkust.marketplace.services.ProfileService;
 import com.hkust.marketplace.ui.ContentHost;
+import com.hkust.marketplace.ui.ListingCard;
+import com.hkust.marketplace.ui.NotificationBoard;
+import com.hkust.marketplace.ui.ProfileView;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
 import javafx.collections.FXCollections;
@@ -19,7 +24,6 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
 import java.time.Duration;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class SellerDashboardController implements ContentHost {
@@ -70,37 +74,20 @@ public class SellerDashboardController implements ContentHost {
             empty.setStyle("-fx-text-fill: #5a5a7a;");
             root.getChildren().add(empty);
         } else {
+            FlowPane grid = ListingCard.grid(); // shared listing card
             for (Listing l : myListings) {
-                root.getChildren().add(createListingRow(l));
+                grid.getChildren().add(createListingCard(l));
             }
+            root.getChildren().add(grid);
         }
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
         contentPane.getChildren().add(scroll);
     }
 
-    private HBox createListingRow(Listing l) {
-        HBox row = new HBox(16);
-        row.getStyleClass().add("card");
-        row.setAlignment(Pos.CENTER_LEFT);
-        row.setPadding(new Insets(14));
-
-        VBox info = new VBox(4);
-        HBox.setHgrow(info, Priority.ALWAYS);
-        Label title = new Label(l.getTitle());
-        title.setStyle("-fx-font-weight: bold; -fx-font-size: 15px;");
-        Label meta = new Label(l.getCategory() + " · " + l.getType().getDisplayName() + " · " + l.getMeetupLocation());
-        meta.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 12px;");
-        info.getChildren().addAll(title, meta);
-
-        Label status = new Label(l.getStatus().name().replace('_', ' '));
-        status.getStyleClass().add("badge");
-        switch (l.getStatus()) {
-            case LIVE -> status.getStyleClass().add("badge-live");
-            case PENDING_REVIEW -> status.getStyleClass().add("badge-pending");
-            case REJECTED -> status.getStyleClass().add("badge-rejected");
-            default -> status.getStyleClass().add("badge-sold");
-        }
+    private ListingCard createListingCard(Listing l) {
+        // Title, category, type and status (Task 2.4) on the shared listing card
+        ListingCard card = new ListingCard(l, UserRole.SELLER);
 
         Button editBtn = new Button("Edit");
         editBtn.getStyleClass().addAll("btn-outline", "btn-sm");
@@ -124,8 +111,8 @@ public class SellerDashboardController implements ContentHost {
             });
         });
 
-        row.getChildren().addAll(info, status, editBtn, delBtn);
-        return row;
+        card.addActions(editBtn, delBtn);
+        return card;
     }
 
     @FXML
@@ -343,67 +330,13 @@ public class SellerDashboardController implements ContentHost {
     @FXML
     private void showNotifications() {
         setActive(btnNotifications, "Notifications");
-        contentPane.getChildren().clear();
-        VBox root = new VBox(12);
-        root.setPadding(new Insets(4));
-        User user = SessionManager.getCurrentUser();
-        List<Notification> notifs = DataStore.getInstance()
-                .getNotificationsFor(user != null ? user.getUsername() : "");
-        if (notifs.isEmpty()) {
-            root.getChildren().add(new Label("No notifications."));
-        } else {
-            for (Notification n : notifs) {
-                VBox item = new VBox(4);
-                item.getStyleClass().add("notif-item");
-                Label t = new Label(n.getCategory().getDisplayName());
-                t.setStyle("-fx-font-weight: bold;");
-                Label m = new Label(n.getContent());
-                m.setWrapText(true);
-                m.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 13px;");
-                Label meta = new Label(n.getCategory() + " · " +
-                        n.getTimestamp().format(DateTimeFormatter.ofPattern("dd MMM HH:mm")));
-                meta.setStyle("-fx-text-fill: #9aa0b0; -fx-font-size: 11px;");
-                item.getChildren().addAll(t, m, meta);
-                root.getChildren().add(item);
-            }
-        }
-        contentPane.getChildren().add(new ScrollPane(root));
+        show("Notifications", new NotificationBoard(new NotificationService())); // UC4, shared board
     }
 
     @FXML
     private void showProfile() {
         setActive(btnProfile, "My Profile");
-        contentPane.getChildren().clear();
-        User user = SessionManager.getCurrentUser();
-        VBox form = new VBox(12);
-        form.setMaxWidth(420);
-        form.getStyleClass().add("card");
-        form.setPadding(new Insets(20));
-        form.getChildren().add(new Label("Edit Seller Profile") {{ getStyleClass().add("section-title"); }});
-
-        TextField name = new TextField(user != null ? user.getFullName() : "");
-        PasswordField pass = new PasswordField();
-        pass.setPromptText("New password (optional)");
-        Seller seller = user instanceof Seller s ? s : null;
-        TextArea bio = new TextArea(seller != null && seller.getBio() != null ? seller.getBio() : "");
-        bio.setPrefRowCount(3);
-        ComboBox<MeetupLocation> meetup = new ComboBox<>(FXCollections.observableArrayList(MeetupLocation.values()));
-        if (seller != null && !seller.getPreferredMeetupLocations().isEmpty()) {
-            meetup.setValue(seller.getPreferredMeetupLocations().get(0));
-        }
-        meetup.setMaxWidth(Double.MAX_VALUE);
-
-        Button save = new Button("Save Changes");
-        save.getStyleClass().add("btn-gold");
-        save.setOnAction(e -> new Alert(Alert.AlertType.INFORMATION, "Profile saved (demo).").showAndWait());
-
-        form.getChildren().addAll(
-                new Label("Full Name"), name,
-                new Label("New Password"), pass,
-                new Label("Bio"), bio,
-                new Label("Preferred Meet-up"), meetup,
-                save);
-        contentPane.getChildren().add(form);
+        show("My Profile", new ProfileView(new ProfileService())); // UC3, shared profile screen
     }
 
     @FXML

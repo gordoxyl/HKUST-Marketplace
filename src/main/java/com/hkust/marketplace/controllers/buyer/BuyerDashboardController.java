@@ -1,15 +1,18 @@
 package com.hkust.marketplace.controllers.buyer;
 
 import com.hkust.marketplace.data.DataStore;
-import com.hkust.marketplace.models.Buyer;
 import com.hkust.marketplace.models.Category;
 import com.hkust.marketplace.models.LendListing;
 import com.hkust.marketplace.models.Listing;
-import com.hkust.marketplace.models.ListingType;
-import com.hkust.marketplace.models.Notification;
 import com.hkust.marketplace.models.SaleListing;
 import com.hkust.marketplace.models.User;
+import com.hkust.marketplace.models.UserRole;
+import com.hkust.marketplace.services.NotificationService;
+import com.hkust.marketplace.services.ProfileService;
 import com.hkust.marketplace.ui.ContentHost;
+import com.hkust.marketplace.ui.ListingCard;
+import com.hkust.marketplace.ui.NotificationBoard;
+import com.hkust.marketplace.ui.ProfileView;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
 import javafx.collections.FXCollections;
@@ -20,7 +23,6 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class BuyerDashboardController implements ContentHost {
@@ -86,9 +88,8 @@ public class BuyerDashboardController implements ContentHost {
         );
         root.getChildren().add(filterBar);
 
-        // Listing grid
-        FlowPane grid = new FlowPane(16, 16);
-        grid.setPrefWrapLength(900);
+        // Listing grid (shared listing card)
+        FlowPane grid = ListingCard.grid();
 
         List<Listing> live = DataStore.getInstance().getLiveListings();
         if (live.isEmpty()) {
@@ -108,44 +109,12 @@ public class BuyerDashboardController implements ContentHost {
         contentPane.getChildren().add(scroll);
     }
 
-    private VBox createListingCard(Listing listing) {
-        VBox card = new VBox(8);
-        card.getStyleClass().add("listing-card");
-        card.setPrefWidth(260);
-        card.setMinHeight(200);
+    private ListingCard createListingCard(Listing listing) {
+        ListingCard card = new ListingCard(listing, UserRole.BUYER);
 
-        // Type badge + price
-        HBox top = new HBox();
-        top.setAlignment(Pos.CENTER_LEFT);
-        Label typeBadge = new Label(listing.getType().getDisplayName());
-        typeBadge.getStyleClass().add("badge");
-        if (listing.getType() == ListingType.SELL) typeBadge.getStyleClass().add("badge-sold");
-        else if (listing.getType() == ListingType.LEND) typeBadge.getStyleClass().add("badge-pending");
-        else typeBadge.getStyleClass().add("badge-live");
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        Label price = new Label(listing.getPriceDisplay());
-        price.setStyle("-fx-font-weight: bold; -fx-text-fill: #003974; -fx-font-size: 16px;");
-        top.getChildren().addAll(typeBadge, spacer, price);
-
-        Label title = new Label(listing.getTitle());
-        title.setStyle("-fx-font-weight: bold; -fx-font-size: 15px; -fx-text-fill: #1a1a2e;");
-        title.setWrapText(true);
-
-        Label meta = new Label(listing.getCategory() + " · " + listing.getCondition());
-        meta.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 12px;");
-
-        Label seller = new Label("Seller: " + DataStore.getInstance().getFullName(listing.getSellerUsername()));
-        seller.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 12px;");
-
-        Label location = new Label("📍 " + listing.getMeetupLocation());
-        location.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 12px;");
-
-        Label date = new Label("Posted: " + listing.getPostedDate().format(DateTimeFormatter.ofPattern("dd MMM yyyy")));
-        date.setStyle("-fx-text-fill: #9aa0b0; -fx-font-size: 11px;");
-
+        // The buyer can act only on an available listing (UC8 Special Requirement 1)
         Button actionBtn = new Button();
+        actionBtn.setDisable(!card.summary().available());
         actionBtn.getStyleClass().addAll("btn-primary", "btn-sm");
         switch (listing.getType()) {
             case SELL -> {
@@ -162,7 +131,7 @@ public class BuyerDashboardController implements ContentHost {
             }
         }
 
-        card.getChildren().addAll(top, title, meta, seller, location, date, actionBtn);
+        card.addActions(actionBtn);
         return card;
     }
 
@@ -313,81 +282,13 @@ public class BuyerDashboardController implements ContentHost {
     @FXML
     private void showNotifications() {
         setActive(btnNotifications, "Notification Board");
-        contentPane.getChildren().clear();
-
-        VBox root = new VBox(12);
-        root.setPadding(new Insets(4));
-
-        User user = SessionManager.getCurrentUser();
-        List<Notification> notifs = DataStore.getInstance()
-                .getNotificationsFor(user != null ? user.getUsername() : "");
-
-        if (notifs.isEmpty()) {
-            Label empty = new Label("No notifications yet.");
-            empty.setStyle("-fx-text-fill: #5a5a7a;");
-            root.getChildren().add(empty);
-        } else {
-            for (Notification n : notifs) {
-                VBox item = new VBox(4);
-                item.getStyleClass().add("notif-item");
-                Label title = new Label(n.getCategory().getDisplayName());
-                title.setStyle("-fx-font-weight: bold; -fx-text-fill: #1a1a2e;");
-                Label msg = new Label(n.getContent());
-                msg.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 13px;");
-                msg.setWrapText(true);
-                Label meta = new Label(n.getCategory() + " · " +
-                        n.getTimestamp().format(DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm")));
-                meta.setStyle("-fx-text-fill: #9aa0b0; -fx-font-size: 11px;");
-                item.getChildren().addAll(title, msg, meta);
-                root.getChildren().add(item);
-            }
-        }
-
-        ScrollPane scroll = new ScrollPane(root);
-        scroll.setFitToWidth(true);
-        contentPane.getChildren().add(scroll);
+        show("Notification Board", new NotificationBoard(new NotificationService())); // UC4, shared board
     }
 
     @FXML
     private void showProfile() {
         setActive(btnProfile, "Manage Profile");
-        contentPane.getChildren().clear();
-
-        User user = SessionManager.getCurrentUser();
-        VBox form = new VBox(14);
-        form.setPadding(new Insets(8));
-        form.setMaxWidth(420);
-        form.getStyleClass().add("card");
-
-        Label title = new Label("Edit your profile");
-        title.getStyleClass().add("section-title");
-
-        TextField nameField = new TextField(user != null ? user.getFullName() : "");
-        nameField.setPromptText("Full Name");
-        PasswordField newPass = new PasswordField();
-        newPass.setPromptText("New password (leave blank to keep)");
-        PasswordField confirmPass = new PasswordField();
-        confirmPass.setPromptText("Confirm new password");
-        ComboBox<String> residence = new ComboBox<>(FXCollections.observableArrayList(Buyer.RESIDENCE_OPTIONS));
-        if (user instanceof Buyer buyer && buyer.getResidenceHall() != null) {
-            residence.setValue(buyer.getResidenceHall());
-        }
-        residence.setDisable(true); // UC3 Special Requirement 1: the residence hall cannot be changed
-
-        Button saveBtn = new Button("Save Changes");
-        saveBtn.getStyleClass().add("btn-primary");
-        saveBtn.setOnAction(e -> {
-            new Alert(Alert.AlertType.INFORMATION, "Profile updated successfully!\n(Demo only – changes are in-memory)").showAndWait();
-        });
-
-        form.getChildren().addAll(title,
-                new Label("Full Name"), nameField,
-                new Label("New Password"), newPass,
-                new Label("Confirm Password"), confirmPass,
-                new Label("Residence"), residence,
-                saveBtn);
-
-        contentPane.getChildren().add(form);
+        show("Manage Profile", new ProfileView(new ProfileService())); // UC3, shared profile screen
     }
 
     @FXML

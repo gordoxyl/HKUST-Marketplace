@@ -7,10 +7,6 @@ import com.hkust.marketplace.models.ListingStatus;
 import com.hkust.marketplace.models.User;
 import com.hkust.marketplace.models.UserRole;
 
-import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -155,39 +151,11 @@ public record ListingSummary(Listing listing, UserRole viewer, String sellerName
         return viewer == UserRole.BUYER && !available;
     }
 
-    /** The thumbnail (first photo) as a URL an image can load, or empty when there is none to show. */
-    public Optional<String> thumbnailUrl() {
-        return imageUrl(listing.getThumbnail());
-    }
-
     /**
-     * Turns a stored photo path into a URL an image can load: a URL with a scheme (such as
-     * {@code file:} or {@code https:}) is kept, and a file path becomes a file URL if the file
-     * exists. Empty for no path, a blank one, or a file that is missing.
+     * The id of the thumbnail, the listing's first photo (Task 1.3), or empty if the listing
+     * has no photos. {@link PhotoFrame} shows the photo stored under the id.
      */
-    static Optional<String> imageUrl(String photo) {
-        if (photo == null || photo.isBlank()) {
-            return Optional.empty();
-        }
-        String path = photo.trim();
-        if (hasScheme(path)) {
-            return Optional.of(path);
-        }
-        try {
-            Path file = Path.of(path);
-            return Files.isRegularFile(file) ? Optional.of(file.toUri().toString()) : Optional.empty();
-        } catch (InvalidPathException e) {
-            return Optional.empty();
-        }
-    }
-
-    /** True for "https://…" or "file:/…", but not for a Windows path such as "C:\photos\a.jpg". */
-    private static boolean hasScheme(String path) {
-        try {
-            String scheme = URI.create(path).getScheme();
-            return scheme != null && scheme.length() > 1;
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
+    public Optional<String> thumbnail() {
+        return Optional.ofNullable(listing.getThumbnail());
     }
 }

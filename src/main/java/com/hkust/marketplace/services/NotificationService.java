@@ -31,11 +31,17 @@ public class NotificationService {
     // ========== Sending (called by other services) ==========
 
     /**
-     * Puts a notification on the user's board, timestamped now.
-     * @throws IllegalArgumentException if there is no such account
+     * Puts a notification on the user's board, timestamped now. If the admin deleted that
+     * account, nothing is sent: deals and listings kept as records can still name it, and
+     * there is nobody left to tell.
+     * @return the notification, or null if the account was deleted
+     * @throws IllegalArgumentException if there never was such an account
      */
     public Notification send(String recipientUsername, NotificationCategory category, String content) {
         if (store.findUser(recipientUsername) == null) {
+            if (store.isRetiredUsername(recipientUsername)) {
+                return null;
+            }
             throw new IllegalArgumentException("No account @" + recipientUsername + " to notify.");
         }
         return store.addNotification(new Notification(recipientUsername, category, content));

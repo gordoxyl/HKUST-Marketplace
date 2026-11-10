@@ -3,21 +3,17 @@ package com.hkust.marketplace.ui;
 import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.UserRole;
-import javafx.collections.ObservableList;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBase;
 import javafx.scene.control.Label;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
-import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 import java.util.Collection;
@@ -52,10 +48,11 @@ public class ListingCard extends VBox {
 
     /** A card for a listing in the app's store, as seen by a user with the given role. */
     public ListingCard(Listing listing, UserRole viewer) {
-        this(ListingSummary.of(listing, viewer, DataStore.getInstance()));
+        this(ListingSummary.of(listing, viewer, DataStore.getInstance()), DataStore.getInstance());
     }
 
-    public ListingCard(ListingSummary summary) {
+    /** @param store the store that holds the listing's photos, for the thumbnail */
+    public ListingCard(ListingSummary summary, DataStore store) {
         super(8);
         this.summary = summary;
         getStyleClass().add("listing-card");
@@ -81,7 +78,8 @@ public class ListingCard extends VBox {
         title.getStyleClass().add("listing-card-title");
         title.setWrapText(true);
 
-        getChildren().addAll(thumbnail(), top, title, line(summary.detailsText()));
+        PhotoFrame thumbnail = new PhotoFrame(store, summary.thumbnail().orElse(null), THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT);
+        getChildren().addAll(thumbnail, top, title, line(summary.detailsText()));
         summary.sellerText().ifPresent(text -> getChildren().add(line(text)));
         getChildren().add(line(summary.locationText()));
         summary.photosText().ifPresent(text -> getChildren().add(line(text)));
@@ -145,38 +143,6 @@ public class ListingCard extends VBox {
             }
         }
         return false;
-    }
-
-    private Node thumbnail() {
-        StackPane frame = new StackPane();
-        frame.getStyleClass().add("listing-card-thumbnail");
-        frame.setPrefSize(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT);
-        frame.setMinHeight(THUMBNAIL_HEIGHT);
-        frame.setMaxHeight(THUMBNAIL_HEIGHT);
-        Label none = new Label("No photo");
-        none.getStyleClass().add("listing-card-date");
-        ObservableList<Node> children = frame.getChildren();
-        children.add(none);
-
-        summary.thumbnailUrl().ifPresent(url -> {
-            // Loads in the background; "No photo" stays until the photo is shown, and if the
-            // file cannot be read.
-            Image image = new Image(url, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, true, true, true);
-            ImageView view = new ImageView(image);
-            children.add(view);
-            Runnable update = () -> {
-                if (image.isError()) {
-                    children.remove(view);
-                    none.setVisible(true);
-                } else if (image.getProgress() >= 1) {
-                    none.setVisible(false);
-                }
-            };
-            image.progressProperty().addListener((obs, old, now) -> update.run());
-            image.errorProperty().addListener((obs, old, now) -> update.run());
-            update.run();
-        });
-        return frame;
     }
 
     private static Label line(String text) {

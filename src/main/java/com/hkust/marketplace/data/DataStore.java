@@ -55,6 +55,8 @@ public class DataStore {
     private String loadProblem;
 
     private final Map<String, User> users = new LinkedHashMap<>();
+    /** Usernames of deleted accounts. They are never given out again; see {@link #deleteAccount}. */
+    private final Set<String> retiredUsernames = new LinkedHashSet<>();
     private final Map<String, Listing> listings = new LinkedHashMap<>();
     private final Map<String, Offer> offers = new LinkedHashMap<>();
     private final Map<String, ChatThread> threads = new LinkedHashMap<>();
@@ -63,6 +65,8 @@ public class DataStore {
     private final List<Notification> notifications = new ArrayList<>();
     private final List<ListingActionRecord> listingActions = new ArrayList<>();
     private final List<AuditLogEntry> auditLog = new ArrayList<>();
+    /** Listing photos of a store without storage (tests); with storage, each photo is a file. */
+    private final Map<String, byte[]> photosInMemory = new HashMap<>();
 
     private int nextId = 1;
     private volatile Clock clock;
@@ -154,8 +158,12 @@ public class DataStore {
         });
     }
 
-    /** Runs a read under the lock without saving. */
-    private <T> T read(Supplier<T> work) {
+    /**
+     * Runs several reads as one consistent step, without saving. Use it when a screen's data
+     * comes from more than one call, so the borrowing-deadline timer (UC12) cannot change the
+     * records between the calls. To change anything, use {@link #transaction} instead.
+     */
+    public <T> T read(Supplier<T> work) {
         lock.lock();
         try {
             return work.get();
@@ -178,11 +186,11 @@ public class DataStore {
     /**
      * Adds the account if its username is free, checking and adding in one step so two
      * registrations cannot take the same username (UC1 A1).
-     * @return false if the username is already used by any account
+     * @return false if the username is used by any account, or was used by a deleted one
      */
     public boolean addUser(User user) {
         return transaction(() -> {
-            if (users.containsKey(user.getUsername())) {
+            if (usernameExists(user.getUsername())) {
                 return false;
             }
             user.markAdded(now());
@@ -200,8 +208,22 @@ public class DataStore {
         return read(() -> users.get(key));
     }
 
+    /**
+     * True if the username cannot be registered: an account has it, or a deleted account had
+     * it. A deleted account's username is never given out again, because the deals it took
+     * part in are kept as records under that username.
+     */
     public boolean usernameExists(String username) {
-        return findUser(username) != null;
+        return findUser(username) != null || isRetiredUsername(username);
+    }
+
+    /** True if an account with this username was permanently deleted ({@link #deleteAccount}). */
+    public boolean isRetiredUsername(String username) {
+        if (username == null) {
+            return false;
+        }
+        String key = username.trim().toLowerCase(Locale.ROOT);
+        return read(() -> retiredUsernames.contains(key));
     }
 
     public List<User> getAllUsers() {
@@ -216,6 +238,67 @@ public class DataStore {
     public String getFullName(String username) {
         User user = findUser(username);
         return user != null ? user.getFullName() : username;
+    }
+
+    /**
+     * Permanently deletes an account, as one atomic step, for the admin's Delete User (Manage
+     * All User Accounts and Reputation 6.4.4). It makes every change to the data that the use
+     * case lists, so nothing is left waiting on an account that no longer exists:
+     * <ul>
+     *   <li><b>Deleted:</b> the account; every chat thread the user took part in, with its
+     *       messages (UC6 Special Requirement 2); the reviews the user wrote about sellers;
+     *       the notifications on the user's board.</li>
+     *   <li><b>Cancelled:</b> the user's own open offers and the open offers on the user's
+     *       listings are declined; the user's listings become Removed, except Sold, Given and
+     *       already Removed ones.</li>
+     *   <li><b>Kept, as the archived transaction history:</b> the user's listings and offers,
+     *       accepted and completed deals included, and the reviews about the user. They still
+     *       name the user by username, so the username is retired: it can never be registered
+     *       again ({@link #usernameExists}).</li>
+     * </ul>
+     * A deal that was accepted but not completed stays as it is; deciding what happens to it
+     * belongs to the admin's use case.
+     *
+     * <p>The caller records the reason and the returned {@link DeletedAccount#snapshot() snapshot}
+     * in the Audit Log ({@link #addAuditLogEntry}; Special Requirement 4) and notifies the
+     * affected users, who are in the returned lists. Like every method here, this does not
+     * check who is logged in.
+     *
+     * @return what was deleted and cancelled
+     * @throws IllegalArgumentException if there is no such account
+     */
+    public DeletedAccount deleteAccount(String username) {
+        return transaction(() -> {
+            User user = findUser(username);
+            if (user == null) {
+                throw new IllegalArgumentException("No account @" + username + " to delete.");
+            }
+            String name = user.getUsername();
+
+            List<ChatThread> userThreads = threads.values().stream().filter(t -> t.isParticipant(name)).toList();
+            List<Review> written = reviews.values().stream()
+                    .filter(r -> getBuyerUsername(r).equalsIgnoreCase(name)).toList();
+            List<Notification> board = notifications.stream()
+                    .filter(n -> n.getRecipientUsername().equalsIgnoreCase(name)).toList();
+            List<Offer> openOffers = offers.values().stream()
+                    .filter(o -> o.isOpen() && (o.getBuyerUsername().equalsIgnoreCase(name)
+                            || getListingOf(o).getSellerUsername().equalsIgnoreCase(name))).toList();
+            List<Listing> removable = listings.values().stream()
+                    .filter(l -> l.getSellerUsername().equalsIgnoreCase(name) && l.canBeRemoved()).toList();
+
+            // Written before anything changes, so it shows the data as it was
+            String snapshot = AccountSnapshot.describe(this, user, userThreads, written, board, openOffers, removable);
+
+            openOffers.forEach(Offer::decline);
+            removable.forEach(Listing::remove);
+            userThreads.forEach(t -> threads.remove(t.getId()));
+            written.forEach(r -> reviews.remove(r.getId()));
+            notifications.removeAll(board);
+            users.remove(name);
+            retiredUsernames.add(name);
+            user.setActive(false); // a session still holding this account is refused from now on
+            return new DeletedAccount(user, userThreads, written, board, openOffers, removable, snapshot);
+        });
     }
 
     // ========== Listings ==========
@@ -254,10 +337,18 @@ public class DataStore {
         return select(listings.values(), this::isLive);
     }
 
-    private boolean isLive(Listing listing) {
-        ListingStatus s = listing.getStatus();
-        boolean liveStatus = s == ListingStatus.LIVE || s == ListingStatus.RESERVED || s == ListingStatus.LENT;
-        return liveStatus && isSellerActive(listing);
+    /**
+     * True if the listing is a live listing (glossary), one that buyers can see on Browse
+     * Marketplace: status Live, Reserved or Lent, posted by a seller whose account is active.
+     * This is wider than {@link #isAvailable}: a Reserved or Lent listing is live, but it
+     * accepts no offers.
+     */
+    public boolean isLive(Listing listing) {
+        return read(() -> {
+            ListingStatus s = listing.getStatus();
+            boolean liveStatus = s == ListingStatus.LIVE || s == ListingStatus.RESERVED || s == ListingStatus.LENT;
+            return liveStatus && isSellerActive(listing);
+        });
     }
 
     /**
@@ -293,6 +384,48 @@ public class DataStore {
                 listing.incrementViewCount();
             }
         });
+    }
+
+    // ========== Listing photos ==========
+
+    /**
+     * Stores an image as a listing photo and returns its id, to put into
+     * {@link Listing#setPhotos}. The photo is kept encrypted in a file of its own, never
+     * inside the listing, so saving the data stays fast. Checking that the bytes are an image
+     * a screen can show is the caller's job ({@code PhotoService.importPhoto}).
+     * @return the new photo's id, such as "I31"
+     */
+    public String addPhoto(byte[] image) {
+        Objects.requireNonNull(image, "image");
+        return transaction(() -> {
+            String id = newId("I");
+            if (storage != null) {
+                storage.savePhoto(id, image);
+            } else {
+                photosInMemory.put(id, image.clone());
+            }
+            return id;
+        });
+    }
+
+    /**
+     * The image stored under a photo id from {@link #addPhoto}, or empty if there is none (a
+     * listing whose photo file is missing then shows no photo).
+     * @throws StorageException if the photo's file was changed or damaged
+     */
+    public Optional<byte[]> readPhoto(String photoId) {
+        if (photoId == null) {
+            return Optional.empty();
+        }
+        if (storage != null) {
+            return isId(photoId) ? storage.loadPhoto(photoId) : Optional.empty();
+        }
+        return read(() -> Optional.ofNullable(photosInMemory.get(photoId)).map(byte[]::clone));
+    }
+
+    /** True for text made only of letters and digits, the form of every id this store gives out. */
+    private static boolean isId(String text) {
+        return text.matches("[A-Za-z0-9]+");
     }
 
     // ========== Offers ==========
@@ -471,6 +604,37 @@ public class DataStore {
         return read(() -> offers.get(review.getOfferId()).getBuyerUsername());
     }
 
+    // ========== Seller statistics ==========
+    // The derived attributes of Seller in the class diagram, calculated from the listings, offers
+    // and reviews so they are never out of date (View Seller Stats step 2; the admin's Seller
+    // Ratings tab). /averageRating and /ratingCount are getAverageRating and getRatingCount above.
+
+    /**
+     * /totalViews: the views of all the seller's listings together, whatever their status
+     * (a listing that was sold or removed keeps its views).
+     */
+    public int getTotalViews(String sellerUsername) {
+        return read(() -> listings.values().stream()
+                .filter(l -> l.getSellerUsername().equalsIgnoreCase(sellerUsername))
+                .mapToInt(Listing::getViewCount).sum());
+    }
+
+    /**
+     * /offersReceived: how many price offers, borrow requests and claims buyers made on the
+     * seller's listings, whatever happened to them afterwards.
+     */
+    public int getOffersReceivedCount(String sellerUsername) {
+        return getOffersForSeller(sellerUsername).size();
+    }
+
+    /**
+     * /completedDeals: how many of the seller's deals are completed (glossary): a purchase or
+     * claim the buyer marked complete, or a borrowed item that was returned.
+     */
+    public int getCompletedDealCount(String sellerUsername) {
+        return (int) getOffersForSeller(sellerUsername).stream().filter(Offer::isCompleted).count();
+    }
+
     // ========== Reports ==========
 
     /**
@@ -614,6 +778,7 @@ public class DataStore {
             StoreSnapshot s = new StoreSnapshot();
             s.nextId = nextId;
             s.users = List.copyOf(users.values());
+            s.retiredUsernames = List.copyOf(retiredUsernames);
             s.listings = List.copyOf(listings.values());
             s.offers = List.copyOf(offers.values());
             s.threads = List.copyOf(threads.values());
@@ -633,6 +798,7 @@ public class DataStore {
                 throw new IllegalStateException("Saved data can only be loaded into an empty store.");
             }
             s.users.forEach(u -> users.put(u.getUsername(), u));
+            retiredUsernames.addAll(s.retiredUsernames);
             s.listings.forEach(l -> listings.put(l.getId(), l));
             s.offers.forEach(o -> offers.put(o.getId(), o));
             s.threads.forEach(t -> threads.put(t.getId(), t));

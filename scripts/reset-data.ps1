@@ -7,7 +7,7 @@
 #   scripts\reset-data.cmd -NoBackup       erase instead of keeping a backup
 #
 # How it works: the app re-creates the demo data whenever its save file is missing. So this
-# script moves the save files (and their audit snapshots) out of the way, into
+# script moves the save files (and their audit snapshots and listing photos) out of the way, into
 # marketplace-data\backups\<date-time>\, and the next start of the app begins from the demo
 # data. With -NoBackup the files are deleted instead.
 #
@@ -47,9 +47,10 @@ $label = switch ($Which) {
 $items = @()
 if (Test-Path $dataFolder) {
     foreach ($base in $baseNames) {
-        # The save file, a leftover .tmp, any .unreadable-<date> copies, and the audit folder
+        # The save file, a leftover .tmp, any .unreadable-<date> copies, and the audit and photo folders
         $items += Get-ChildItem -LiteralPath $dataFolder -Force |
-            Where-Object { $_.Name -eq "$base.dat" -or $_.Name -like "$base.dat.*" -or $_.Name -eq "$base-audit" }
+            Where-Object { $_.Name -eq "$base.dat" -or $_.Name -like "$base.dat.*" -or
+                           $_.Name -eq "$base-audit" -or $_.Name -eq "$base-photos" }
     }
 }
 if ($items.Count -eq 0) {

@@ -100,9 +100,10 @@ The app keeps its data between runs in the `marketplace-data` folder, which is c
 |---|---|
 | `marketplace.dat` | All accounts, listings, offers, chats, reviews, reports, notifications and admin records |
 | `marketplace-audit/<ref>.txt` | Data snapshot of a deleted account, one file per Audit Log entry |
+| `marketplace-photos/<id>.img` | One listing photo per file. Encrypted too, so it can't be opened as a picture outside the app |
 | `marketplace-dev.dat` | The same as `marketplace.dat`, for dev runs (`-Pdev`) only, so dev accounts never mix with normal data |
 
-- **Encrypted, never plain text.** Every file is JSON encrypted with AES-GCM (`data/DataCipher`). A file that was edited or damaged is detected and refused. The key is built into the code, so any copy of the app can read the files, and so could anyone with the source code.
+- **Encrypted, never plain text.** Every file is encrypted with AES-GCM (`data/DataCipher`); the data file is JSON inside. A file that was edited or damaged is detected and refused. The key is built into the code, so any copy of the app can read the files, and so could anyone with the source code.
 - **Saved automatically** after every change. On the first run, or when the folder is missing, the demo data below is created.
 - **Unreadable file:** the app keeps it, renamed `marketplace.dat.unreadable-<date>`, starts with the demo data, and shows a warning.
 - **To reset to the demo data** (for example before a round of testing), close the app and run, from the repository root:
@@ -138,11 +139,11 @@ All passwords meet the password rules: at least 8 characters, with at least one 
 
 ### Buyer Portal
 - Registration, Login, Browse Marketplace, Make Offer / Borrow / Claim
-- My Deals, Deal History, Favourites (placeholder), Notifications, Profile
+- My Deals, Deal History, Favourites (placeholder), Chats, Notifications, Profile
 
 ### Seller Portal
 - Registration, Login, Create Listing, My Listings
-- Seller Stats (charts), Reviews & Feedback, Notifications, Profile
+- Seller Stats (charts), Reviews & Feedback, Chats, Notifications, Profile
 
 ### Admin Portal
 - Login only (seeded), Listing Review (approve/reject)
@@ -184,15 +185,21 @@ Both state machines, with the use case and role behind every event, are in [docs
 Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `ListingActionRecord`, `AuditLogEntry`, and enums such as `Category`, `MeetupLocation` and `NotificationCategory` (their `toString()` is the display name, so they can go straight into a `ComboBox`).
 
 **Getting data.** Use `DataStore.getInstance()`. It already implements the shared rules, so reuse them instead of rewriting them:
-- `getLiveListings()`, `isAvailable(listing)`: the glossary's "live" and "available" listings
+- `getLiveListings()`, `isLive(listing)`, `isAvailable(listing)`: the glossary's "live" and "available" listings
 - `addOffer(offer)`: checks the offer type matches the listing type and creates the chat thread
 - `getReviewsForSeller(seller)`, `getAverageRating(seller)`: leave out reviews the admin hid, because hidden reviews are shown to no one (UC10 SR4). Only the admin's moderation screen uses `getReviewsForSellerIncludingHidden(seller)`
 - `addReview`, `addReport`, `addUser`: refuse a second review of a deal, a second report by the same buyer, and a taken username
 - A deleted listing is not removed from the store: the seller's delete is `listing.withdraw()` and the admin's removal is `listing.remove()`, both giving status Removed.
+- `getTotalViews(seller)`, `getOffersReceivedCount(seller)`, `getCompletedDealCount(seller)`: the seller's statistics (the derived attributes in the class diagram), for Seller Stats and the admin's Seller Ratings. With `getAverageRating` and `getRatingCount`, that is all five.
+- `deleteAccount(username)`: the data step of the admin's Delete User, all at once. It deletes the account, its chat threads, the reviews it wrote and its notifications; declines its open offers and those on its listings; and sets its listings to Removed. Deals stay as records, and the username can never be registered again. It returns a `DeletedAccount` with what was affected and a text `snapshot()` for the Audit Log entry. Notifying the affected users and writing the Audit Log entry are the admin use case's job.
+- `addPhoto(bytes)` and `readPhoto(id)`: listing photos, each kept encrypted in a file of its own. Use `PhotoService` and `PhotoFrame` (below) instead of calling these directly.
+- `read(() -> ...)`: several reads as one consistent step, without saving.
 
 **Shared services: reuse these, don't rewrite them.**
 - `DealRules`: the deal lifecycle that crosses roles. `accept(offer)` (Reserved or Lent, declines the other open offers, notifies), `declineOpenOffers(listing, category, because)` (for edits, deletes, admin removal, deactivation), `complete(deal)`, `returnItem(request, automatic)`. Check the role first, then call these.
-- `NotificationService`: `send(user, category, text)` and `sendToAdmins(category, text)` when something happens; `getMyNotifications()`, `markRead(id)` and `getUnreadCount()` for the board (UC4).
+- `NotificationService`: `send(user, category, text)` and `sendToAdmins(category, text)` when something happens; `getMyNotifications()`, `markRead(id)` and `getUnreadCount()` for the board (UC4). Sending to an account the admin deleted is skipped, not an error.
+- `ChatService`: UC6 Chat About Listing, for buyers and sellers. `openForListing(listingId)` (buyer, from the listing detail), `openForOffer(offerId)` (buyer from My Deals, seller from an incoming offer), `getMyConversations()` (the Chats screen), `send(chat, text)` and `search(chat, keyword)`. It checks on every call that the user is the chat's buyer or the listing's seller, refuses empty messages, and notifies the other party. Offers appear in the history alongside the messages.
+- `PhotoService`: `importPhoto(file)` copies a PNG, JPEG, GIF or BMP image into the app's encrypted storage and returns the photo's id for `listing.setPhotos(...)`. For sellers and the admin. Import when the listing is submitted, so a cancelled form stores nothing.
 - `AuthService`: registration and login (UC1, UC2).
 - `ProfileService`: UC3 Manage Profile. `updateProfile(name, newPassword, confirm)` for everyone, and `updateSellerProfile(..., bio, locations)` for sellers. A blank new password keeps the current one; the username and residence hall can't change.
 
@@ -202,7 +209,10 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `NotificationBoard` (UC4): the notification board all three portals show, with newest first, an unread count, and Mark as read. Open it with `show("Notifications", new NotificationBoard(new NotificationService()))`.
 - `ProfileView` (UC3): the profile screen all three portals show. Sellers also get bio and meet-up locations; buyers see their residence hall, which can't be changed.
 - `ListingCard`: the listing card all three portals show (Browse, My Listings, Listing Review, Manage All Listings). `new ListingCard(listing, UserRole.BUYER)` (or `SELLER`, `ADMIN`), then `addActions(buttons...)` for the screen's own buttons and `setOnOpen(...)` for a click on the card; put several in `ListingCard.grid()`. Buyers see the availability status and unavailable listings greyed out (UC8); sellers and the admin see the status. What each line says comes from the tested `ListingSummary`.
-- `ContentHost`: implemented by each dashboard as `show(title, content)`. Shared components get the dashboard as a `ContentHost`, so they can open another screen with its data, such as a listing's chat from a notification.
+- `PhotoFrame`: shows one stored photo in a frame of a fixed size, or "No photo": `new PhotoFrame(photoId, 240, 180)`. The listing card uses it for the thumbnail; use it for the detail screen's photos too.
+- `ChatView` and `ChatList` (UC6): the chat screen and the Chats screen, the same for buyers and sellers. Open a chat with `show(ChatText.title(chat), new ChatView(chatService, chat))`. The view shows messages and offers with sender and time, sends on Enter, and searches the history (a result jumps to its message and highlights it). The buyer portal adds the formal offer with `chatView.setOnMakeOffer(...)`.
+- `OfferText`: how an offer reads everywhere: `summary(offer)` (`Price offer: HK$ 160`), `counter(offer)`, `status(offer)` and the status badge's style. Use it in My Deals, the seller's offers and the admin's deal records.
+- `ContentHost`: implemented by each dashboard as `show(title, content)`. Shared components get the dashboard as a `ContentHost`, so they can open another screen with its data, such as a chat from the Chats screen.
 
 **How a service method is shaped.** One control class per actor and use case (Lecture 16), each method in this order:
 ```java
@@ -236,7 +246,7 @@ We use **sandwich integration** (COMP 3111 Lecture 15). The bottom layer (models
 | Level | What | Where |
 |---|---|---|
 | Unit | Equivalence partitions and boundary values (e.g. rating 0/1/5/6, photos 6/7, borrow time 4 s/5 s); state-based tests for each state machine | `src/test/.../models`, `AccountValidatorTest` |
-| Integration | Use-case flow tests at service level, including flows across roles (offer → accept → complete → review); run all tests again after every change | `DealRulesTest`, `DataStoreTest`, `PersistenceTest` |
+| Integration | Use-case flow tests at service level, including flows across roles (offer → accept → complete → review; buyer and seller chatting; the rest of the system after an account is deleted); run all tests again after every change | `DealRulesTest`, `ChatServiceTest`, `AccountDeletionFlowTest`, `DataStoreTest`, `PersistenceTest` |
 | Regression | Every bug found gets a test that reproduces it, with its input and correct output recorded in [docs/regression-log.md](docs/regression-log.md) | e.g. `AppStoreStartupTest` |
 | System / acceptance | One demo scenario per requirement (Tasks 1.x, 2.x, 3.x); teammates test each other's portals | to be written |
 

@@ -293,6 +293,65 @@
     -fx-opacity: 0.75;
 }
 
+/* ---------- Chat (ui/ChatView, ui/ChatList; UC6) ---------- */
+.chat-history {
+    -fx-background-color: transparent;
+    -fx-padding: 8;
+}
+.chat-row {
+    -fx-padding: 3 6;
+    -fx-background-radius: 10;
+}
+.chat-bubble {
+    -fx-background-radius: 12;
+    -fx-padding: 8 12;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.06), 6, 0, 0, 1);
+}
+/* The viewer's own messages (right) and the other party's (left) */
+.chat-mine {
+    -fx-background-color: #dce9f7;
+}
+.chat-theirs {
+    -fx-background-color: white;
+}
+.chat-meta {
+    -fx-text-fill: #7a8094;
+    -fx-font-size: 11px;
+}
+.chat-text {
+    -fx-text-fill: #1a1a2e;
+    -fx-font-size: 13px;
+}
+/* An offer, borrow request or claim in the history (UC6 Special Requirement 3) */
+.chat-offer {
+    -fx-background-color: #fff8e6;
+    -fx-background-radius: 12;
+    -fx-border-color: #A68137;
+    -fx-border-radius: 12;
+    -fx-border-width: 1;
+    -fx-padding: 8 14;
+}
+.chat-offer-terms {
+    -fx-font-weight: bold;
+    -fx-text-fill: #1a1a2e;
+    -fx-font-size: 13px;
+}
+/* The message a search result jumped to (UC6 A2 step 4) */
+.chat-highlight {
+    -fx-background-color: #ffe9a8;
+}
+.chat-result {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-border-color: #d0d7e2;
+    -fx-border-radius: 8;
+    -fx-padding: 6 10;
+    -fx-cursor: hand;
+}
+.chat-result:hover {
+    -fx-background-color: #e8f0f8;
+}
+
 /* ---------- Misc ---------- */
 .separator *.line {
     -fx-border-style: solid;

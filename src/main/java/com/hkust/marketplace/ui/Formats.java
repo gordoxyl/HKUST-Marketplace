@@ -62,6 +62,19 @@ public final class Formats {
         return "★".repeat(rating) + "☆".repeat(Review.MAX_RATING - rating);
     }
 
+    /**
+     * A long text on one line, cut to at most {@code max} characters, for lists and previews:
+     * line breaks become spaces, and a cut text ends in "…".
+     * @throws IllegalArgumentException if max is less than 1
+     */
+    public static String preview(String text, int max) {
+        if (max < 1) {
+            throw new IllegalArgumentException("A preview needs at least 1 character, not " + max + ".");
+        }
+        String oneLine = text == null ? "" : text.strip().replaceAll("\\s+", " ");
+        return oneLine.length() <= max ? oneLine : oneLine.substring(0, max - 1).stripTrailing() + "…";
+    }
+
     /** The heading of a notification board: "No unread notifications", "1 unread notification", "3 unread notifications". */
     public static String unreadSummary(int unread) {
         if (unread <= 0) {

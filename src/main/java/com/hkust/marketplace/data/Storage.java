@@ -31,4 +31,13 @@ public interface Storage {
 
     /** The snapshot saved for that audit log entry, or empty if there is none. */
     Optional<String> loadAuditSnapshot(String logReference);
+
+    /** Saves a listing photo as its own file, under the photo's id. A saved photo is never changed. */
+    void savePhoto(String photoId, byte[] image);
+
+    /**
+     * The photo saved under that id, or empty if there is none.
+     * @throws StorageException if the photo's file exists but cannot be read
+     */
+    Optional<byte[]> loadPhoto(String photoId);
 }

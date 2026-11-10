@@ -2,8 +2,10 @@ package com.hkust.marketplace.controllers.seller;
 
 import com.hkust.marketplace.models.*;
 import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.services.ChatService;
 import com.hkust.marketplace.services.NotificationService;
 import com.hkust.marketplace.services.ProfileService;
+import com.hkust.marketplace.ui.ChatList;
 import com.hkust.marketplace.ui.ContentHost;
 import com.hkust.marketplace.ui.ListingCard;
 import com.hkust.marketplace.ui.NotificationBoard;
@@ -31,16 +33,21 @@ public class SellerDashboardController implements ContentHost {
     @FXML private StackPane contentPane;
     @FXML private Label pageTitle;
     @FXML private Label welcomeLabel;
-    @FXML private Button btnListings, btnCreate, btnStats, btnReviews, btnNotifications, btnProfile;
+    @FXML private Button btnListings, btnCreate, btnStats, btnReviews, btnChats, btnNotifications, btnProfile;
 
     private Button currentActiveBtn;
 
     @FXML
     public void initialize() {
-        User user = SessionManager.getCurrentUser();
-        if (user != null) welcomeLabel.setText("Hello, " + user.getFullName());
+        showGreeting();
         currentActiveBtn = btnListings;
         showMyListings();
+    }
+
+    /** Greets the logged-in user by name. Runs again after a profile change, so a new name shows at once. */
+    private void showGreeting() {
+        User user = SessionManager.getCurrentUser();
+        if (user != null) welcomeLabel.setText("Hello, " + user.getFullName());
     }
 
     private void setActive(Button btn, String title) {
@@ -328,6 +335,12 @@ public class SellerDashboardController implements ContentHost {
     }
 
     @FXML
+    private void showChats() {
+        setActive(btnChats, "Chats");
+        show("Chats", new ChatList(new ChatService(), this)); // UC6, shared chat screens
+    }
+
+    @FXML
     private void showNotifications() {
         setActive(btnNotifications, "Notifications");
         show("Notifications", new NotificationBoard(new NotificationService())); // UC4, shared board
@@ -336,7 +349,7 @@ public class SellerDashboardController implements ContentHost {
     @FXML
     private void showProfile() {
         setActive(btnProfile, "My Profile");
-        show("My Profile", new ProfileView(new ProfileService())); // UC3, shared profile screen
+        show("My Profile", new ProfileView(new ProfileService(), this::showGreeting)); // UC3, shared profile screen
     }
 
     @FXML

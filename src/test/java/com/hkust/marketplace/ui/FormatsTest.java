@@ -60,6 +60,26 @@ class FormatsTest {
     }
 
     @Test
+    void preview_atTheBoundaries() {
+        assertEquals("Hello", Formats.preview("Hello", 5));          // exactly max: unchanged
+        assertEquals("Hell…", Formats.preview("Hello!", 5));         // one over: cut, still 5 characters
+        assertEquals("Hi…", Formats.preview("Hi  there", 4));        // no space left before the "…"
+        assertEquals("…", Formats.preview("Hello", 1));
+        assertEquals("", Formats.preview(null, 5));
+        assertEquals("", Formats.preview("   ", 5));
+    }
+
+    @Test
+    void preview_putsALongTextOnOneLine() {
+        assertEquals("Line one line two", Formats.preview("  Line one\n\n line two\t", 40));
+    }
+
+    @Test
+    void preview_needsRoomForAtLeastOneCharacter() {
+        assertThrows(IllegalArgumentException.class, () -> Formats.preview("Hello", 0));
+    }
+
+    @Test
     void averageRating_saysNoRatingsYet_whenThereAreNone() {
         assertEquals("No ratings yet", Formats.averageRating(OptionalDouble.empty(), 0));
         assertEquals("No ratings yet", Formats.averageRating(OptionalDouble.of(4), 0)); // inconsistent input: count wins

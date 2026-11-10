@@ -114,6 +114,7 @@ class ListingStateMachineTest {
     @EnumSource(value = ListingStatus.class, names = {"PENDING_REVIEW", "LIVE", "REJECTED", "RESERVED", "LENT"})
     void adminRemove_removes(ListingStatus from) {
         Listing listing = listingIn(from);
+        assertTrue(listing.canBeRemoved());
         listing.remove();
         assertEquals(ListingStatus.REMOVED, listing.getStatus());
     }
@@ -154,6 +155,7 @@ class ListingStateMachineTest {
     @ParameterizedTest
     @EnumSource(value = ListingStatus.class, names = {"SOLD", "GIVEN", "REMOVED"})
     void adminRemove_refusedOnceSoldGivenOrRemoved(ListingStatus from) {
+        assertFalse(listingIn(from).canBeRemoved());
         assertRefused(from, Listing::remove);
     }
 

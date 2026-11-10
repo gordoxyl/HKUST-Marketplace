@@ -126,4 +126,55 @@ class EncryptedJsonStorageTest {
         assertThrows(IllegalArgumentException.class, () -> storage.saveAuditSnapshot("../outside", "x"));
         assertThrows(IllegalArgumentException.class, () -> storage.loadAuditSnapshot("..\\outside"));
     }
+
+    // ---------- Listing photos ----------
+
+    /** The first bytes of every PNG file, followed by some picture data. */
+    private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4, 5, 6, 7, 8};
+
+    @Test
+    void photo_isAnEncryptedFile_thatCannotBeOpenedAsAPicture() throws IOException {
+        EncryptedJsonStorage storage = new EncryptedJsonStorage(folder.resolve("marketplace.dat"));
+
+        storage.savePhoto("I31", PNG);
+
+        Path file = storage.getPhotoFolder().resolve("I31.img");
+        assertEquals(folder.resolve("marketplace-photos"), storage.getPhotoFolder());
+        assertTrue(Files.exists(file));
+        assertFalse(asText(file).contains("PNG")); // not the picture itself
+        assertArrayEquals(PNG, storage.loadPhoto("I31").orElseThrow());
+        assertTrue(storage.loadPhoto("I32").isEmpty());
+        try (Stream<Path> files = Files.list(storage.getPhotoFolder())) {
+            assertEquals(1, files.count()); // no temporary file is left behind
+        }
+    }
+
+    @Test
+    void photoThatWasChangedOrSavedWithAnotherKey_isRefused() throws IOException {
+        EncryptedJsonStorage storage = new EncryptedJsonStorage(folder.resolve("marketplace.dat"));
+        storage.savePhoto("I31", PNG);
+        Path file = storage.getPhotoFolder().resolve("I31.img");
+
+        EncryptedJsonStorage otherKey = new EncryptedJsonStorage(folder.resolve("marketplace.dat"), new DataCipher("another key"));
+        assertThrows(StorageException.class, () -> otherKey.loadPhoto("I31"));
+
+        byte[] changed = Files.readAllBytes(file);
+        changed[changed.length - 1] ^= 1;
+        Files.write(file, changed);
+        assertThrows(StorageException.class, () -> storage.loadPhoto("I31"));
+    }
+
+    @Test
+    void photo_refusesIdsThatCouldLeaveTheFolder() {
+        EncryptedJsonStorage storage = new EncryptedJsonStorage(folder.resolve("marketplace.dat"));
+        assertThrows(IllegalArgumentException.class, () -> storage.savePhoto("../outside", PNG));
+        assertThrows(IllegalArgumentException.class, () -> storage.loadPhoto("..\\outside"));
+        assertThrows(IllegalArgumentException.class, () -> storage.loadPhoto(null));
+    }
+
+    @Test
+    void devData_keepsItsPhotosInItsOwnFolder() {
+        EncryptedJsonStorage dev = new EncryptedJsonStorage(folder.resolve("marketplace-dev.dat"));
+        assertEquals(folder.resolve("marketplace-dev-photos"), dev.getPhotoFolder());
+    }
 }

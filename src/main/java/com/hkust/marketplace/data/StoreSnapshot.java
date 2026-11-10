@@ -15,6 +15,8 @@ public class StoreSnapshot {
     public int nextId = 1;
 
     public List<User> users = new ArrayList<>();
+    /** Usernames of deleted accounts, which are never given out again. Empty in files saved before accounts could be deleted. */
+    public List<String> retiredUsernames = new ArrayList<>();
     public List<Listing> listings = new ArrayList<>();
     public List<Offer> offers = new ArrayList<>();
     public List<ChatThread> threads = new ArrayList<>();

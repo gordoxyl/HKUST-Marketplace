@@ -16,11 +16,12 @@ import java.util.Optional;
 
 /**
  * Saves the data as JSON, encrypted with {@link DataCipher}, in one file; deleted-account
- * snapshots go to encrypted {@code .txt} files in a folder next to it:
+ * snapshots and listing photos go to encrypted files of their own, in folders next to it:
  * <pre>
  * marketplace-data/
- *   marketplace.dat           all data (encrypted JSON)
+ *   marketplace.dat            all data (encrypted JSON)
  *   marketplace-audit/G12.txt  data snapshot of audit log entry G12 (encrypted)
+ *   marketplace-photos/I31.img listing photo I31 (encrypted, so it cannot be opened as a picture)
  * </pre>
  * Each save writes a temporary file first and then replaces the old file, so a crash while
  * saving cannot leave a half-written file. A save is skipped when nothing has changed.
@@ -29,6 +30,7 @@ public class EncryptedJsonStorage implements Storage {
 
     private final Path dataFile;
     private final Path auditFolder;
+    private final Path photoFolder;
     private final DataCipher cipher;
     private final ObjectMapper mapper = JsonMapping.newMapper();
 
@@ -45,6 +47,7 @@ public class EncryptedJsonStorage implements Storage {
         this.cipher = cipher;
         String baseName = this.dataFile.getFileName().toString().replaceFirst("\\.dat$", "");
         this.auditFolder = this.dataFile.resolveSibling(baseName + "-audit");
+        this.photoFolder = this.dataFile.resolveSibling(baseName + "-photos");
     }
 
     public Path getDataFile() {
@@ -53,6 +56,10 @@ public class EncryptedJsonStorage implements Storage {
 
     public Path getAuditFolder() {
         return auditFolder;
+    }
+
+    public Path getPhotoFolder() {
+        return photoFolder;
     }
 
     @Override
@@ -122,6 +129,29 @@ public class EncryptedJsonStorage implements Storage {
             throw new IllegalArgumentException("Not an audit log reference: " + logReference);
         }
         return auditFolder.resolve(logReference + ".txt");
+    }
+
+    @Override
+    public synchronized void savePhoto(String photoId, byte[] image) {
+        writeEncrypted(photoFile(photoId), image);
+    }
+
+    /** Not synchronized: a saved photo never changes, so photos can be read while data is being saved. */
+    @Override
+    public Optional<byte[]> loadPhoto(String photoId) {
+        Path file = photoFile(photoId);
+        if (!Files.exists(file)) {
+            return Optional.empty();
+        }
+        return Optional.of(cipher.decrypt(readAll(file)));
+    }
+
+    private Path photoFile(String photoId) {
+        // Photo ids are DataStore ids such as "I31"; anything else could point outside the folder
+        if (photoId == null || !photoId.matches("[A-Za-z0-9]+")) {
+            throw new IllegalArgumentException("Not a photo id: " + photoId);
+        }
+        return photoFolder.resolve(photoId + ".img");
     }
 
     private void writeEncrypted(Path target, byte[] plain) {

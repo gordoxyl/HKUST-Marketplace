@@ -31,6 +31,8 @@
                     onAction="#showStats" maxWidth="Infinity" alignment="CENTER_LEFT"/>
             <Button fx:id="btnReviews" text="  Reviews &amp; Feedback" styleClass="sidebar-btn"
                     onAction="#showReviews" maxWidth="Infinity" alignment="CENTER_LEFT"/>
+            <Button fx:id="btnChats" text="  Chats" styleClass="sidebar-btn"
+                    onAction="#showChats" maxWidth="Infinity" alignment="CENTER_LEFT"/>
             <Button fx:id="btnNotifications" text="  Notifications" styleClass="sidebar-btn"
                     onAction="#showNotifications" maxWidth="Infinity" alignment="CENTER_LEFT"/>
             <Button fx:id="btnProfile" text="  My Profile" styleClass="sidebar-btn"

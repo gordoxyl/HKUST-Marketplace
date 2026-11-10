@@ -10,15 +10,10 @@ import com.hkust.marketplace.models.UserRole;
 import com.hkust.marketplace.testsupport.Fixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -75,7 +70,7 @@ class ListingSummaryTest {
         assertTrue(card.available());
         assertFalse(card.greyedOut());
         assertEquals(Optional.empty(), card.photosText());
-        assertEquals(Optional.empty(), card.thumbnailUrl()); // no photo: the card shows "No photo"
+        assertEquals(Optional.empty(), card.thumbnail()); // no photo: the card shows "No photo"
     }
 
     @Test
@@ -202,29 +197,15 @@ class ListingSummaryTest {
     // ---------- Thumbnail (Task 1.3: the first photo) ----------
 
     @Test
-    void thumbnail_isTheFirstPhoto_asAFileUrl(@TempDir Path dir) throws IOException {
-        Path first = Files.writeString(dir.resolve("first.jpg"), "x");
-        Path second = Files.writeString(dir.resolve("second.jpg"), "x");
+    void thumbnail_isTheFirstPhoto() {
         Listing book = Fixtures.sale(store, "sam", 100);
-        book.setPhotos(List.of(first.toString(), second.toString()));
+        assertEquals(Optional.empty(), summary(book, UserRole.BUYER).thumbnail());
 
-        assertEquals(Optional.of(first.toUri().toString()), summary(book, UserRole.BUYER).thumbnailUrl());
-    }
+        String first = store.addPhoto(new byte[] {1});
+        String second = store.addPhoto(new byte[] {2});
+        book.setPhotos(List.of(first, second));
 
-    @ParameterizedTest
-    @ValueSource(strings = {"https://example.com/lamp.jpg", "file:/C:/photos/lamp.jpg"})
-    void imageUrl_keepsAUrlThatHasAScheme(String url) {
-        assertEquals(Optional.of(url), ListingSummary.imageUrl(url));
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"", "   ", "photos/missing.jpg", "C:\\no-such-folder\\lamp.jpg", "C:/no-such-folder/lamp.jpg", "bad\u0000name.jpg"})
-    void imageUrl_isEmpty_forABlankMissingOrInvalidPath(String path) {
-        assertEquals(Optional.empty(), ListingSummary.imageUrl(path));
-    }
-
-    @Test
-    void imageUrl_isEmpty_forNoPath() {
-        assertEquals(Optional.empty(), ListingSummary.imageUrl(null));
+        assertEquals(Optional.of(first), summary(book, UserRole.BUYER).thumbnail());
+        assertEquals(Optional.of(first), summary(book, UserRole.ADMIN).thumbnail()); // the same for every viewer
     }
 }

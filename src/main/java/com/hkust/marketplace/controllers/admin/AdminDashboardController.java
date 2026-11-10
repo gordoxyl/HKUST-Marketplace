@@ -31,10 +31,15 @@ public class AdminDashboardController implements ContentHost {
 
     @FXML
     public void initialize() {
-        User user = SessionManager.getCurrentUser();
-        if (user != null) welcomeLabel.setText("Admin: " + user.getFullName());
+        showGreeting();
         currentActiveBtn = btnReview;
         showReview();
+    }
+
+    /** Shows the logged-in admin's name. Runs again after a profile change, so a new name shows at once. */
+    private void showGreeting() {
+        User user = SessionManager.getCurrentUser();
+        if (user != null) welcomeLabel.setText("Admin: " + user.getFullName());
     }
 
     private void setActive(Button btn, String title) {
@@ -323,7 +328,7 @@ public class AdminDashboardController implements ContentHost {
     @FXML
     private void showProfile() {
         setActive(btnProfile, "My Profile");
-        show("My Profile", new ProfileView(new ProfileService())); // UC3, shared profile screen
+        show("My Profile", new ProfileView(new ProfileService(), this::showGreeting)); // UC3, shared profile screen
     }
 
     @FXML

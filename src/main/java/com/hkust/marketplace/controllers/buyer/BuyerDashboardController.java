@@ -7,8 +7,10 @@ import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.SaleListing;
 import com.hkust.marketplace.models.User;
 import com.hkust.marketplace.models.UserRole;
+import com.hkust.marketplace.services.ChatService;
 import com.hkust.marketplace.services.NotificationService;
 import com.hkust.marketplace.services.ProfileService;
+import com.hkust.marketplace.ui.ChatList;
 import com.hkust.marketplace.ui.ContentHost;
 import com.hkust.marketplace.ui.ListingCard;
 import com.hkust.marketplace.ui.NotificationBoard;
@@ -30,18 +32,23 @@ public class BuyerDashboardController implements ContentHost {
     @FXML private StackPane contentPane;
     @FXML private Label pageTitle;
     @FXML private Label welcomeLabel;
-    @FXML private Button btnBrowse, btnDeals, btnHistory, btnFavourites, btnNotifications, btnProfile;
+    @FXML private Button btnBrowse, btnDeals, btnHistory, btnFavourites, btnChats, btnNotifications, btnProfile;
 
     private Button currentActiveBtn;
 
     @FXML
     public void initialize() {
+        showGreeting();
+        currentActiveBtn = btnBrowse;
+        showBrowse();
+    }
+
+    /** Greets the logged-in user by name. Runs again after a profile change, so a new name shows at once. */
+    private void showGreeting() {
         User user = SessionManager.getCurrentUser();
         if (user != null) {
             welcomeLabel.setText("Hello, " + user.getFullName());
         }
-        currentActiveBtn = btnBrowse;
-        showBrowse();
     }
 
     private void setActive(Button btn, String title) {
@@ -280,6 +287,12 @@ public class BuyerDashboardController implements ContentHost {
     }
 
     @FXML
+    private void showChats() {
+        setActive(btnChats, "Chats");
+        show("Chats", new ChatList(new ChatService(), this)); // UC6, shared chat screens
+    }
+
+    @FXML
     private void showNotifications() {
         setActive(btnNotifications, "Notification Board");
         show("Notification Board", new NotificationBoard(new NotificationService())); // UC4, shared board
@@ -288,7 +301,7 @@ public class BuyerDashboardController implements ContentHost {
     @FXML
     private void showProfile() {
         setActive(btnProfile, "Manage Profile");
-        show("Manage Profile", new ProfileView(new ProfileService())); // UC3, shared profile screen
+        show("Manage Profile", new ProfileView(new ProfileService(), this::showGreeting)); // UC3, shared profile screen
     }
 
     @FXML

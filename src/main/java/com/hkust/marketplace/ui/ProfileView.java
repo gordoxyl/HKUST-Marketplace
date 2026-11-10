@@ -22,17 +22,26 @@ import java.util.List;
  * preferred meet-up locations. The username and a buyer's residence hall are shown but
  * cannot be changed.
  * <pre>{@code
- * host.show("Manage Profile", new ProfileView(new ProfileService()));
+ * host.show("Manage Profile", new ProfileView(new ProfileService(), this::showGreeting));
  * }</pre>
+ * The second argument runs after every successful save, so the dashboard can show the new
+ * name in its greeting at once.
  * All checks are in the tested {@link ProfileService}; this class only shows the form.
  */
 public class ProfileView extends ScrollPane {
 
     private final ProfileService service;
+    private final Runnable onSaved;
     private final VBox form = new VBox(10);
 
     public ProfileView(ProfileService service) {
+        this(service, () -> { });
+    }
+
+    /** @param onSaved runs after each successful save, for whatever else on screen shows the profile */
+    public ProfileView(ProfileService service, Runnable onSaved) {
         this.service = service;
+        this.onSaved = onSaved;
         form.getStyleClass().add("card");
         form.setPadding(new Insets(20));
         form.setMaxWidth(480);
@@ -118,6 +127,7 @@ public class ProfileView extends ScrollPane {
             Dialogs.problem(e); // A1-A3: the typed values stay so they can be corrected
             return;
         }
+        onSaved.run();
         String passwordNote = newPassword.isEmpty() ? "" : " Use your new password the next time you log in.";
         Dialogs.info("Profile updated", "Your profile was updated successfully." + passwordNote);
         fill();

@@ -162,10 +162,15 @@ public abstract class Listing {
      * completed, and the listing then stays Removed (UC12 A1; assumption for Reserved listings).
      */
     public void remove() {
-        if (status == ListingStatus.SOLD || status == ListingStatus.GIVEN || status == ListingStatus.REMOVED) {
+        if (!canBeRemoved()) {
             throw new IllegalStateException("A " + status.getDisplayName().toLowerCase() + " listing cannot be removed.");
         }
         status = ListingStatus.REMOVED;
+    }
+
+    /** True unless the listing is Sold, Given or already Removed: those stay as they are, as records. */
+    public boolean canBeRemoved() {
+        return status != ListingStatus.SOLD && status != ListingStatus.GIVEN && status != ListingStatus.REMOVED;
     }
 
     /**

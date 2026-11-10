@@ -197,5 +197,7 @@ class PersistenceTest {
         @Override public String setAsideUnreadable() { return ""; }
         @Override public void saveAuditSnapshot(String logReference, String snapshot) { }
         @Override public Optional<String> loadAuditSnapshot(String logReference) { return Optional.empty(); }
+        @Override public void savePhoto(String photoId, byte[] image) { }
+        @Override public Optional<byte[]> loadPhoto(String photoId) { return Optional.empty(); }
     }
 }

@@ -119,6 +119,31 @@ class DataStoreTest {
     }
 
     @Test
+    void isLive_isWiderThanAvailable() {
+        Listing reserved = saleIn(ListingStatus.RESERVED);
+        assertTrue(store.isLive(reserved));       // shown on Browse (UC8 Special Requirement 1)
+        assertFalse(store.isAvailable(reserved)); // but accepts no offers
+        assertFalse(store.isLive(saleIn(ListingStatus.PENDING_REVIEW)));
+        assertFalse(store.isLive(saleIn(ListingStatus.SOLD)));
+
+        Listing book = sale();
+        assertTrue(store.isLive(book));
+        sam.setActive(false);
+        assertFalse(store.isLive(book)); // a deactivated seller's listings are hidden
+    }
+
+    @Test
+    void read_returnsItsResult_andSeesTheCurrentData() {
+        Listing book = sale();
+        store.addOffer(new PriceOffer(book.getId(), "bea", 80));
+
+        String seen = store.read(() -> store.findListing(book.getId()).getTitle()
+                + " has " + store.getOffersForListing(book.getId()).size() + " offer");
+
+        assertEquals("Book has 1 offer", seen);
+    }
+
+    @Test
     void incrementViewCount_addsOneView() {
         Listing listing = sale();
         store.incrementViewCount(listing.getId());
@@ -216,6 +241,68 @@ class DataStoreTest {
         offer.accept(store.now());
         offer.complete(store.now());
         return store.addReview(new Review(offer.getId(), rating, null));
+    }
+
+    // ---------- Seller statistics ----------
+
+    @Test
+    void sellerStatistics_areZeroForASellerWithNoListings() {
+        // View Seller Stats A1: all statistics are shown as zero
+        assertEquals(0, store.getTotalViews("sam"));
+        assertEquals(0, store.getOffersReceivedCount("sam"));
+        assertEquals(0, store.getCompletedDealCount("sam"));
+        assertTrue(store.getAverageRating("sam").isEmpty());
+        assertEquals(0, store.getRatingCount("sam"));
+    }
+
+    @Test
+    void totalViews_addsUpTheSellersListings_whateverTheirStatus() {
+        store.addUser(new Seller("sue", "Sue Seller", "hash"));
+        Listing book = sale();
+        Listing lamp = giveaway();
+        Listing other = live(new SaleListing("sue", "Desk", Category.FURNITURE, ItemCondition.USED, "desc", MeetupLocation.LIBRARY, 50));
+        store.incrementViewCount(book.getId());
+        store.incrementViewCount(book.getId());
+        store.incrementViewCount(lamp.getId());
+        store.incrementViewCount(other.getId());
+        store.transaction(lamp::withdraw); // a removed listing keeps its views
+
+        assertEquals(3, store.getTotalViews("sam"));
+        assertEquals(3, store.getTotalViews("SAM")); // usernames ignore case
+        assertEquals(1, store.getTotalViews("sue"));
+    }
+
+    @Test
+    void offersReceived_countsEveryOffer_andCompletedDeals_onlyTheCompletedOnes() {
+        Listing book = sale();
+        Listing lamp = giveaway();
+        Offer declined = store.addOffer(new PriceOffer(book.getId(), "ben", 60));
+        declined.decline();
+        Offer bought = store.addOffer(new PriceOffer(book.getId(), "bea", 90));
+        Offer claimed = store.addOffer(new Claim(lamp.getId(), "bea"));
+        assertEquals(3, store.getOffersReceivedCount("sam"));
+        assertEquals(0, store.getCompletedDealCount("sam"));
+
+        bought.accept(store.now());
+        claimed.accept(store.now());
+        assertEquals(0, store.getCompletedDealCount("sam")); // accepted, but not completed yet
+
+        bought.complete(store.now());
+        assertEquals(1, store.getCompletedDealCount("sam"));
+        assertEquals(3, store.getOffersReceivedCount("sam")); // whatever happened to them afterwards
+    }
+
+    @Test
+    void returnedBorrowedItem_countsAsACompletedDeal() {
+        Listing calculator = live(new LendListing("sam", "Calculator", Category.ELECTRONICS, ItemCondition.USED,
+                "desc", MeetupLocation.LIBRARY, Duration.ofDays(7)));
+        BorrowRequest request = (BorrowRequest) store.addOffer(
+                new BorrowRequest(calculator.getId(), "bea", store.now(), store.now().plusDays(7)));
+        request.accept(store.now());
+
+        request.autoReturn(); // UC12: returned when the period ended
+
+        assertEquals(1, store.getCompletedDealCount("sam"));
     }
 
     // ---------- Reports and notifications ----------

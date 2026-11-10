@@ -8,7 +8,7 @@
 #   sh scripts/reset-data.sh --no-backup     erase instead of keeping a backup
 #
 # How it works: the app re-creates the demo data whenever its save file is missing. So this
-# script moves the save files (and their audit snapshots) out of the way, into
+# script moves the save files (and their audit snapshots and listing photos) out of the way, into
 # marketplace-data/backups/<date-time>/, and the next start of the app begins from the demo
 # data. With --no-backup the files are deleted instead.
 #
@@ -48,8 +48,8 @@ esac
 items=""
 if [ -d "$data_folder" ]; then
   for base in $bases; do
-    # The save file, a leftover .tmp, any .unreadable-<date> copies, and the audit folder
-    for item in "$data_folder/$base.dat" "$data_folder/$base.dat."* "$data_folder/$base-audit"; do
+    # The save file, a leftover .tmp, any .unreadable-<date> copies, and the audit and photo folders
+    for item in "$data_folder/$base.dat" "$data_folder/$base.dat."* "$data_folder/$base-audit" "$data_folder/$base-photos"; do
       if [ -e "$item" ]; then
         items="$items
 $item"

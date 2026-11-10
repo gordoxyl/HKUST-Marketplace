@@ -52,6 +52,14 @@ class FormatsTest {
     }
 
     @Test
+    void unreadSummary_atTheBoundaries() {
+        assertEquals("No unread notifications", Formats.unreadSummary(0));
+        assertEquals("1 unread notification", Formats.unreadSummary(1));
+        assertEquals("2 unread notifications", Formats.unreadSummary(2));
+        assertEquals("No unread notifications", Formats.unreadSummary(-1)); // never negative on screen
+    }
+
+    @Test
     void averageRating_saysNoRatingsYet_whenThereAreNone() {
         assertEquals("No ratings yet", Formats.averageRating(OptionalDouble.empty(), 0));
         assertEquals("No ratings yet", Formats.averageRating(OptionalDouble.of(4), 0)); // inconsistent input: count wins

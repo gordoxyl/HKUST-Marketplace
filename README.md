@@ -194,10 +194,14 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `DealRules`: the deal lifecycle that crosses roles. `accept(offer)` (Reserved or Lent, declines the other open offers, notifies), `declineOpenOffers(listing, category, because)` (for edits, deletes, admin removal, deactivation), `complete(deal)`, `returnItem(request, automatic)`. Check the role first, then call these.
 - `NotificationService`: `send(user, category, text)` and `sendToAdmins(category, text)` when something happens; `getMyNotifications()`, `markRead(id)` and `getUnreadCount()` for the board (UC4).
 - `AuthService`: registration and login (UC1, UC2).
+- `ProfileService`: UC3 Manage Profile. `updateProfile(name, newPassword, confirm)` for everyone, and `updateSellerProfile(..., bio, locations)` for sellers. A blank new password keeps the current one; the username and residence hall can't change.
 
 **Shared UI kit (`ui/`): use it on every screen, so the three portals look and behave the same.**
 - `Formats`: dates (`09 Nov 2026 14:05`), prices (`HK$ 180`), stars (`★★★★☆`), average ratings (`4.5 / 5 (2 ratings)` or `No ratings yet`), borrow periods, durations.
 - `Dialogs`: `confirm` (ask before every destructive action), `info`, `error`, `problem(ServiceException)`, and `askReason` (asks again until a reason is typed).
+- `NotificationBoard` (UC4): the notification board all three portals show, with newest first, an unread count, and Mark as read. Open it with `show("Notifications", new NotificationBoard(new NotificationService()))`.
+- `ProfileView` (UC3): the profile screen all three portals show. Sellers also get bio and meet-up locations; buyers see their residence hall, which can't be changed.
+- `ListingCard`: the listing card all three portals show (Browse, My Listings, Listing Review, Manage All Listings). `new ListingCard(listing, UserRole.BUYER)` (or `SELLER`, `ADMIN`), then `addActions(buttons...)` for the screen's own buttons and `setOnOpen(...)` for a click on the card; put several in `ListingCard.grid()`. Buyers see the availability status and unavailable listings greyed out (UC8); sellers and the admin see the status. What each line says comes from the tested `ListingSummary`.
 - `ContentHost`: implemented by each dashboard as `show(title, content)`. Shared components get the dashboard as a `ContentHost`, so they can open another screen with its data, such as a listing's chat from a notification.
 
 **How a service method is shaped.** One control class per actor and use case (Lecture 16), each method in this order:

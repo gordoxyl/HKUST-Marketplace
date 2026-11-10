@@ -2,7 +2,12 @@ package com.hkust.marketplace.controllers.admin;
 
 import com.hkust.marketplace.models.*;
 import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.services.NotificationService;
+import com.hkust.marketplace.services.ProfileService;
 import com.hkust.marketplace.ui.ContentHost;
+import com.hkust.marketplace.ui.ListingCard;
+import com.hkust.marketplace.ui.NotificationBoard;
+import com.hkust.marketplace.ui.ProfileView;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
 import javafx.collections.FXCollections;
@@ -13,7 +18,6 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class AdminDashboardController implements ContentHost {
@@ -61,33 +65,22 @@ public class AdminDashboardController implements ContentHost {
             empty.setStyle("-fx-text-fill: #2e7d32; -fx-font-size: 15px;");
             root.getChildren().add(empty);
         } else {
+            FlowPane grid = ListingCard.grid(); // shared listing card
             for (Listing l : pending) {
-                root.getChildren().add(createPendingCard(l));
+                grid.getChildren().add(createPendingCard(l));
             }
+            root.getChildren().add(grid);
         }
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
         contentPane.getChildren().add(scroll);
     }
 
-    private VBox createPendingCard(Listing l) {
-        VBox card = new VBox(10);
-        card.getStyleClass().add("card");
-        card.setPadding(new Insets(16));
+    private ListingCard createPendingCard(Listing l) {
+        // Title, seller username and full name, category, photos, type, meet-up location,
+        // submitted date and status (Task 3.2) on the shared listing card
+        ListingCard card = new ListingCard(l, UserRole.ADMIN);
 
-        Label title = new Label(l.getTitle());
-        title.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
-
-        Label meta = new Label(String.format("Seller: %s (@%s)  ·  %s  ·  %s  ·  %s",
-                DataStore.getInstance().getFullName(l.getSellerUsername()), l.getSellerUsername(),
-                l.getCategory(), l.getType().getDisplayName(), l.getMeetupLocation()));
-        meta.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 12px;");
-
-        Label submitted = new Label("Submitted: " +
-                l.getPostedDate().format(DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm")));
-        submitted.setStyle("-fx-text-fill: #9aa0b0; -fx-font-size: 11px;");
-
-        HBox actions = new HBox(10);
         Button approve = new Button("Approve");
         approve.getStyleClass().addAll("btn-success", "btn-sm");
         approve.setOnAction(e -> {
@@ -128,8 +121,7 @@ public class AdminDashboardController implements ContentHost {
             });
         });
 
-        actions.getChildren().addAll(approve, reject);
-        card.getChildren().addAll(title, meta, submitted, actions);
+        card.addActions(approve, reject);
         return card;
     }
 
@@ -147,19 +139,9 @@ public class AdminDashboardController implements ContentHost {
                 "Admin can create a listing on behalf of a seller here.\nSame form fields as Seller Create Listing.\n(UI placeholder)").showAndWait());
         root.getChildren().add(addBtn);
 
+        FlowPane grid = ListingCard.grid(); // shared listing card
         for (Listing l : DataStore.getInstance().getAllListings()) {
-            HBox row = new HBox(12);
-            row.getStyleClass().add("card");
-            row.setAlignment(Pos.CENTER_LEFT);
-            row.setPadding(new Insets(12));
-
-            VBox info = new VBox(3);
-            HBox.setHgrow(info, Priority.ALWAYS);
-            Label t = new Label(l.getTitle());
-            t.setStyle("-fx-font-weight: bold;");
-            Label m = new Label(DataStore.getInstance().getFullName(l.getSellerUsername()) + " · " + l.getType().getDisplayName() + " · " + l.getStatus());
-            m.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 12px;");
-            info.getChildren().addAll(t, m);
+            ListingCard card = new ListingCard(l, UserRole.ADMIN);
 
             Button edit = new Button("Edit");
             edit.getStyleClass().addAll("btn-outline", "btn-sm");
@@ -184,9 +166,10 @@ public class AdminDashboardController implements ContentHost {
                 });
             });
 
-            row.getChildren().addAll(info, edit, remove);
-            root.getChildren().add(row);
+            card.addActions(edit, remove);
+            grid.getChildren().add(card);
         }
+        root.getChildren().add(grid);
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
         contentPane.getChildren().add(scroll);
@@ -334,54 +317,13 @@ public class AdminDashboardController implements ContentHost {
     @FXML
     private void showNotifications() {
         setActive(btnNotifications, "Admin Notifications");
-        contentPane.getChildren().clear();
-        VBox root = new VBox(12);
-        root.setPadding(new Insets(4));
-        List<Notification> notifs = DataStore.getInstance().getNotificationsFor(SessionManager.getCurrentUser().getUsername());
-        if (notifs.isEmpty()) {
-            root.getChildren().add(new Label("No notifications."));
-        } else {
-            for (Notification n : notifs) {
-                VBox item = new VBox(4);
-                item.getStyleClass().add("notif-item");
-                Label t = new Label(n.getCategory().getDisplayName());
-                t.setStyle("-fx-font-weight: bold;");
-                Label m = new Label(n.getContent());
-                m.setWrapText(true);
-                m.setStyle("-fx-text-fill: #5a5a7a;");
-                Label meta = new Label(n.getCategory() + " · " +
-                        n.getTimestamp().format(DateTimeFormatter.ofPattern("dd MMM HH:mm")));
-                meta.setStyle("-fx-text-fill: #9aa0b0; -fx-font-size: 11px;");
-                item.getChildren().addAll(t, m, meta);
-                root.getChildren().add(item);
-            }
-        }
-        ScrollPane scroll = new ScrollPane(root);
-        scroll.setFitToWidth(true);
-        contentPane.getChildren().add(scroll);
+        show("Admin Notifications", new NotificationBoard(new NotificationService())); // UC4, shared board
     }
 
     @FXML
     private void showProfile() {
         setActive(btnProfile, "My Profile");
-        contentPane.getChildren().clear();
-        User user = SessionManager.getCurrentUser();
-        VBox form = new VBox(12);
-        form.setMaxWidth(400);
-        form.getStyleClass().add("card");
-        form.setPadding(new Insets(20));
-        Label titleLbl = new Label("Admin Profile");
-        titleLbl.getStyleClass().add("section-title");
-        form.getChildren().add(titleLbl);
-
-        TextField name = new TextField(user != null ? user.getFullName() : "");
-        PasswordField pass = new PasswordField();
-        pass.setPromptText("New password (optional)");
-        Button save = new Button("Save");
-        save.getStyleClass().add("btn-success");
-        save.setOnAction(e -> new Alert(Alert.AlertType.INFORMATION, "Profile updated (demo).").showAndWait());
-        form.getChildren().addAll(new Label("Full Name"), name, new Label("New Password"), pass, save);
-        contentPane.getChildren().add(form);
+        show("My Profile", new ProfileView(new ProfileService())); // UC3, shared profile screen
     }
 
     @FXML

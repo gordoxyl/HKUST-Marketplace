@@ -246,6 +246,37 @@
 .listing-card:hover {
     -fx-effect: dropshadow(gaussian, rgba(0,57,116,0.2), 12, 0, 0, 3);
 }
+/* Shared ListingCard parts (ui/ListingCard) */
+.listing-card-thumbnail {
+    -fx-background-color: #f0f2f7;
+    -fx-background-radius: 8;
+}
+.listing-card-title {
+    -fx-font-weight: bold;
+    -fx-font-size: 15px;
+    -fx-text-fill: #1a1a2e;
+}
+.listing-card-price {
+    -fx-font-weight: bold;
+    -fx-font-size: 16px;
+    -fx-text-fill: #003974;
+}
+.listing-card-line {
+    -fx-text-fill: #5a5a7a;
+    -fx-font-size: 12px;
+}
+.listing-card-date {
+    -fx-text-fill: #9aa0b0;
+    -fx-font-size: 11px;
+}
+.badge-type {
+    -fx-background-color: #eef1f8;
+    -fx-text-fill: #003974;
+}
+/* A listing a buyer cannot act on: Reserved, Lent, or a giveaway with a pending claim (UC8 SR1) */
+.listing-card-unavailable {
+    -fx-opacity: 0.55;
+}
 
 /* ---------- Notification item ---------- */
 .notif-item {
@@ -255,6 +286,11 @@
     -fx-border-color: #e8f0f8;
     -fx-border-width: 0 0 0 4;
     -fx-border-color: #A68137;
+}
+/* A notification already marked as read (UC4): grey edge, faded */
+.notif-read {
+    -fx-border-color: #d0d7e2;
+    -fx-opacity: 0.75;
 }
 
 /* ---------- Misc ---------- */

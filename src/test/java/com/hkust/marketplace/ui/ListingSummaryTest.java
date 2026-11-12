@@ -208,4 +208,63 @@ class ListingSummaryTest {
         assertEquals(Optional.of(first), summary(book, UserRole.BUYER).thumbnail());
         assertEquals(Optional.of(first), summary(book, UserRole.ADMIN).thumbnail()); // the same for every viewer
     }
+
+    // ---------- Listing detail screen (UC8 step 7; Task 1.4) ----------
+
+    private static List<String> lines(ListingSummary summary) {
+        return summary.fields().stream().map(field -> field.name() + ": " + field.value()).toList();
+    }
+
+    @Test
+    void detailFields_ofASale_showThePrice_andTheAvailabilityForABuyer() {
+        Listing book = Fixtures.live(Fixtures.sale(store, "sam", 180));
+        store.incrementViewCount(book.getId());
+        store.incrementViewCount(book.getId());
+
+        assertEquals(List.of("Listing type: Sell", "Price: HK$ 180", "Category: Textbooks", "Condition: Used",
+                        "Meet-up location: Library", "Posted: 02 Nov 2026 12:00", "Availability: Available", "Views: 2"),
+                lines(summary(book, UserRole.BUYER)));
+    }
+
+    @Test
+    void detailFields_ofALendListing_showTheLendingDuration_andNoPrice() {
+        Listing calculator = Fixtures.moveTo(Fixtures.lend(store, "sam", Duration.ofDays(7)), ListingStatus.LENT);
+
+        List<String> shown = lines(summary(calculator, UserRole.BUYER));
+
+        assertEquals("Lending duration: 7 days", shown.get(1));
+        assertTrue(shown.contains("Availability: Lent"));
+        assertTrue(shown.stream().noneMatch(line -> line.startsWith("Price")));
+    }
+
+    @Test
+    void detailFields_ofAGiveaway_haveNeitherPriceNorDuration_andSellerAndAdminSeeTheStatus() {
+        Listing lamp = Fixtures.live(Fixtures.giveaway(store, "sam"));
+        store.addOffer(new Claim(lamp.getId(), "bea"));
+
+        assertEquals("Category: Furniture", lines(summary(lamp, UserRole.BUYER)).get(1));
+        assertTrue(lines(summary(lamp, UserRole.BUYER)).contains("Availability: Claim Pending"));
+        assertTrue(lines(summary(lamp, UserRole.SELLER)).contains("Status: Live"));
+        assertTrue(lines(summary(lamp, UserRole.ADMIN)).contains("Status: Live"));
+    }
+
+    @Test
+    void description_isShownInFull_orSaysThereIsNone() {
+        Listing book = Fixtures.sale(store, "sam", 100);
+        assertEquals("A test book", summary(book, UserRole.BUYER).descriptionText());
+
+        book.setDescription("  Two lines\nof text  ");
+        assertEquals("Two lines\nof text", summary(book, UserRole.BUYER).descriptionText());
+        book.setDescription("   ");
+        assertEquals("No description.", summary(book, UserRole.BUYER).descriptionText());
+        book.setDescription(null);
+        assertEquals("No description.", summary(book, UserRole.BUYER).descriptionText());
+    }
+
+    @Test
+    void actionButton_isNamedAfterTheListingType() {
+        assertEquals("Make Offer", summary(Fixtures.sale(store, "sam", 100), UserRole.BUYER).actionText());
+        assertEquals("Request Borrow", summary(Fixtures.lend(store, "sam", Duration.ofDays(7)), UserRole.BUYER).actionText());
+        assertEquals("Claim Item", summary(Fixtures.giveaway(store, "sam"), UserRole.BUYER).actionText());
+    }
 }

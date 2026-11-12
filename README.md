@@ -138,7 +138,9 @@ All passwords meet the password rules: at least 8 characters, with at least one 
 - In-memory data (no database / no network); see [Shared Core](#shared-core-read-before-building-a-feature)
 
 ### Buyer Portal
-- Registration, Login, Browse Marketplace, Make Offer / Borrow / Claim
+- Registration, Login
+- **Browse Marketplace (UC8, done):** search by keyword; filter by category, type, condition and price range; sort; listing detail with photos, all fields, seller rating and reviews; seller profile; view count
+- Make Offer / Borrow / Claim (next)
 - My Deals, Deal History, Favourites (placeholder), Chats, Notifications, Profile
 
 ### Seller Portal
@@ -199,6 +201,7 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `DealRules`: the deal lifecycle that crosses roles. `accept(offer)` (Reserved or Lent, declines the other open offers, notifies), `declineOpenOffers(listing, category, because)` (for edits, deletes, admin removal, deactivation), `complete(deal)`, `returnItem(request, automatic)`. Check the role first, then call these.
 - `NotificationService`: `send(user, category, text)` and `sendToAdmins(category, text)` when something happens; `getMyNotifications()`, `markRead(id)` and `getUnreadCount()` for the board (UC4). Sending to an account the admin deleted is skipped, not an error.
 - `ChatService`: UC6 Chat About Listing, for buyers and sellers. `openForListing(listingId)` (buyer, from the listing detail), `openForOffer(offerId)` (buyer from My Deals, seller from an incoming offer), `getMyConversations()` (the Chats screen), `send(chat, text)` and `search(chat, keyword)`. It checks on every call that the user is the chat's buyer or the listing's seller, refuses empty messages, and notifies the other party. Offers appear in the history alongside the messages.
+- `BrowseService` (buyer, UC8): `search(BrowseQuery)` for the live listings by keyword, filters, price range and sort order; `openListing(id)`, which adds one view and returns a `ListingDetail`; `getSellerProfile(username)`. For prices a giveaway counts as HK$0 and lend listings have none.
 - `PhotoService`: `importPhoto(file)` copies a PNG, JPEG, GIF or BMP image into the app's encrypted storage and returns the photo's id for `listing.setPhotos(...)`. For sellers and the admin. Import when the listing is submitted, so a cancelled form stores nothing.
 - `AuthService`: registration and login (UC1, UC2).
 - `ProfileService`: UC3 Manage Profile. `updateProfile(name, newPassword, confirm)` for everyone, and `updateSellerProfile(..., bio, locations)` for sellers. A blank new password keeps the current one; the username and residence hall can't change.
@@ -211,6 +214,9 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `ListingCard`: the listing card all three portals show (Browse, My Listings, Listing Review, Manage All Listings). `new ListingCard(listing, UserRole.BUYER)` (or `SELLER`, `ADMIN`), then `addActions(buttons...)` for the screen's own buttons and `setOnOpen(...)` for a click on the card; put several in `ListingCard.grid()`. Buyers see the availability status and unavailable listings greyed out (UC8); sellers and the admin see the status. What each line says comes from the tested `ListingSummary`.
 - `PhotoFrame`: shows one stored photo in a frame of a fixed size, or "No photo": `new PhotoFrame(photoId, 240, 180)`. The listing card uses it for the thumbnail; use it for the detail screen's photos too.
 - `ChatView` and `ChatList` (UC6): the chat screen and the Chats screen, the same for buyers and sellers. Open a chat with `show(ChatText.title(chat), new ChatView(chatService, chat))`. The view shows messages and offers with sender and time, sends on Enter, and searches the history (a result jumps to its message and highlights it). The buyer portal adds the formal offer with `chatView.setOnMakeOffer(...)`.
+- `SubScreen`: a screen opened from another one, with a Back button above it: `show(title, new SubScreen("Back to listings", back, content))`. Back shows the earlier screen as it was.
+- `ReviewList` and `ReviewText`: a seller's average rating and reviews (stars, date, comment, the seller's reply), as shown on the listing detail screen and the seller's profile. Pass the reviews from `getReviewsForSeller`, which already leaves out hidden ones.
+- `ListingSummary` also words a detail screen: `fields()` (every field of the listing as name and value), `descriptionText()` and `actionText()`.
 - `OfferText`: how an offer reads everywhere: `summary(offer)` (`Price offer: HK$ 160`), `counter(offer)`, `status(offer)` and the status badge's style. Use it in My Deals, the seller's offers and the admin's deal records.
 - `ContentHost`: implemented by each dashboard as `show(title, content)`. Shared components get the dashboard as a `ContentHost`, so they can open another screen with its data, such as a chat from the Chats screen.
 

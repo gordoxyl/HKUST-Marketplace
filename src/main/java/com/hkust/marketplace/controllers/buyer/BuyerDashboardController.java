@@ -1,20 +1,23 @@
 package com.hkust.marketplace.controllers.buyer;
 
-import com.hkust.marketplace.data.DataStore;
-import com.hkust.marketplace.models.Category;
-import com.hkust.marketplace.models.LendListing;
 import com.hkust.marketplace.models.Listing;
-import com.hkust.marketplace.models.SaleListing;
 import com.hkust.marketplace.models.User;
-import com.hkust.marketplace.models.UserRole;
+import com.hkust.marketplace.services.BrowseService;
 import com.hkust.marketplace.services.ChatService;
+import com.hkust.marketplace.services.Conversation;
+import com.hkust.marketplace.services.ListingDetail;
 import com.hkust.marketplace.services.NotificationService;
 import com.hkust.marketplace.services.ProfileService;
+import com.hkust.marketplace.services.SellerProfile;
+import com.hkust.marketplace.services.ServiceException;
 import com.hkust.marketplace.ui.ChatList;
+import com.hkust.marketplace.ui.ChatText;
+import com.hkust.marketplace.ui.ChatView;
 import com.hkust.marketplace.ui.ContentHost;
-import com.hkust.marketplace.ui.ListingCard;
+import com.hkust.marketplace.ui.Dialogs;
 import com.hkust.marketplace.ui.NotificationBoard;
 import com.hkust.marketplace.ui.ProfileView;
+import com.hkust.marketplace.ui.SubScreen;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
 import javafx.collections.FXCollections;
@@ -27,6 +30,12 @@ import javafx.scene.layout.*;
 
 import java.util.List;
 
+/**
+ * The buyer's dashboard: the sidebar, and the main area that shows one screen at a time.
+ * It only moves between screens and connects their buttons to the use cases; the rules are in
+ * the services, and each screen is a class of its own ({@link BrowseView},
+ * {@link ListingDetailView}, {@link SellerProfileView} and the shared ones in {@code ui}).
+ */
 public class BuyerDashboardController implements ContentHost {
 
     @FXML private StackPane contentPane;
@@ -35,6 +44,11 @@ public class BuyerDashboardController implements ContentHost {
     @FXML private Button btnBrowse, btnDeals, btnHistory, btnFavourites, btnChats, btnNotifications, btnProfile;
 
     private Button currentActiveBtn;
+
+    private final BrowseService browseService = new BrowseService();
+    private final ChatService chatService = new ChatService();
+    /** The Browse screen now open. It is kept while a listing is open, so Back returns to it as it was. */
+    private BrowseView browseView;
 
     @FXML
     public void initialize() {
@@ -67,124 +81,82 @@ public class BuyerDashboardController implements ContentHost {
         contentPane.getChildren().setAll(content);
     }
 
+    // ========== UC8 Browse Marketplace ==========
+
     @FXML
     private void showBrowse() {
         setActive(btnBrowse, "Browse Marketplace");
-        contentPane.getChildren().clear();
+        browseView = new BrowseView(browseService,
+                listing -> openListing(listing.getId(), "Back to listings", this::returnToBrowse));
+        show("Browse Marketplace", browseView);
+    }
 
-        VBox root = new VBox(16);
-        root.setPadding(new Insets(4));
+    /** UC8 step 8: back to the listings, with the keyword, filters and sort order as they were. */
+    private void returnToBrowse() {
+        browseView.refresh();
+        show("Browse Marketplace", browseView);
+    }
 
-        // Filter bar
-        HBox filterBar = new HBox(12);
-        filterBar.setAlignment(Pos.CENTER_LEFT);
-        ComboBox<String> categoryFilter = new ComboBox<>(FXCollections.observableArrayList("All Categories"));
-        for (Category c : Category.values()) categoryFilter.getItems().add(c.getDisplayName());
-        categoryFilter.getSelectionModel().selectFirst();
-        ComboBox<String> typeFilter = new ComboBox<>(FXCollections.observableArrayList("All Types", "Sell", "Lend", "Giveaway"));
-        typeFilter.getSelectionModel().selectFirst();
-        TextField searchField = new TextField();
-        searchField.setPromptText("Search listings...");
-        searchField.setPrefWidth(220);
-        Button searchBtn = new Button("Search");
-        searchBtn.getStyleClass().addAll("btn-primary", "btn-sm");
-        filterBar.getChildren().addAll(
-                new Label("Category:"), categoryFilter,
-                new Label("Type:"), typeFilter,
-                searchField, searchBtn
-        );
-        root.getChildren().add(filterBar);
-
-        // Listing grid (shared listing card)
-        FlowPane grid = ListingCard.grid();
-
-        List<Listing> live = DataStore.getInstance().getLiveListings();
-        if (live.isEmpty()) {
-            Label empty = new Label("No live listings at the moment.");
-            empty.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 15px;");
-            root.getChildren().add(empty);
-        } else {
-            for (Listing listing : live) {
-                grid.getChildren().add(createListingCard(listing));
-            }
-            root.getChildren().add(grid);
+    /**
+     * Opens a listing's detail screen, which adds one view (UC8 steps 5-7). The screen's
+     * buttons start the other use cases (UC8 Special Requirement 3).
+     * @param backLabel where Back leads, such as "Back to listings"
+     * @param back      shows the screen the listing was opened from
+     */
+    private void openListing(String listingId, String backLabel, Runnable back) {
+        ListingDetail detail;
+        try {
+            detail = browseService.openListing(listingId);
+        } catch (ServiceException e) {
+            Dialogs.problem(e);
+            return;
         }
+        Listing listing = detail.listing();
+        ListingDetailView view = new ListingDetailView(detail);
+        Node screen = new SubScreen(backLabel, back, view);
+        Runnable backToListing = () -> show(listing.getTitle(), screen); // not a new opening: no extra view
 
-        ScrollPane scroll = new ScrollPane(root);
-        scroll.setFitToWidth(true);
-        scroll.setStyle("-fx-background-color: transparent;");
-        contentPane.getChildren().add(scroll);
+        view.setOnAction(() -> startOffer(listing));
+        view.setOnChat(() -> openChat(listing, backToListing));
+        view.setOnReport(() -> reportListing(listing));
+        view.setOnSellerProfile(() -> showSellerProfile(listing.getSellerUsername(), backToListing));
+        show(listing.getTitle(), screen);
     }
 
-    private ListingCard createListingCard(Listing listing) {
-        ListingCard card = new ListingCard(listing, UserRole.BUYER);
-
-        // The buyer can act only on an available listing (UC8 Special Requirement 1)
-        Button actionBtn = new Button();
-        actionBtn.setDisable(!card.summary().available());
-        actionBtn.getStyleClass().addAll("btn-primary", "btn-sm");
-        switch (listing.getType()) {
-            case SELL -> {
-                actionBtn.setText("Make Offer");
-                actionBtn.setOnAction(e -> showOfferDialog(listing));
-            }
-            case LEND -> {
-                actionBtn.setText("Request Borrow");
-                actionBtn.setOnAction(e -> showBorrowDialog(listing));
-            }
-            case GIVEAWAY -> {
-                actionBtn.setText("Claim Item");
-                actionBtn.setOnAction(e -> claimItem(listing));
-            }
+    /** UC8 A3: the seller's profile, from the seller's name on the detail screen. */
+    private void showSellerProfile(String sellerUsername, Runnable backToListing) {
+        try {
+            SellerProfile seller = browseService.getSellerProfile(sellerUsername);
+            show("Seller: " + seller.fullName(),
+                    new SubScreen("Back to listing", backToListing, new SellerProfileView(seller)));
+        } catch (ServiceException e) {
+            Dialogs.problem(e);
         }
-
-        card.addActions(actionBtn);
-        return card;
     }
 
-    private void showOfferDialog(Listing listing) {
-        TextInputDialog dialog = new TextInputDialog(String.valueOf(listing instanceof SaleListing sale ? sale.getPrice() : 0));
-        dialog.setTitle("Make an Offer");
-        dialog.setHeaderText("Offer for: " + listing.getTitle());
-        dialog.setContentText("Your offer price (HK$):");
-        dialog.showAndWait().ifPresent(priceStr -> {
-            try {
-                double price = Double.parseDouble(priceStr);
-                Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                alert.setTitle("Offer Submitted");
-                alert.setHeaderText(null);
-                alert.setContentText("Your offer of HK$" + price + " has been sent to " + DataStore.getInstance().getFullName(listing.getSellerUsername()) + ".\n\n(Demo only – no backend)");
-                alert.showAndWait();
-            } catch (NumberFormatException ex) {
-                new Alert(Alert.AlertType.ERROR, "Invalid price.").showAndWait();
-            }
-        });
+    /** UC6: the buyer's chat with the seller about this listing, from the detail screen. */
+    private void openChat(Listing listing, Runnable backToListing) {
+        try {
+            Conversation chat = chatService.openForListing(listing.getId());
+            show(ChatText.title(chat),
+                    new SubScreen("Back to listing", backToListing, new ChatView(chatService, chat)));
+        } catch (ServiceException e) {
+            Dialogs.problem(e);
+        }
     }
 
-    private void showBorrowDialog(Listing listing) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Borrow Request");
-        alert.setHeaderText("Request to borrow: " + listing.getTitle());
-        alert.setContentText("Proposed duration: " + (listing instanceof LendListing lend ? lend.getDurationDisplay() : "N/A") +
-                "\n\nSend borrow request to seller?");
-        alert.showAndWait().ifPresent(resp -> {
-            if (resp == ButtonType.OK) {
-                new Alert(Alert.AlertType.INFORMATION, "Borrow request sent!\n(Demo only)").showAndWait();
-            }
-        });
+    /** UC5 Make Offer starts here. It is the next item to be built (B2). */
+    private void startOffer(Listing listing) {
+        Dialogs.info("Not built yet", "Making an offer, borrow request or claim on '" + listing.getTitle()
+                + "' (UC5) is the next part to be built.");
     }
 
-    private void claimItem(Listing listing) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Claim Item");
-        alert.setHeaderText("Claim: " + listing.getTitle());
-        alert.setContentText("Are you sure you want to claim this giveaway item?");
-        alert.showAndWait().ifPresent(resp -> {
-            if (resp == ButtonType.OK) {
-                new Alert(Alert.AlertType.INFORMATION, "Item claimed successfully!\n(Demo only)").showAndWait();
-            }
-        });
+    /** UC9 Report Listing starts here. It is built later (B7). */
+    private void reportListing(Listing listing) {
+        Dialogs.info("Not built yet", "Reporting '" + listing.getTitle() + "' (UC9) is built later.");
     }
+
+    // ========== Screens that are still the skeleton's demo ==========
 
     @FXML
     private void showMyDeals() {
@@ -289,7 +261,7 @@ public class BuyerDashboardController implements ContentHost {
     @FXML
     private void showChats() {
         setActive(btnChats, "Chats");
-        show("Chats", new ChatList(new ChatService(), this)); // UC6, shared chat screens
+        show("Chats", new ChatList(chatService, this)); // UC6, shared chat screens
     }
 
     @FXML

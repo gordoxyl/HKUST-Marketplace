@@ -363,7 +363,7 @@ public class DataStore {
     }
 
     private boolean isSellerActive(Listing listing) {
-        User seller = users.get(listing.getSellerUsername());
+        User seller = findUser(listing.getSellerUsername()); // matched like every username (regression log R7)
         return seller != null && seller.isActive();
     }
 

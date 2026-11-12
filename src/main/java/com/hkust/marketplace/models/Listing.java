@@ -3,6 +3,7 @@ package com.hkust.marketplace.models;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -17,7 +18,8 @@ import java.util.Objects;
  * event are in docs/state-machines.md.
  *
  * The seller is stored by username, so listings can later be saved to files
- * without object cycles.
+ * without object cycles. The username is kept in lower case without surrounding spaces, as
+ * accounts keep it, whatever way it was typed (for example by the admin in Add Listing).
  */
 public abstract class Listing {
 
@@ -39,7 +41,8 @@ public abstract class Listing {
     /** A new listing is Pending Review until the admin approves it (Create Listings step 11). */
     protected Listing(String sellerUsername, String title, Category category, ItemCondition condition,
                       String description, MeetupLocation meetupLocation) {
-        this.sellerUsername = Objects.requireNonNull(sellerUsername, "sellerUsername");
+        // Kept the way accounts keep their username, so "Sam" or " sam " is the seller @sam (regression log R7)
+        this.sellerUsername = Objects.requireNonNull(sellerUsername, "sellerUsername").trim().toLowerCase(Locale.ROOT);
         this.title = Objects.requireNonNull(title, "title");
         this.category = Objects.requireNonNull(category, "category");
         this.condition = Objects.requireNonNull(condition, "condition");

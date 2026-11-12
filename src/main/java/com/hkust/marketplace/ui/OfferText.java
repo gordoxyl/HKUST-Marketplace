@@ -1,6 +1,7 @@
 package com.hkust.marketplace.ui;
 
 import com.hkust.marketplace.models.BorrowRequest;
+import com.hkust.marketplace.models.ListingType;
 import com.hkust.marketplace.models.Offer;
 import com.hkust.marketplace.models.PriceOffer;
 
@@ -15,6 +16,30 @@ public final class OfferText {
 
     private OfferText() {
         // Utility class
+    }
+
+    /**
+     * What the buyer's action on a listing is called, by listing type (Task 1.4): "Make Offer"
+     * for a sale, "Request Borrow" for a lend listing, "Claim Item" for a giveaway. The same
+     * words are on the detail screen's button and on the Make Offer option in a chat (UC5 step 1).
+     */
+    public static String actionText(ListingType type) {
+        return switch (type) {
+            case SELL -> "Make Offer";
+            case LEND -> "Request Borrow";
+            case GIVEAWAY -> "Claim Item";
+        };
+    }
+
+    /**
+     * The confirmation after Make Offer (UC5 step 9):
+     * "Your price offer for 'Desk Lamp' was submitted: HK$ 160. The seller has been notified."
+     * For a claim, which has no terms: "Your claim for 'Desk Lamp' was submitted. The seller has been notified."
+     */
+    public static String submitted(Offer offer, String listingTitle) {
+        String terms = summary(offer).substring(kind(offer).length()); // ": HK$ 160", or nothing for a claim
+        return "Your " + offer.getKindName() + " for '" + listingTitle + "' was submitted"
+                + (terms.isEmpty() ? "." : terms + ".") + " The seller has been notified.";
     }
 
     /** "Price offer", "Borrow request" or "Claim". */

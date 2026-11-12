@@ -206,10 +206,6 @@ public record ListingSummary(Listing listing, UserRole viewer, String sellerName
      * Make Offer (UC5) and is disabled when the listing is not {@link #available}.
      */
     public String actionText() {
-        return switch (listing.getType()) {
-            case SELL -> "Make Offer";
-            case LEND -> "Request Borrow";
-            case GIVEAWAY -> "Claim Item";
-        };
+        return OfferText.actionText(listing.getType());
     }
 }

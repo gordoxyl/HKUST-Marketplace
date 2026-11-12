@@ -13,7 +13,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.OptionalDouble;
-import java.util.regex.Pattern;
 
 /**
  * UC8 Browse Marketplace, for the Buyer (Tasks 1.3 and 1.4): searching, filtering and sorting
@@ -30,9 +29,6 @@ public class BrowseService {
     /** UC8 A2, shown when a typed price is not an amount of HK$0 or more, or the minimum is above the maximum. */
     static final String INVALID_PRICE_RANGE = "The price range is invalid. "
             + "Enter amounts of HK$0 or more, with the minimum no greater than the maximum.";
-
-    /** Digits, with an optional decimal part: "180" or "99.50". A sign, letters or symbols are not an amount. */
-    private static final Pattern AMOUNT = Pattern.compile("[0-9]+(\\.[0-9]+)?");
 
     private static final Comparator<Listing> NEWEST_FIRST =
             Comparator.comparing(Listing::getPostedDate, Comparator.reverseOrder());
@@ -81,10 +77,11 @@ public class BrowseService {
         if (typed.isEmpty()) {
             return OptionalDouble.empty();
         }
-        if (!AMOUNT.matcher(typed).matches()) {
+        OptionalDouble amount = Amounts.parse(typed);
+        if (amount.isEmpty()) {
             throw new ServiceException(INVALID_PRICE_RANGE); // negative, or not a number
         }
-        return OptionalDouble.of(Double.parseDouble(typed));
+        return amount;
     }
 
     private static boolean containsKeyword(Listing listing, String keyword) {
@@ -133,13 +130,33 @@ public class BrowseService {
     public ListingDetail openListing(String listingId) {
         Buyer buyer = AccessControl.requireBuyer();
         return store.transaction(() -> {
-            Listing listing = store.findListing(listingId);
-            if (listing == null || !(store.isLive(listing) || hasDealOn(buyer, listing))) {
-                throw new ServiceException("This listing is no longer on the marketplace.");
-            }
+            Listing listing = requireOpenable(buyer, listingId);
             listing.incrementViewCount();
-            return new ListingDetail(listing, store.isAvailable(listing), profileOf(listing.getSellerUsername()));
+            return detailOf(listing);
         });
+    }
+
+    /**
+     * What an already open detail screen should show now, without counting a view: for
+     * redrawing it after the buyer acted on the listing, for example after a claim made the
+     * giveaway unavailable (UC5).
+     * @throws ServiceException under the same conditions as {@link #openListing}
+     */
+    public ListingDetail reloadListing(String listingId) {
+        Buyer buyer = AccessControl.requireBuyer();
+        return store.read(() -> detailOf(requireOpenable(buyer, listingId)));
+    }
+
+    private Listing requireOpenable(Buyer buyer, String listingId) {
+        Listing listing = store.findListing(listingId);
+        if (listing == null || !(store.isLive(listing) || hasDealOn(buyer, listing))) {
+            throw new ServiceException("This listing is no longer on the marketplace.");
+        }
+        return listing;
+    }
+
+    private ListingDetail detailOf(Listing listing) {
+        return new ListingDetail(listing, store.isAvailable(listing), profileOf(listing.getSellerUsername()));
     }
 
     private boolean hasDealOn(Buyer buyer, Listing listing) {

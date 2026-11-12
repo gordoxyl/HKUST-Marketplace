@@ -270,6 +270,7 @@ class BrowseServiceTest {
             "12.  | ''",
             ".5   | ''",
             "$10  | ''",
+            "1.234| ''",    // more than two decimals
             "1,000| ''",
             "''   | NaN"})
     void invalidPriceRange_isRefused(String min, String max) {
@@ -323,6 +324,20 @@ class BrowseServiceTest {
 
         assertEquals("This listing is no longer on the marketplace.", refused.getMessage());
         assertEquals(0, hidden.getViewCount());
+    }
+
+    @Test
+    void reloadingAnOpenListing_showsItsCurrentState_withoutCountingAView() {
+        browse.openListing(lamp.getId());
+        store.addOffer(new Claim(lamp.getId(), "ben")); // another buyer claimed it meanwhile
+
+        ListingDetail reloaded = browse.reloadListing(lamp.getId());
+
+        assertFalse(reloaded.available());
+        assertEquals(1, lamp.getViewCount()); // still only the opening
+        Listing hidden = Fixtures.moveTo(Fixtures.sale(store, "sam", 10), ListingStatus.REMOVED);
+        assertThrows(ServiceException.class, () -> browse.reloadListing(hidden.getId()));
+        assertThrows(ServiceException.class, () -> browse.reloadListing("L999"));
     }
 
     @Test
@@ -431,6 +446,7 @@ class BrowseServiceTest {
             SessionManager.login(other);
             assertThrows(AccessDeniedException.class, () -> browse.search(BrowseQuery.ALL), other.getUsername());
             assertThrows(AccessDeniedException.class, () -> browse.openListing(book.getId()), other.getUsername());
+            assertThrows(AccessDeniedException.class, () -> browse.reloadListing(book.getId()), other.getUsername());
             assertThrows(AccessDeniedException.class, () -> browse.getSellerProfile("sam"), other.getUsername());
         }
         SessionManager.logout();

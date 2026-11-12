@@ -140,7 +140,7 @@ All passwords meet the password rules: at least 8 characters, with at least one 
 ### Buyer Portal
 - Registration, Login
 - **Browse Marketplace (UC8, done):** search by keyword; filter by category, type, condition and price range; sort; listing detail with photos, all fields, seller rating and reviews; seller profile; view count
-- Make Offer / Borrow / Claim (next)
+- **Make Offer (UC5, done):** price offer, borrow request with start and end date and time, one-click claim; from the listing detail, from the chat, or by agreeing to a seller's counter
 - My Deals, Deal History, Favourites (placeholder), Chats, Notifications, Profile
 
 ### Seller Portal
@@ -202,13 +202,15 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `NotificationService`: `send(user, category, text)` and `sendToAdmins(category, text)` when something happens; `getMyNotifications()`, `markRead(id)` and `getUnreadCount()` for the board (UC4). Sending to an account the admin deleted is skipped, not an error.
 - `ChatService`: UC6 Chat About Listing, for buyers and sellers. `openForListing(listingId)` (buyer, from the listing detail), `openForOffer(offerId)` (buyer from My Deals, seller from an incoming offer), `getMyConversations()` (the Chats screen), `send(chat, text)` and `search(chat, keyword)`. It checks on every call that the user is the chat's buyer or the listing's seller, refuses empty messages, and notifies the other party. Offers appear in the history alongside the messages.
 - `BrowseService` (buyer, UC8): `search(BrowseQuery)` for the live listings by keyword, filters, price range and sort order; `openListing(id)`, which adds one view and returns a `ListingDetail`; `getSellerProfile(username)`. For prices a giveaway counts as HK$0 and lend listings have none.
+- `OfferService` (buyer, UC5): `start(listingId)` or `startFromCounter(offerId)` gives the `OfferForm` to show, then `submitPriceOffer(listingId, typedPrice)`, `submitBorrowRequest(listingId, start, end)` or `submitClaim(listingId)`. The final availability check and the recording are one transaction. A listing that is no longer available throws `ListingUnavailableException`; the seller gets an Offer Received notification.
+- `Amounts`: `parse(typedText)` reads a typed amount of money (digits with at most two decimals) and `plain(amount)` writes one for an input box. Use it wherever a price is typed.
 - `PhotoService`: `importPhoto(file)` copies a PNG, JPEG, GIF or BMP image into the app's encrypted storage and returns the photo's id for `listing.setPhotos(...)`. For sellers and the admin. Import when the listing is submitted, so a cancelled form stores nothing.
 - `AuthService`: registration and login (UC1, UC2).
 - `ProfileService`: UC3 Manage Profile. `updateProfile(name, newPassword, confirm)` for everyone, and `updateSellerProfile(..., bio, locations)` for sellers. A blank new password keeps the current one; the username and residence hall can't change.
 
 **Shared UI kit (`ui/`): use it on every screen, so the three portals look and behave the same.**
 - `Formats`: dates (`09 Nov 2026 14:05`), prices (`HK$ 180`), stars (`★★★★☆`), average ratings (`4.5 / 5 (2 ratings)` or `No ratings yet`), borrow periods, durations.
-- `Dialogs`: `confirm` (ask before every destructive action), `info`, `error`, `problem(ServiceException)`, and `askReason` (asks again until a reason is typed).
+- `Dialogs`: `confirm` (ask before every destructive action), `info`, `error`, `problem(ServiceException)`, and `askReason` (asks again until a reason is typed). `TextInputs.dateTime(date, typedTime)` joins a date picker's date and a typed time (`14:30` or `14:30:05`).
 - `NotificationBoard` (UC4): the notification board all three portals show, with newest first, an unread count, and Mark as read. Open it with `show("Notifications", new NotificationBoard(new NotificationService()))`.
 - `ProfileView` (UC3): the profile screen all three portals show. Sellers also get bio and meet-up locations; buyers see their residence hall, which can't be changed.
 - `ListingCard`: the listing card all three portals show (Browse, My Listings, Listing Review, Manage All Listings). `new ListingCard(listing, UserRole.BUYER)` (or `SELLER`, `ADMIN`), then `addActions(buttons...)` for the screen's own buttons and `setOnOpen(...)` for a click on the card; put several in `ListingCard.grid()`. Buyers see the availability status and unavailable listings greyed out (UC8); sellers and the admin see the status. What each line says comes from the tested `ListingSummary`.
@@ -217,7 +219,7 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `SubScreen`: a screen opened from another one, with a Back button above it: `show(title, new SubScreen("Back to listings", back, content))`. Back shows the earlier screen as it was.
 - `ReviewList` and `ReviewText`: a seller's average rating and reviews (stars, date, comment, the seller's reply), as shown on the listing detail screen and the seller's profile. Pass the reviews from `getReviewsForSeller`, which already leaves out hidden ones.
 - `ListingSummary` also words a detail screen: `fields()` (every field of the listing as name and value), `descriptionText()` and `actionText()`.
-- `OfferText`: how an offer reads everywhere: `summary(offer)` (`Price offer: HK$ 160`), `counter(offer)`, `status(offer)` and the status badge's style. Use it in My Deals, the seller's offers and the admin's deal records.
+- `OfferText`: how an offer reads everywhere: `summary(offer)` (`Price offer: HK$ 160`), `counter(offer)`, `status(offer)`, the status badge's style, `actionText(type)` (Make Offer / Request Borrow / Claim Item) and `submitted(offer, title)` for the confirmation. Use it in My Deals, the seller's offers and the admin's deal records.
 - `ContentHost`: implemented by each dashboard as `show(title, content)`. Shared components get the dashboard as a `ContentHost`, so they can open another screen with its data, such as a chat from the Chats screen.
 
 **How a service method is shaped.** One control class per actor and use case (Lecture 16), each method in this order:
@@ -254,7 +256,9 @@ We use **sandwich integration** (COMP 3111 Lecture 15). The bottom layer (models
 | Unit | Equivalence partitions and boundary values (e.g. rating 0/1/5/6, photos 6/7, borrow time 4 s/5 s); state-based tests for each state machine | `src/test/.../models`, `AccountValidatorTest` |
 | Integration | Use-case flow tests at service level, including flows across roles (offer → accept → complete → review; buyer and seller chatting; the rest of the system after an account is deleted); run all tests again after every change | `DealRulesTest`, `ChatServiceTest`, `AccountDeletionFlowTest`, `DataStoreTest`, `PersistenceTest` |
 | Regression | Every bug found gets a test that reproduces it, with its input and correct output recorded in [docs/regression-log.md](docs/regression-log.md) | e.g. `AppStoreStartupTest` |
-| System / acceptance | One demo scenario per requirement (Tasks 1.x, 2.x, 3.x); teammates test each other's portals | to be written |
+| System / acceptance | One manual scenario per flow of each use case, run through the screens; teammates test each other's portals | [docs/acceptance-tests.md](docs/acceptance-tests.md) (UC5 and UC8 so far) |
+
+Which course concept is applied where (boundary/control/entity classes, the barricade, equivalence partitions, boundary values, basis paths, thread and state-based tests) is listed in [docs/course-concepts.md](docs/course-concepts.md).
 
 Test tools in `src/test/.../testsupport`: `TestClock` (a clock the test moves by hand, so a 5-second borrow is tested instantly) and `Fixtures` (accounts and listings in any state, built through the state machine). `StoreProbe` is a tiny program a test runs in a separate JVM. Run all tests with `.\mvnw.cmd clean test`: without `clean`, Maven can run outdated compiled tests (regression log T1).
 

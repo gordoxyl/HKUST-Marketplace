@@ -25,6 +25,15 @@ class FormatsTest {
     }
 
     @Test
+    void timeOfDay_hasSeconds_andCanBeTypedBack() {
+        LocalDateTime time = LocalDateTime.of(2026, 11, 9, 14, 5, 30);
+
+        assertEquals("14:05:30", Formats.timeOfDay(time));
+        assertEquals("", Formats.timeOfDay(null));
+        assertEquals(java.util.Optional.of(time), TextInputs.dateTime(time.toLocalDate(), Formats.timeOfDay(time)));
+    }
+
+    @Test
     void prices_showCentsOnlyWhenThereAreSome() {
         assertEquals("HK$ 180", Formats.price(180));
         assertEquals("HK$ 0.50", Formats.price(0.5));

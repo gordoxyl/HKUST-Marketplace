@@ -4,9 +4,9 @@ import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.User;
 import com.hkust.marketplace.services.BrowseService;
 import com.hkust.marketplace.services.ChatService;
-import com.hkust.marketplace.services.Conversation;
 import com.hkust.marketplace.services.ListingDetail;
 import com.hkust.marketplace.services.NotificationService;
+import com.hkust.marketplace.services.OfferService;
 import com.hkust.marketplace.services.ProfileService;
 import com.hkust.marketplace.services.SellerProfile;
 import com.hkust.marketplace.services.ServiceException;
@@ -34,7 +34,8 @@ import java.util.List;
  * The buyer's dashboard: the sidebar, and the main area that shows one screen at a time.
  * It only moves between screens and connects their buttons to the use cases; the rules are in
  * the services, and each screen is a class of its own ({@link BrowseView},
- * {@link ListingDetailView}, {@link SellerProfileView} and the shared ones in {@code ui}).
+ * {@link ListingDetailView}, {@link SellerProfileView}, {@link MakeOfferFlow} and the shared
+ * ones in {@code ui}).
  */
 public class BuyerDashboardController implements ContentHost {
 
@@ -47,6 +48,7 @@ public class BuyerDashboardController implements ContentHost {
 
     private final BrowseService browseService = new BrowseService();
     private final ChatService chatService = new ChatService();
+    private final MakeOfferFlow makeOffer = new MakeOfferFlow(new OfferService());
     /** The Browse screen now open. It is kept while a listing is open, so Back returns to it as it was. */
     private BrowseView browseView;
 
@@ -98,29 +100,46 @@ public class BuyerDashboardController implements ContentHost {
     }
 
     /**
-     * Opens a listing's detail screen, which adds one view (UC8 steps 5-7). The screen's
-     * buttons start the other use cases (UC8 Special Requirement 3).
+     * Opens a listing's detail screen, which adds one view (UC8 steps 5-7).
      * @param backLabel where Back leads, such as "Back to listings"
      * @param back      shows the screen the listing was opened from
      */
     private void openListing(String listingId, String backLabel, Runnable back) {
-        ListingDetail detail;
         try {
-            detail = browseService.openListing(listingId);
+            showListing(browseService.openListing(listingId), backLabel, back);
         } catch (ServiceException e) {
             Dialogs.problem(e);
-            return;
         }
-        Listing listing = detail.listing();
-        ListingDetailView view = new ListingDetailView(detail);
-        Node screen = new SubScreen(backLabel, back, view);
-        Runnable backToListing = () -> show(listing.getTitle(), screen); // not a new opening: no extra view
+    }
 
-        view.setOnAction(() -> startOffer(listing));
+    /**
+     * Shows an open listing again with its current data: after the buyer acted on it, or came
+     * back to it from the chat or the seller's profile. This is not a new opening, so no view
+     * is counted. If the listing can no longer be shown, the buyer is taken back.
+     */
+    private void reloadListing(String listingId, String backLabel, Runnable back) {
+        try {
+            showListing(browseService.reloadListing(listingId), backLabel, back);
+        } catch (ServiceException e) {
+            Dialogs.problem(e);
+            back.run();
+        }
+    }
+
+    /** The detail screen, with its buttons connected to the other use cases (UC8 Special Requirement 3). */
+    private void showListing(ListingDetail detail, String backLabel, Runnable back) {
+        Listing listing = detail.listing();
+        Runnable backToListing = () -> reloadListing(listing.getId(), backLabel, back);
+        ListingDetailView view = new ListingDetailView(detail);
+
+        view.setOnAction(() -> {
+            makeOffer.start(listing.getId()); // UC5
+            backToListing.run();              // the listing may be unavailable now, for example after a claim
+        });
         view.setOnChat(() -> openChat(listing, backToListing));
         view.setOnReport(() -> reportListing(listing));
         view.setOnSellerProfile(() -> showSellerProfile(listing.getSellerUsername(), backToListing));
-        show(listing.getTitle(), screen);
+        show(listing.getTitle(), new SubScreen(backLabel, back, view));
     }
 
     /** UC8 A3: the seller's profile, from the seller's name on the detail screen. */
@@ -137,18 +156,21 @@ public class BuyerDashboardController implements ContentHost {
     /** UC6: the buyer's chat with the seller about this listing, from the detail screen. */
     private void openChat(Listing listing, Runnable backToListing) {
         try {
-            Conversation chat = chatService.openForListing(listing.getId());
-            show(ChatText.title(chat),
-                    new SubScreen("Back to listing", backToListing, new ChatView(chatService, chat)));
+            ChatView chat = new ChatView(chatService, chatService.openForListing(listing.getId()));
+            addOfferOptions(chat);
+            show(ChatText.title(chat.conversation()), new SubScreen("Back to listing", backToListing, chat));
         } catch (ServiceException e) {
             Dialogs.problem(e);
         }
     }
 
-    /** UC5 Make Offer starts here. It is the next item to be built (B2). */
-    private void startOffer(Listing listing) {
-        Dialogs.info("Not built yet", "Making an offer, borrow request or claim on '" + listing.getTitle()
-                + "' (UC5) is the next part to be built.");
+    /**
+     * The two ways into Make Offer that start in a chat (UC5 step 1): the Make Offer option,
+     * and agreeing to a seller's counter. Every chat the buyer opens gets them.
+     */
+    private void addOfferOptions(ChatView chat) {
+        chat.setOnMakeOffer(() -> makeOffer.start(chat.conversation().listing().getId()));
+        chat.setOnAgreeToCounter(offer -> makeOffer.startFromCounter(offer.getId()));
     }
 
     /** UC9 Report Listing starts here. It is built later (B7). */
@@ -261,7 +283,7 @@ public class BuyerDashboardController implements ContentHost {
     @FXML
     private void showChats() {
         setActive(btnChats, "Chats");
-        show("Chats", new ChatList(chatService, this)); // UC6, shared chat screens
+        show("Chats", new ChatList(chatService, this, this::addOfferOptions)); // UC6, shared chat screens
     }
 
     @FXML

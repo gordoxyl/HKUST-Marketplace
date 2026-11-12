@@ -21,6 +21,7 @@ public final class Formats {
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH);
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", Locale.ENGLISH);
+    private static final DateTimeFormatter TIME_OF_DAY = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.ENGLISH);
 
     private Formats() {
         // Utility class
@@ -34,6 +35,11 @@ public final class Formats {
     /** "09 Nov 2026 14:20", or {@link #NONE} for no date. */
     public static String dateTime(LocalDateTime time) {
         return time == null ? NONE : time.format(DATE_TIME);
+    }
+
+    /** The time of day with seconds, as it is typed into a time box: "14:05:30"; empty text for no time. */
+    public static String timeOfDay(LocalDateTime time) {
+        return time == null ? "" : time.format(TIME_OF_DAY);
     }
 
     /** A borrow period: "10 Nov 2026 09:00 – 17 Nov 2026 09:00". */

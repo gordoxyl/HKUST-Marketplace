@@ -4,7 +4,9 @@ import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.User;
 import com.hkust.marketplace.services.BrowseService;
 import com.hkust.marketplace.services.ChatService;
+import com.hkust.marketplace.services.Deal;
 import com.hkust.marketplace.services.ListingDetail;
+import com.hkust.marketplace.services.MyDealsService;
 import com.hkust.marketplace.services.NotificationService;
 import com.hkust.marketplace.services.OfferService;
 import com.hkust.marketplace.services.ProfileService;
@@ -28,14 +30,13 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
-import java.util.List;
 
 /**
  * The buyer's dashboard: the sidebar, and the main area that shows one screen at a time.
  * It only moves between screens and connects their buttons to the use cases; the rules are in
  * the services, and each screen is a class of its own ({@link BrowseView},
- * {@link ListingDetailView}, {@link SellerProfileView}, {@link MakeOfferFlow} and the shared
- * ones in {@code ui}).
+ * {@link ListingDetailView}, {@link SellerProfileView}, {@link MakeOfferFlow},
+ * {@link MyDealsView} and the shared ones in {@code ui}).
  */
 public class BuyerDashboardController implements ContentHost {
 
@@ -49,6 +50,9 @@ public class BuyerDashboardController implements ContentHost {
     private final BrowseService browseService = new BrowseService();
     private final ChatService chatService = new ChatService();
     private final MakeOfferFlow makeOffer = new MakeOfferFlow(new OfferService());
+    private final MyDealsService myDealsService = new MyDealsService();
+    /** The My Deals screen now open. It is kept while a deal's listing or chat is open, so Back returns to it. */
+    private MyDealsView myDealsView;
     /** The Browse screen now open. It is kept while a listing is open, so Back returns to it as it was. */
     private BrowseView browseView;
 
@@ -178,49 +182,61 @@ public class BuyerDashboardController implements ContentHost {
         Dialogs.info("Not built yet", "Reporting '" + listing.getTitle() + "' (UC9) is built later.");
     }
 
-    // ========== Screens that are still the skeleton's demo ==========
+    // ========== UC7 Manage My Deals ==========
 
     @FXML
     private void showMyDeals() {
         setActive(btnDeals, "My Deals");
-        contentPane.getChildren().clear();
+        myDealsView = new MyDealsView(myDealsService, new MyDealsView.Actions() {
+            @Override
+            public void viewListing(Deal deal) { // A4; opening it adds one view (UC8 Special Requirement 2)
+                openListing(deal.listing().getId(), "Back to My Deals", BuyerDashboardController.this::returnToMyDeals);
+            }
 
-        VBox root = new VBox(16);
-        root.setPadding(new Insets(4));
+            @Override
+            public void openChat(Deal deal) { // A4
+                openChatOfDeal(deal);
+            }
 
-        Label info = new Label("Active offers, borrow requests and claims");
-        info.setStyle("-fx-text-fill: #5a5a7a;");
-        root.getChildren().add(info);
+            @Override
+            public void agreeToCounter(Deal deal) { // Special Requirement 4: through Make Offer (UC5)
+                makeOffer.startFromCounter(deal.offer().getId());
+                myDealsView.refresh();
+            }
 
-        TableView<String[]> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-
-        TableColumn<String[], String> colTitle = new TableColumn<>("Item");
-        colTitle.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue()[0]));
-        TableColumn<String[], String> colSeller = new TableColumn<>("Seller");
-        colSeller.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue()[1]));
-        TableColumn<String[], String> colType = new TableColumn<>("Type");
-        colType.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue()[2]));
-        TableColumn<String[], String> colStatus = new TableColumn<>("Status");
-        colStatus.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue()[3]));
-        TableColumn<String[], String> colAction = new TableColumn<>("Action");
-        colAction.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue()[4]));
-
-        table.getColumns().addAll(colTitle, colSeller, colType, colStatus, colAction);
-
-        // Dummy rows
-        table.setItems(FXCollections.observableArrayList(
-                new String[]{"Calculus Textbook (Stewart)", "Charlie Lee", "Buy", "Accepted", "Chat / Complete"},
-                new String[]{"Graphing Calculator TI-84", "Diana Ng", "Borrow", "Pending", "View"}
-        ));
-
-        root.getChildren().add(table);
-        Label note = new Label("💡 Self-return for borrowed items and mark-complete are available here in the full version.");
-        note.setStyle("-fx-text-fill: #9aa0b0; -fx-font-size: 12px;");
-        root.getChildren().add(note);
-
-        contentPane.getChildren().add(root);
+            @Override
+            public void rateSeller(Deal deal) { // step 9 and Special Requirement 6: through Review Seller (UC10)
+                reviewSeller(deal);
+            }
+        });
+        show("My Deals", myDealsView);
     }
+
+    /** Back to My Deals from a deal's listing or chat, with the deals as they are now. */
+    private void returnToMyDeals() {
+        myDealsView.refresh();
+        show("My Deals", myDealsView);
+    }
+
+    /** UC7 A4: the chat thread of a deal. */
+    private void openChatOfDeal(Deal deal) {
+        try {
+            ChatView chat = new ChatView(chatService, chatService.openForOffer(deal.offer().getId()));
+            addOfferOptions(chat);
+            show(ChatText.title(chat.conversation()),
+                    new SubScreen("Back to My Deals", this::returnToMyDeals, chat));
+        } catch (ServiceException e) {
+            Dialogs.problem(e);
+        }
+    }
+
+    /** UC10 Review Seller starts here. It is built later (B5). */
+    private void reviewSeller(Deal deal) {
+        Dialogs.info("Not built yet", "Rating and reviewing " + deal.sellerName() + " (UC10) is built later. "
+                + "The Rate Seller button stays on this deal in My Deals.");
+    }
+
+    // ========== Screens that are still the skeleton's demo ==========
 
     @FXML
     private void showHistory() {

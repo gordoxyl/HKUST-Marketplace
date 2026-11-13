@@ -114,6 +114,16 @@ The app keeps its data between runs in the `marketplace-data` folder, which is c
   | macOS | `sh scripts/reset-data.sh` |
 
   The script moves the current save files into `marketplace-data/backups/<date-time>/`, so a reset can be undone, and the next start of the app creates fresh demo data. Add `normal` or `dev` to reset only that file, and `-NoBackup` (Windows) or `--no-backup` (macOS) to erase instead of keeping a backup. It refuses to run while the app is open, because the running app would save its data straight back.
+- **To add practice data** (deals to try by hand while the seller's screens are not built), close the app and run `scripts\practice-data.cmd` (Windows) or `sh scripts/practice-data.sh` (macOS) from the repository root. It gives `alice` (or `-Buyer <name>`; `buyer` in dev mode) one deal for every button of My Deals, and adds listings in every availability state:
+
+  | Where | What is added |
+  |---|---|
+  | My Deals, current | Desk Fan and Free Notebooks (accepted: **Mark Complete**), Camera Tripod and HDMI Cable (borrowed: **Return Item**; the cable is due 3 minutes after the script ran), Bluetooth Speaker and Camping Tent (countered: **Agree to Counter**), Scientific Calculator (pending) |
+  | My Deals, completed | USB-C Hub (not reviewed yet: **Rate Seller**), Umbrella (returned automatically) |
+  | Chats only | Office Chair (declined offer) |
+  | Browse | Mechanical Keyboard, Yoga Mat, Rice Cooker, Lab Coat (available); Study Desk (Reserved), Projector (Lent), Winter Jacket (Claim Pending) held by another buyer |
+
+  The script does what a seller would do (accept, counter, decline) through the app's own rules, backs the save file up to `marketplace-data/backups/<date-time>/` first, and refuses to run while the app is open. It adds nothing if practice data is already there; add `-Force` for another set, or run the reset script to start over. The tool is `testsupport/PracticeData` in the test sources, so it is not part of the app.
 - The folder is in `.gitignore`. Don't commit it or put it in the submission ZIP: each machine makes its own on the first run.
 
 ## Demo Credentials
@@ -141,7 +151,8 @@ All passwords meet the password rules: at least 8 characters, with at least one 
 - Registration, Login
 - **Browse Marketplace (UC8, done):** search by keyword; filter by category, type, condition and price range; sort; listing detail with photos, all fields, seller rating and reviews; seller profile; view count
 - **Make Offer (UC5, done):** price offer, borrow request with start and end date and time, one-click claim; from the listing detail, from the chat, or by agreeing to a seller's counter
-- My Deals, Deal History, Favourites (placeholder), Chats, Notifications, Profile
+- **My Deals (UC7, done):** current and completed deals with status, terms, counter and due date; mark a purchase or claim complete; return a borrowed item before its due date; agree to a counter; reopen the listing or the chat
+- Deal History, Favourites (placeholder), Chats, Notifications, Profile
 
 ### Seller Portal
 - Registration, Login, Create Listing, My Listings
@@ -203,6 +214,7 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `ChatService`: UC6 Chat About Listing, for buyers and sellers. `openForListing(listingId)` (buyer, from the listing detail), `openForOffer(offerId)` (buyer from My Deals, seller from an incoming offer), `getMyConversations()` (the Chats screen), `send(chat, text)` and `search(chat, keyword)`. It checks on every call that the user is the chat's buyer or the listing's seller, refuses empty messages, and notifies the other party. Offers appear in the history alongside the messages.
 - `BrowseService` (buyer, UC8): `search(BrowseQuery)` for the live listings by keyword, filters, price range and sort order; `openListing(id)`, which adds one view and returns a `ListingDetail`; `getSellerProfile(username)`. For prices a giveaway counts as HK$0 and lend listings have none.
 - `OfferService` (buyer, UC5): `start(listingId)` or `startFromCounter(offerId)` gives the `OfferForm` to show, then `submitPriceOffer(listingId, typedPrice)`, `submitBorrowRequest(listingId, start, end)` or `submitClaim(listingId)`. The final availability check and the recording are one transaction. A listing that is no longer available throws `ListingUnavailableException`; the seller gets an Offer Received notification.
+- `MyDealsService` (buyer, UC7): `getMyDeals()` gives each `Deal` with what can be done with it (`canBeMarkedComplete`, `canBeReturned`, `hasCounter`, `canBeReviewed`, `dueDate`); `markComplete(offerId)` and `returnItem(offerId)` check ownership, type, state and the due date, then use `DealRules`.
 - `Amounts`: `parse(typedText)` reads a typed amount of money (digits with at most two decimals) and `plain(amount)` writes one for an input box. Use it wherever a price is typed.
 - `PhotoService`: `importPhoto(file)` copies a PNG, JPEG, GIF or BMP image into the app's encrypted storage and returns the photo's id for `listing.setPhotos(...)`. For sellers and the admin. Import when the listing is submitted, so a cancelled form stores nothing.
 - `AuthService`: registration and login (UC1, UC2).
@@ -220,6 +232,7 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `ReviewList` and `ReviewText`: a seller's average rating and reviews (stars, date, comment, the seller's reply), as shown on the listing detail screen and the seller's profile. Pass the reviews from `getReviewsForSeller`, which already leaves out hidden ones.
 - `ListingSummary` also words a detail screen: `fields()` (every field of the listing as name and value), `descriptionText()` and `actionText()`.
 - `OfferText`: how an offer reads everywhere: `summary(offer)` (`Price offer: HK$ 160`), `counter(offer)`, `status(offer)`, the status badge's style, `actionText(type)` (Make Offer / Request Borrow / Claim Item) and `submitted(offer, title)` for the confirmation. Use it in My Deals, the seller's offers and the admin's deal records.
+- `DealText`: the wording of My Deals: seller and type, the dates a deal went through, the due date, and the confirmation questions.
 - `ContentHost`: implemented by each dashboard as `show(title, content)`. Shared components get the dashboard as a `ContentHost`, so they can open another screen with its data, such as a chat from the Chats screen.
 
 **How a service method is shaped.** One control class per actor and use case (Lecture 16), each method in this order:
@@ -256,7 +269,7 @@ We use **sandwich integration** (COMP 3111 Lecture 15). The bottom layer (models
 | Unit | Equivalence partitions and boundary values (e.g. rating 0/1/5/6, photos 6/7, borrow time 4 s/5 s); state-based tests for each state machine | `src/test/.../models`, `AccountValidatorTest` |
 | Integration | Use-case flow tests at service level, including flows across roles (offer → accept → complete → review; buyer and seller chatting; the rest of the system after an account is deleted); run all tests again after every change | `DealRulesTest`, `ChatServiceTest`, `AccountDeletionFlowTest`, `DataStoreTest`, `PersistenceTest` |
 | Regression | Every bug found gets a test that reproduces it, with its input and correct output recorded in [docs/regression-log.md](docs/regression-log.md) | e.g. `AppStoreStartupTest` |
-| System / acceptance | One manual scenario per flow of each use case, run through the screens; teammates test each other's portals | [docs/acceptance-tests.md](docs/acceptance-tests.md) (UC5 and UC8 so far) |
+| System / acceptance | One manual scenario per flow of each use case, run through the screens; teammates test each other's portals | [docs/acceptance-tests.md](docs/acceptance-tests.md) (UC5, UC7 and UC8 so far) |
 
 Which course concept is applied where (boundary/control/entity classes, the barricade, equivalence partitions, boundary values, basis paths, thread and state-based tests) is listed in [docs/course-concepts.md](docs/course-concepts.md).
 

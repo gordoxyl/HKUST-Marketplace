@@ -18,6 +18,11 @@ Demo listings after a reset: *MacBook Pro Charger 61W* (sale, HK$ 250, Charlie, 
 (giveaway, Diana, available), *Graphing Calculator TI-84* (lend, 90 days, Diana, available; Bob has a pending
 borrow request), *Calculus Textbook (Stewart)* (sale, HK$ 180, Charlie, **Reserved** for Alice).
 
+Scenarios marked *needs Task 2.5* need a seller to accept or counter an offer. Until the seller's Manage
+Offers screen exists, run `scripts\practice-data.cmd` after the reset: it adds deals that a seller has
+already accepted or countered for `alice` (Desk Fan, Free Notebooks, Camera Tripod, HDMI Cable, Bluetooth
+Speaker, Camping Tent), and those scenarios can be run on them instead.
+
 Scenarios for the other use cases are added as each one is built.
 
 ---
@@ -60,3 +65,25 @@ Log in as `alice` unless a step says otherwise.
 | AT-UC5-11 | SR5 earlier offers stay | Continue from AT-UC5-10. | Both offers (HK$ 200 and HK$ 210) are listed as Pending. | |
 | AT-UC5-12 | SR4 agreeing to a counter | Needs the seller's Manage Offers screen (Task 2.5): as `charlie`, counter Alice's HK$ 200 offer with HK$ 230. As `alice`, open the chat and press "Agree to Counter" on that offer, then Submit. | The form starts with `230`. A new Pending offer of HK$ 230 appears; the first offer stays "Countered". | |
 | AT-UC5-13 | Saved data | After any of the scenarios above, close the app and start it again. | The offers are still in the chats, and the lamp is still "Claim Pending". | |
+
+## UC7 Manage My Deals (Task 1.6)
+
+After a reset, Alice has one accepted deal (HK$ 160 for the calculus textbook), and Bob has a pending
+borrow request (calculator) and a completed, already reviewed purchase (organic chemistry textbook).
+Scenarios marked *needs Task 2.5* need the seller's Manage Offers screen to accept or counter an offer.
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-UC7-01 | Basic flow, steps 1-2 | Log in as `alice`, open My Deals. | "Current deals" has Calculus Textbook (Stewart): Seller: Charlie Lee · Price offer, status Accepted, "Price offer: HK$ 160", the dates it was made and accepted, and the buttons Mark Complete, View Listing, Open Chat. | |
+| AT-UC7-02 | Step 2, current then completed | Log in as `bob`, open My Deals. | "Current deals": the calculator, a Borrow request with its period, status Pending, no Mark Complete or Return Item. "Completed deals": Organic Chemistry Textbook, status Completed, with no Rate Seller button (Bob already reviewed it). | |
+| AT-UC7-03 | A3 Not confirmed | As `alice`, press Mark Complete, then Cancel. | The deal is still Accepted under Current deals. | |
+| AT-UC7-04 | Basic flow, steps 3-8 | Press Mark Complete, then OK. Answer the rating question with Cancel. Then log in as `charlie`: open My Listings and Notifications. | The deal moves to "Completed deals" with status Completed and today's date. Charlie's Calculus Textbook is Sold, and he has a Deal Completed notification: "Alice Chan marked the deal for 'Calculus Textbook (Stewart)' complete." | |
+| AT-UC7-05 | Step 9, rating prompt | Continue from AT-UC7-04 as `alice`. | Right after completing, the question "…Would you like to rate and review the seller now?" appeared. The completed deal has a Rate Seller button. (Rating itself is UC10.) | |
+| AT-UC7-06 | A4 Reopen listing (UC8 SR2) | On the completed calculus deal press View Listing, note Views, press "Back to My Deals", and open it again. | The detail opens although the listing is Sold, with Make Offer disabled. Views goes up by one per opening. Back returns to My Deals. | |
+| AT-UC7-07 | A4 Reopen chat | Press Open Chat on the calculus deal, then "Back to My Deals". | The chat with Charlie Lee shows the offer and both messages. Back returns to My Deals. | |
+| AT-UC7-08 | A1 No deals | Register a new buyer, log in, open My Deals. | "You have no deals yet. Open a listing in Browse Marketplace to make an offer, send a borrow request or claim an item." | |
+| AT-UC7-09 | New deals appear (UC5) | As `alice`, make an offer on the charger and claim the lamp (AT-UC5-01, AT-UC5-03), then open My Deals. | Both are under Current deals as Pending, the newest first, above older ones. | |
+| AT-UC7-10 | A2 Return borrowed item *(needs Task 2.5)* | As `diana`, accept Bob's borrow request. As `bob`, open My Deals, press Return Item, then OK. | Before: status Accepted, "Due" with the end of the period, and a Return Item button. After: "'Graphing Calculator TI-84' was returned. Diana Ng has been notified."; the deal is under Completed deals with "Returned" and today's date; Diana has "Bob Wong returned 'Graphing Calculator TI-84'."; the calculator is Available again on Browse. | |
+| AT-UC7-11 | SR3 no self-return after the due date *(needs Task 2.5)* | As `alice`, request the calculator for a 5-second period; as `diana`, accept it; wait until the end has passed; as `alice`, open My Deals. | No Return Item button: the item is returned automatically (UC12). | |
+| AT-UC7-12 | SR4 Agree to a counter *(needs Task 2.5)* | As `charlie`, counter Alice's offer on the charger. As `alice`, open My Deals and press Agree to Counter, then Submit. | The deal shows "Seller's counter: HK$ …" and an Agree to Counter button. The form starts with the counter price. Afterwards a new Pending offer is listed above the Countered one. | |
+| AT-UC7-13 | Saved data | After AT-UC7-04, close the app and start it again. | The calculus deal is still under Completed deals, and the listing is still Sold. | |

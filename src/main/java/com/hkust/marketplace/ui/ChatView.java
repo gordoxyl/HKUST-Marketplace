@@ -1,6 +1,7 @@
 package com.hkust.marketplace.ui;
 
 import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.models.OfferStatus;
 import com.hkust.marketplace.services.ChatEntry;
 import com.hkust.marketplace.services.ChatService;
 import com.hkust.marketplace.services.Conversation;
@@ -23,6 +24,7 @@ import javafx.scene.layout.VBox;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * The chat screen, the same in the buyer and seller portals (UC6 Chat About Listing; Tasks
@@ -32,13 +34,15 @@ import java.util.List;
  * Conversation chat = chatService.openForOffer(offer.getId());       // or openForListing(listingId)
  * host.show(ChatText.title(chat), new ChatView(chatService, chat));
  * }</pre>
- * The buyer portal adds the formal Make Offer option (UC5) with {@link #setOnMakeOffer}.
+ * The buyer portal adds the two ways into Make Offer (UC5 step 1) that start in a chat: the
+ * Make Offer option with {@link #setOnMakeOffer}, and agreeing to a seller's counter with
+ * {@link #setOnAgreeToCounter}.
  *
  * <p>All rules (who may read and write, empty messages, searching) are in the tested
  * {@link ChatService}, and the wording in {@link ChatText} and {@link OfferText}; this class
  * only lays the chat out.
  */
-public class ChatView extends VBox {
+public class ChatView extends VBox implements Refreshable {
 
     private static final double BUBBLE_WIDTH = 520;
 
@@ -58,6 +62,8 @@ public class ChatView extends VBox {
     private final TextArea input = new TextArea();
     private final HBox buttons = new HBox(8);
     private Button makeOfferButton;
+    /** What "Agree to Counter" on a countered offer does; null while the option is not offered. */
+    private Consumer<Offer> agreeToCounter;
 
     public ChatView(ChatService service, Conversation conversation) {
         super(12);
@@ -82,15 +88,21 @@ public class ChatView extends VBox {
         showHistory();
     }
 
+    /** The chat this screen shows, as it was last loaded: the listing it is about and the people in it. */
+    public Conversation conversation() {
+        return conversation;
+    }
+
     /**
-     * Adds a Make Offer button for the buyer (UC5 step 1: "the Make Offer option in the
-     * listing's chat thread"). The action runs Make Offer; afterwards the history is reloaded,
-     * so a new offer appears in it. Nothing is added when the viewer is the seller.
+     * Adds the Make Offer option for the buyer (UC5 step 1: "the Make Offer option in the
+     * listing's chat thread"), named after the listing type: Make Offer, Request Borrow or
+     * Claim Item. The action runs Make Offer; afterwards the history is reloaded, so a new
+     * offer appears in it. Nothing is added when the viewer is the seller.
      */
     public ChatView setOnMakeOffer(Runnable makeOffer) {
         buttons.getChildren().remove(makeOfferButton);
         if (conversation.viewerIsBuyer()) {
-            makeOfferButton = new Button("Make Offer");
+            makeOfferButton = new Button(OfferText.actionText(conversation.listing().getType()));
             makeOfferButton.getStyleClass().add("btn-outline");
             makeOfferButton.setOnAction(e -> {
                 makeOffer.run();
@@ -101,7 +113,20 @@ public class ChatView extends VBox {
         return this;
     }
 
+    /**
+     * Adds an Agree to Counter button for the buyer on each of their offers that the seller
+     * countered (UC5 step 1: "choosing to agree to a seller's counter on one of their earlier
+     * offers"). The action runs Make Offer with the counter's terms filled in; afterwards the
+     * history is reloaded. Nothing is added when the viewer is the seller.
+     */
+    public ChatView setOnAgreeToCounter(Consumer<Offer> agree) {
+        agreeToCounter = agree;
+        showHistory();
+        return this;
+    }
+
     /** Reloads the history, for example after an offer was made or the other party wrote. */
+    @Override
     public final void refresh() {
         try {
             conversation = service.reload(conversation);
@@ -205,6 +230,15 @@ public class ChatView extends VBox {
 
         VBox card = new VBox(3, meta(entry), terms);
         OfferText.counter(offer).ifPresent(counter -> card.getChildren().add(text(counter, "chat-text")));
+        if (agreeToCounter != null && conversation.viewerIsBuyer() && offer.getStatus() == OfferStatus.COUNTERED) {
+            Button agree = new Button("Agree to Counter");
+            agree.getStyleClass().addAll("btn-outline", "btn-sm");
+            agree.setOnAction(e -> {
+                agreeToCounter.accept(offer);
+                refresh();
+            });
+            card.getChildren().add(agree);
+        }
         card.getStyleClass().add("chat-offer");
         card.setMaxWidth(BUBBLE_WIDTH);
         return row(card, Pos.CENTER);

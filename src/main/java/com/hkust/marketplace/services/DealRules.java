@@ -45,7 +45,8 @@ public class DealRules {
      * 3.3.3-3.3.6; UC7 Special Requirement 5): the offer is Accepted, the listing becomes
      * Reserved (sale, giveaway) or Lent (lend), every other open offer on the listing is
      * declined, and each affected buyer is notified.
-     * @throws ServiceException if the offer is not pending or the listing is no longer Live (A2)
+     * @throws ServiceException if the offer is not pending, the listing is no longer Live (A2),
+     *         or it is a borrow request whose period has already ended
      */
     public void accept(Offer offer) {
         store.transaction(() -> {
@@ -56,6 +57,12 @@ public class DealRules {
             // Checked on the status, not isAvailable(): a giveaway is "unavailable" exactly because of the claim being accepted
             if (listing.getStatus() != ListingStatus.LIVE) {
                 throw new ServiceException("This listing is no longer available.");
+            }
+            // A borrow period that is over cannot begin: the item would be lent and returned
+            // automatically at once, with a completion date before its acceptance (regression log R8)
+            if (offer instanceof BorrowRequest request && !store.now().isBefore(request.getDueDate())) {
+                throw new ServiceException("The borrow period of this request has already ended. "
+                        + "Decline it, or counter with new dates.");
             }
             offer.accept(store.now());
             listing.acceptDeal();

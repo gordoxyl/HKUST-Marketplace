@@ -29,7 +29,7 @@ import java.util.function.Consumer;
  * screen is our addition: it is how a seller reaches a chat that a buyer started with a
  * message and no offer (see the assumptions in the supplementary notes).
  */
-public class ChatList extends ScrollPane {
+public class ChatList extends ScrollPane implements Refreshable {
 
     private final ChatService service;
     private final ContentHost host;
@@ -56,6 +56,7 @@ public class ChatList extends ScrollPane {
     }
 
     /** Reloads the list of chats. */
+    @Override
     public final void refresh() {
         list.getChildren().clear();
         List<Conversation> chats;

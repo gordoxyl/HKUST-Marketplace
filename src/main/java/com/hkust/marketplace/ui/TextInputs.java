@@ -1,5 +1,11 @@
 package com.hkust.marketplace.ui;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.Optional;
 
 /**
@@ -8,8 +14,29 @@ import java.util.Optional;
  */
 public final class TextInputs {
 
+    /** A time of day as it is typed: hours, minutes and optionally seconds, such as "9:05" or "14:30:05". */
+    private static final DateTimeFormatter TIME_OF_DAY =
+            DateTimeFormatter.ofPattern("H:mm[:ss]").withResolverStyle(ResolverStyle.STRICT);
+
     private TextInputs() {
         // Utility class
+    }
+
+    /**
+     * A date chosen in a date picker and a time typed next to it, as one date and time; empty
+     * if the date is missing or the time is not a time of day. The time is hours and minutes,
+     * with seconds if wanted ("14:30" or "14:30:05"), so that a borrow period of a few
+     * seconds can be entered (UC5 Special Requirement 3).
+     */
+    public static Optional<LocalDateTime> dateTime(LocalDate date, String time) {
+        if (date == null || time == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(date.atTime(LocalTime.parse(time.strip(), TIME_OF_DAY)));
+        } catch (DateTimeParseException e) {
+            return Optional.empty();
+        }
     }
 
     /**

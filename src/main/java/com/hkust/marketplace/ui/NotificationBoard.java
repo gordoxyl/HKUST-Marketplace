@@ -25,7 +25,7 @@ import java.util.List;
  * All rules (whose notifications, the order, marking as read) are in the tested
  * {@link NotificationService}; this class only displays them.
  */
-public class NotificationBoard extends ScrollPane {
+public class NotificationBoard extends ScrollPane implements Refreshable {
 
     private final NotificationService service;
     private final VBox list = new VBox(12);
@@ -38,7 +38,8 @@ public class NotificationBoard extends ScrollPane {
         refresh();
     }
 
-    /** Reloads the board, for example after a notification was marked as read. */
+    /** Reloads the board, for example after a notification was marked as read, or a due-date reminder came. */
+    @Override
     public final void refresh() {
         list.getChildren().clear();
         List<Notification> notifications;

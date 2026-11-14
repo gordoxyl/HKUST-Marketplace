@@ -2,6 +2,7 @@ package com.hkust.marketplace.ui;
 
 import com.hkust.marketplace.models.BorrowRequest;
 import com.hkust.marketplace.models.Claim;
+import com.hkust.marketplace.models.ListingType;
 import com.hkust.marketplace.models.Offer;
 import com.hkust.marketplace.models.PriceOffer;
 import com.hkust.marketplace.testsupport.Fixtures;
@@ -38,11 +39,11 @@ class OfferTextTest {
     void borrowRequest_showsItsPeriod_andTheSellersCounter() {
         BorrowRequest request = new BorrowRequest("L1", "bea", START, END);
 
-        assertEquals("Borrow request: 02 Nov 2026 13:00 – 09 Nov 2026 13:00", OfferText.summary(request));
+        assertEquals("Borrow request: 02 Nov 2026 13:00:00 – 09 Nov 2026 13:00:00", OfferText.summary(request));
         assertEquals(Optional.empty(), OfferText.counter(request));
 
         request.counter(START.plusDays(1), END.plusDays(1));
-        assertEquals(Optional.of("Seller's counter: 03 Nov 2026 13:00 – 10 Nov 2026 13:00"), OfferText.counter(request));
+        assertEquals(Optional.of("Seller's counter: 03 Nov 2026 13:00:00 – 10 Nov 2026 13:00:00"), OfferText.counter(request));
     }
 
     @Test
@@ -51,6 +52,25 @@ class OfferTextTest {
 
         assertEquals("Claim", OfferText.summary(claim));
         assertEquals(Optional.empty(), OfferText.counter(claim));
+    }
+
+    @Test
+    void action_isNamedAfterTheListingType() {
+        assertEquals("Make Offer", OfferText.actionText(ListingType.SELL));
+        assertEquals("Request Borrow", OfferText.actionText(ListingType.LEND));
+        assertEquals("Claim Item", OfferText.actionText(ListingType.GIVEAWAY));
+    }
+
+    @Test
+    void confirmation_namesTheOfferItsTermsAndTheListing() {
+        // UC5 step 9
+        assertEquals("Your price offer for 'Desk Lamp' was submitted: HK$ 160. The seller has been notified.",
+                OfferText.submitted(new PriceOffer("L1", "bea", 160), "Desk Lamp"));
+        assertEquals("Your borrow request for 'Calculator' was submitted: 02 Nov 2026 13:00:00 – 09 Nov 2026 13:00:00. "
+                        + "The seller has been notified.",
+                OfferText.submitted(new BorrowRequest("L1", "bea", START, END), "Calculator"));
+        assertEquals("Your claim for 'Desk Lamp' was submitted. The seller has been notified.",
+                OfferText.submitted(new Claim("L1", "bea"), "Desk Lamp"));
     }
 
     @Test
@@ -72,6 +92,21 @@ class OfferTextTest {
 
         accepted.complete(END); // marked complete, or the item returned
         assertStatus("Completed", "badge-sold", accepted);
+    }
+
+    @Test
+    void borrowedItem_saysHowItCameBack() {
+        // UC12 step 4: a deal the timer returned is shown as Auto-returned
+        BorrowRequest byBuyer = new BorrowRequest("L1", "bea", START, END);
+        byBuyer.accept(START);
+        assertStatus("Accepted", "badge-live", byBuyer);
+        byBuyer.complete(START.plusDays(1));
+        assertStatus("Returned", "badge-sold", byBuyer);
+
+        BorrowRequest byTimer = new BorrowRequest("L1", "bea", START, END);
+        byTimer.accept(START);
+        byTimer.autoReturn();
+        assertStatus("Auto-returned", "badge-sold", byTimer);
     }
 
     private static void assertStatus(String status, String style, Offer offer) {

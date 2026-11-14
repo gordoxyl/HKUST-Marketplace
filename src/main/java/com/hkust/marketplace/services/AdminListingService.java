@@ -7,6 +7,7 @@ import com.hkust.marketplace.models.ListingAction;
 import com.hkust.marketplace.models.ListingActionRecord;
 import com.hkust.marketplace.models.ListingStatus;
 import com.hkust.marketplace.models.NotificationCategory;
+import com.hkust.marketplace.ui.TextInputs;
 
 /**
  * Control class for the admin's listing moderation (use case Manage Marketplace Listings,
@@ -17,6 +18,7 @@ public class AdminListingService {
 
     private final DataStore store;
     private final NotificationService notifications;
+    private final DealRules dealRules;
 
     public AdminListingService() {
         this(DataStore.getInstance());
@@ -25,6 +27,7 @@ public class AdminListingService {
     public AdminListingService(DataStore store) {
         this.store = store;
         this.notifications = new NotificationService(store);
+        this.dealRules = new DealRules(store);
     }
 
     /**
@@ -50,10 +53,9 @@ public class AdminListingService {
      */
     public void rejectListing(String listingId, String reason) {
         Admin admin = AccessControl.requireAdmin();
-        if (reason == null || reason.isBlank()) {
-            throw new ServiceException("A reason is required to reject a listing.");
-        }
-        String cleanReason = reason.trim();
+        String cleanReason = TextInputs.required(reason)
+                .orElseThrow(() -> new ServiceException("A reason is required to reject a listing."));
+
         store.transaction(() -> {
             Listing listing = requirePending(listingId, "rejected");
             listing.reject();
@@ -61,6 +63,42 @@ public class AdminListingService {
                     listing.getId(), admin.getUsername(), ListingAction.REJECT_LISTING, cleanReason));
             notifications.send(listing.getSellerUsername(), NotificationCategory.LISTING_REJECTED,
                     "Your listing '" + listing.getTitle() + "' was rejected. Reason: " + cleanReason);
+        });
+    }
+
+
+    /**
+     * Removes (takes down) a listing (Manage Marketplace Listings 5.5): status Removed, all open
+     * offers declined with a LISTING_REMOVED notification to each buyer, action recorded, seller notified.
+     *
+     * @throws ServiceException if the reason is blank (A1), the listing does not exist,
+     *         or it is already Sold, Given or Removed
+     */
+    public void removeListing(String listingId, String reason) {
+        Admin admin = AccessControl.requireAdmin();
+        String cleanReason = TextInputs.required(reason)
+                .orElseThrow(() -> new ServiceException("A reason is required to remove a listing."));
+
+        store.transaction(() -> {
+            Listing listing = store.findListing(listingId);
+            if (listing == null) {
+                throw new ServiceException("This listing no longer exists.");
+            }
+            if (!listing.canBeRemoved()) {
+                throw new ServiceException(
+                        "A listing that is already sold, given, or removed cannot be taken down.");
+            }
+
+            dealRules.declineOpenOffers(listing, NotificationCategory.LISTING_REMOVED,
+                    "the admin removed the listing");
+            listing.remove();
+
+            store.addListingAction(new ListingActionRecord(
+                    listing.getId(), admin.getUsername(), ListingAction.REMOVE_LISTING, cleanReason));
+
+            notifications.send(listing.getSellerUsername(), NotificationCategory.LISTING_REMOVED,
+                    "Your listing '" + listing.getTitle() + "' has been taken down by an administrator. "
+                            + "Reason: " + cleanReason);
         });
     }
 

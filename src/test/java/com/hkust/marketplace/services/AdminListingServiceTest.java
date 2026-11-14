@@ -14,7 +14,11 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Tests for Manage Marketplace Listings 5.2 (approve) and 5.3 (reject). */
+import com.hkust.marketplace.testsupport.Fixtures;
+
+/**
+ * Tests for Manage Marketplace Listings 5.2 (approve) and 5.3 (reject).
+ */
 class AdminListingServiceTest {
 
     private AdminTestSupport support;
@@ -110,4 +114,60 @@ class AdminListingServiceTest {
         assertEquals("Only a listing that is pending review can be rejected.", e.getMessage());
         assertEquals(ListingStatus.LIVE, live.getStatus());
     }
+
+
+    // ---------- 5.5 Remove (Take Down) ----------
+
+    @Test
+    void manageMarketplaceListings_5_5_basicFlow_removeListingChangesStatusDeclineOffersNotifiesSeller() {
+        SaleListing book = support.liveSale();
+        Offer offer1 = support.store.addOffer(new PriceOffer(book.getId(), "bea", 90));
+        Offer offer2 = support.store.addOffer(new PriceOffer(book.getId(), "bea", 85));
+        support.clock.advance(Duration.ofHours(1));
+
+        service.removeListing(book.getId(), "Violates policy");
+
+        assertEquals(ListingStatus.REMOVED, book.getStatus());
+        assertEquals(OfferStatus.DECLINED, offer1.getStatus());
+        assertEquals(OfferStatus.DECLINED, offer2.getStatus());
+
+        ListingActionRecord record = support.store.getListingActions(book.getId()).get(0);
+        assertEquals(ListingAction.REMOVE_LISTING, record.getTypeOfAction());
+        assertEquals("Violates policy", record.getReason());
+        assertEquals("ada", record.getAdminUsername());
+
+        Notification toBuyer = support.store.getNotificationsFor("bea").get(0);
+        assertEquals(NotificationCategory.LISTING_REMOVED, toBuyer.getCategory());
+        assertTrue(toBuyer.getContent().contains("the admin removed the listing"));
+
+        Notification toSeller = support.store.getNotificationsFor("sam").get(0);
+        assertEquals(NotificationCategory.LISTING_REMOVED, toSeller.getCategory());
+        assertTrue(toSeller.getContent().contains("taken down"));
+        assertTrue(toSeller.getContent().contains("Reason: Violates policy"));
+    }
+
+    @Test
+    void manageMarketplaceListings_5_5_removeRefusedForSoldListing() {
+        SaleListing book = Fixtures.moveTo(Fixtures.sale(support.store, "sam", 100), ListingStatus.SOLD);
+
+        ServiceException e = assertThrows(ServiceException.class,
+                () -> service.removeListing(book.getId(), "Test"));
+
+        assertEquals("A listing that is already sold, given, or removed cannot be taken down.",
+                e.getMessage());
+        assertEquals(ListingStatus.SOLD, book.getStatus());
+        assertTrue(support.store.getListingActions(book.getId()).isEmpty());
+    }
+
+    @Test
+    void manageMarketplaceListings_5_5_removeRefusedForGivenListing() {
+        GiveawayListing item = Fixtures.moveTo(Fixtures.giveaway(support.store, "sam"), ListingStatus.GIVEN);
+
+        ServiceException e = assertThrows(ServiceException.class,
+                () -> service.removeListing(item.getId(), "Test"));
+
+        assertTrue(e.getMessage().contains("already sold, given, or removed"));
+        assertEquals(ListingStatus.GIVEN, item.getStatus());
+    }
+
 }

@@ -83,23 +83,29 @@ The use-case spec `Diagrams and Use-Case Specifications.pdf` is authoritative fo
 ## 4. `data/DataStore` (use `DataStore.getInstance()`; services take a `DataStore` in a second constructor for tests)
 
 ```java
-store.transaction(() -> { ... });   store.read(() -> ...);   store.now();
-// users
-store.getAllUsers(); store.getUsersByRole(UserRole.SELLER); store.findUser(username); store.getFullName(username);
-// listings
-store.getAllListings(); store.getListingsByStatus(ListingStatus.PENDING_REVIEW); store.getListingsBySeller(u);
-store.findListing(id); store.addListing(listing);
-// deals
-store.getAllOffers(); store.getOffersByBuyer(u); store.getOffersForSeller(u); store.getOffersForListing(id);
-store.getListingOf(offer);
-// ratings (Seller Ratings tab: average, total reviews, completed deals)
-store.getAllReviews(); store.getReviewsForSellerIncludingHidden(seller);   // admin moderation ONLY
-store.getReviewsForSeller(seller);            // what everyone else sees: hidden excluded
-store.getAverageRating(seller); store.getRatingCount(seller);              // hidden excluded automatically
-store.getCompletedDealCount(seller); store.getOffersReceivedCount(seller); store.getTotalViews(seller);
-store.getSellerUsername(review); store.getBuyerUsername(review);
-// reports
-store.getAllReports(); store.getReportsForListing(listingId);
+// The calls an admin service makes on its DataStore ("store")
+void dataStoreCalls(DataStore store, String username, String seller, String listingId,
+                    Listing listing, Offer offer, Review review) {
+    store.transaction(() -> { /* change model objects here */ });   // atomic write step, saved at the end
+    store.read(() -> store.getAllUsers());                            // several reads as one step, never saves
+    store.now();                                                      // the current time: never LocalDateTime.now()
+    // users
+    store.getAllUsers(); store.getUsersByRole(UserRole.SELLER); store.findUser(username); store.getFullName(username);
+    // listings
+    store.getAllListings(); store.getListingsByStatus(ListingStatus.PENDING_REVIEW); store.getListingsBySeller(seller);
+    store.findListing(listingId); store.addListing(listing);
+    // deals
+    store.getAllOffers(); store.getOffersByBuyer(username); store.getOffersForSeller(seller); store.getOffersForListing(listingId);
+    store.getListingOf(offer);
+    // ratings (Seller Ratings tab: average, total reviews, completed deals)
+    store.getAllReviews(); store.getReviewsForSellerIncludingHidden(seller);   // admin moderation ONLY
+    store.getReviewsForSeller(seller);            // what everyone else sees: hidden excluded
+    store.getAverageRating(seller); store.getRatingCount(seller);              // hidden excluded automatically
+    store.getCompletedDealCount(seller); store.getOffersReceivedCount(seller); store.getTotalViews(seller);
+    store.getSellerUsername(review); store.getBuyerUsername(review);
+    // reports
+    store.getAllReports(); store.getReportsForListing(listingId);
+}
 ```
 
 ### `store.deleteAccount(username)` → `DeletedAccount` (Delete User, 6.4.4)
@@ -129,7 +135,13 @@ public void deleteUser(String username, String reason) {
         if (store.findUser(username) == null) throw new ServiceException("This account no longer exists.");
         DeletedAccount deleted = store.deleteAccount(username);
         store.addAuditLogEntry(new AuditLogEntry(admin.getUsername(), username, "Delete account", why, deleted.snapshot()));
-        for (Offer o : deleted.declinedOffers()) { /* notify o.getBuyerUsername() and the listing's seller, except `username` */ }
+        for (Offer offer : deleted.declinedOffers()) {   // tell the other side of each cancelled offer
+            Listing listing = store.getListingOf(offer);
+            String other = offer.getBuyerUsername().equalsIgnoreCase(username)
+                    ? listing.getSellerUsername() : offer.getBuyerUsername();
+            notifications.send(other, NotificationCategory.OFFER_UPDATE, "The " + offer.getKindName() + " for '"
+                    + listing.getTitle() + "' was cancelled because the account @" + username + " was deleted.");
+        }
     });
 }
 ```
@@ -170,7 +182,8 @@ The average rating is recalculated automatically.
 - `Dialogs.confirm(title, msg)`, `info`, `error`, `problem(ServiceException)`,
   `askReason(title, question)` → `Optional<String>` (asks again until a reason is typed; empty = cancelled).
   `TextInputs.required(text)` → `Optional<String>` for the same check inside a service.
-- `Formats`: `date`, `dateTime`, `period`, `price`, `duration`, `stars(int)`,
+- `Formats`: `date`, `dateTime` (to the minute), `borrowTime` and `period` (to the second: use them for borrow
+  periods and due dates), `price`, `duration`, `stars(int)`,
   `averageRating(OptionalDouble, count)`, `preview(text, max)`, `NONE`.
 - `OfferText`: `summary(offer)`, `counter(offer)`, `status(offer)` ("Completed" once completed),
   `badgeStyle(offer)`, `kind(offer)`: for the All Deals table.
@@ -214,13 +227,19 @@ Then replace the inline logic in `AdminDashboardController.createPendingCard` wi
 ## 8. Testing support (`src/test/java/.../testsupport`)
 
 ```java
+// In a test class (see AccountDeletionTest for a whole one)
 TestClock clock = Fixtures.clock();                 // starts at Fixtures.START; clock.advance(Duration)
 DataStore store = Fixtures.store(clock);            // in memory, nothing written to disk
 Admin ada = Fixtures.admin(store, "ada"); Seller sam = Fixtures.seller(store, "sam"); Buyer bea = Fixtures.buyer(store, "bea");
 SaleListing pending = Fixtures.sale(store, "sam", 100);               // Pending Review
 SaleListing live = Fixtures.live(Fixtures.sale(store, "sam", 100));   // also lend(...), giveaway(...)
-Fixtures.moveTo(Fixtures.sale(store, "sam", 50), ListingStatus.SOLD); // any status, via the state machine
-SessionManager.login(ada);                          // then call your service; SessionManager.logout() in @AfterEach
+
+@Test
+void rejectingASoldListing_isRefused() {
+    Listing sold = Fixtures.moveTo(Fixtures.sale(store, "sam", 50), ListingStatus.SOLD); // any status, via the state machine
+    SessionManager.login(ada);                      // then call your service; SessionManager.logout() in @AfterEach
+    assertThrows(ServiceException.class, () -> new AdminListingService(store).reject(sold.getId(), "Too late"));
+}
 ```
 Examples to copy: `DealRulesTest`, `AccountDeletionTest`, `AccountDeletionFlowTest`, `PersistenceTest`
 (`adminDeactivationAndReviewHiding_surviveARestart`, `auditEntryWithASnapshot_alsoWritesAnEncryptedTxtFile`).

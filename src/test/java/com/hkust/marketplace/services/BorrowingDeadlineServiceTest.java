@@ -145,9 +145,22 @@ class BorrowingDeadlineServiceTest {
         deadlines.process();
 
         Notification reminder = boardOf(bea, NotificationCategory.DUE_DATE_REMINDER).get(0);
-        assertEquals("Reminder: 'Calculator' is due on 09 Nov 2026 12:00.", reminder.getContent());
+        assertEquals("Reminder: 'Calculator' is due on 09 Nov 2026 12:00:00.", reminder.getContent());
         assertEquals(request.getReminderTime(), reminder.getTimestamp());
         assertEquals(samBefore, store.getNotificationsFor("sam").size());
+    }
+
+    /** Regression R9: the reminder names the due time to the second, as My Deals does. */
+    @Test
+    void reminderOfAShortLoan_namesTheDueTimeToTheSecond() {
+        clock.advance(Duration.ofSeconds(44));
+        BorrowRequest request = borrowed(Duration.ofMinutes(5)); // 12:00:44 to 12:05:44, like the practice HDMI Cable
+        clock.set(request.getReminderTime());
+
+        deadlines.process();
+
+        assertEquals("Reminder: 'Calculator' is due on 02 Nov 2026 12:05:44.",
+                boardOf(bea, NotificationCategory.DUE_DATE_REMINDER).get(0).getContent());
     }
 
     @Test
@@ -345,6 +358,7 @@ class BorrowingDeadlineServiceTest {
 
         assertFalse(again.hasChanges());
         assertEquals(beaNotifications, store.getNotificationsFor("bea").size());
+        assertEquals(request.getDueDate(), request.getCompletedDate()); // the first return stays as it was
     }
 
     @Test

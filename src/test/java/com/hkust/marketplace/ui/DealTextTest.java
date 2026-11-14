@@ -61,11 +61,26 @@ class DealTextTest {
         assertEquals(Optional.empty(), DealText.due(deal(request))); // not accepted yet: no due date
 
         request.accept(MADE.plusHours(1));
-        assertEquals(Optional.of("Due 17 Nov 2026 14:05"), DealText.due(deal(request)));
+        assertEquals(Optional.of("Due 17 Nov 2026 14:05:00"), DealText.due(deal(request)));
 
         request.complete(MADE.plusDays(2)); // returned by the buyer
         assertEquals(Optional.empty(), DealText.due(deal(request)));
         assertTrue(DealText.dates(deal(request)).endsWith("· Returned 11 Nov 2026"));
+    }
+
+    /**
+     * Regression R9, the recorded input: the practice HDMI Cable, lent from 14:01:44 to
+     * 14:06:44. My Deals must show the due time to the second; shown as "14:06", the return at
+     * 14:06:44 looked 44 seconds late although it came 0.06 s after the due time.
+     */
+    @Test
+    void shortLoan_showsItsPeriodAndDueTimeToTheSecond() {
+        BorrowRequest cable = made(new BorrowRequest("L1", "buyer",
+                LocalDateTime.of(2026, 11, 14, 14, 1, 44), LocalDateTime.of(2026, 11, 14, 14, 6, 44)));
+        cable.accept(LocalDateTime.of(2026, 11, 14, 14, 1, 44));
+
+        assertEquals("Borrow request: 14 Nov 2026 14:01:44 – 14 Nov 2026 14:06:44", OfferText.summary(cable));
+        assertEquals(Optional.of("Due 14 Nov 2026 14:06:44"), DealText.due(deal(cable)));
     }
 
     @Test

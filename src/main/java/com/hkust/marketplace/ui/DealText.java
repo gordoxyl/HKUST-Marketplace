@@ -51,14 +51,14 @@ public final class DealText {
     }
 
     /**
-     * The due date of a borrowed item that has not been returned yet (UC7 step 2):
-     * "Due 17 Nov 2026 09:00". Empty for every other deal.
+     * The due date of a borrowed item that has not been returned yet (UC7 step 2), to the
+     * second: "Due 17 Nov 2026 09:00:00". Empty for every other deal.
      */
     public static Optional<String> due(Deal deal) {
         if (deal.offer().isCompleted()) {
             return Optional.empty();
         }
-        return deal.dueDate().map(date -> "Due " + Formats.dateTime(date));
+        return deal.dueDate().map(date -> "Due " + Formats.borrowTime(date));
     }
 
     /** The question before a deal is marked complete (UC7 step 4). */

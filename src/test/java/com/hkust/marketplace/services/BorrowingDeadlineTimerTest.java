@@ -13,8 +13,10 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -141,6 +143,66 @@ class BorrowingDeadlineTimerTest {
     }
 
     @Test
+    void stop_letsARunningCheckFinish() throws InterruptedException {
+        CountDownLatch inCheck = new CountDownLatch(1);
+        AtomicBoolean finished = new AtomicBoolean();
+        BorrowingDeadlineService slow = new BorrowingDeadlineService(store) {
+            @Override
+            public DeadlineReport process() {
+                inCheck.countDown();
+                sleepQuietly(Duration.ofMillis(200)); // a check that saves a large file
+                finished.set(true);
+                return DeadlineReport.NOTHING;
+            }
+        };
+        timer = new BorrowingDeadlineTimer(slow, FAST, reports::add, Duration.ofSeconds(5));
+        timer.start();
+        assertTrue(inCheck.await(2, TimeUnit.SECONDS));
+
+        timer.stop();
+
+        assertTrue(finished.get()); // stop() waited for it
+        assertFalse(timer.isRunning());
+    }
+
+    @Test
+    void stop_interruptsACheckThatDoesNotFinish_soClosingTheAppNeverHangs() throws InterruptedException {
+        CountDownLatch inCheck = new CountDownLatch(1);
+        CountDownLatch interrupted = new CountDownLatch(1);
+        BorrowingDeadlineService stuck = new BorrowingDeadlineService(store) {
+            @Override
+            public DeadlineReport process() {
+                inCheck.countDown();
+                try {
+                    Thread.sleep(60_000); // for example, waiting for a locked save file
+                } catch (InterruptedException e) {
+                    interrupted.countDown();
+                }
+                return DeadlineReport.NOTHING;
+            }
+        };
+        timer = new BorrowingDeadlineTimer(stuck, FAST, reports::add, Duration.ofMillis(50));
+        timer.start();
+        assertTrue(inCheck.await(2, TimeUnit.SECONDS));
+
+        long started = System.nanoTime();
+        timer.stop();
+        long tookMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+
+        assertTrue(tookMs < 2000, "stop() took " + tookMs + " ms");
+        assertFalse(timer.isRunning());
+        assertTrue(interrupted.await(2, TimeUnit.SECONDS), "the stuck check was interrupted");
+    }
+
+    private static void sleepQuietly(Duration time) {
+        try {
+            Thread.sleep(time.toMillis());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    @Test
     void stoppedTimer_checksNoMore() throws InterruptedException {
         BorrowRequest request = borrowed(Duration.ofHours(1));
         timer.start();
@@ -179,6 +241,7 @@ class BorrowingDeadlineTimerTest {
         assertThrows(NullPointerException.class, () -> new BorrowingDeadlineTimer(null, FAST, reports::add));
         assertThrows(NullPointerException.class, () -> new BorrowingDeadlineTimer(service, null, reports::add));
         assertThrows(NullPointerException.class, () -> new BorrowingDeadlineTimer(service, FAST, null));
+        assertThrows(NullPointerException.class, () -> new BorrowingDeadlineTimer(service, FAST, reports::add, null));
     }
 
     @Test

@@ -321,6 +321,6 @@ class DealRulesTest {
         assertTrue(offer.getAcceptedDate().isBefore(offer.getCompletedDate()));
         assertTrue(offer.getCompletedDate().isBefore(review.getReviewDate()));
         assertEquals(ListingStatus.SOLD, book.getStatus());
-        assertEquals(4.0, store.getAverageRating("sam").getAsDouble());
+        assertEquals(4.0, store.getAverageRating("sam").orElseThrow());
     }
 }

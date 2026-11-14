@@ -32,9 +32,13 @@ public class BorrowingDeadlineTimer {
      */
     public static final Duration CHECK_EVERY = Duration.ofMillis(500);
 
+    /** How long {@link #stop()} waits for a running check to finish before it interrupts it. */
+    static final Duration STOP_WAIT = Duration.ofSeconds(5);
+
     private final BorrowingDeadlineService service;
     private final Duration interval;
     private final Consumer<DeadlineReport> onChange;
+    private final Duration stopWait;
     private ScheduledExecutorService thread;
     private String lastProblem;
 
@@ -45,9 +49,16 @@ public class BorrowingDeadlineTimer {
      *                 a screen must move to its own thread before it touches anything
      */
     public BorrowingDeadlineTimer(BorrowingDeadlineService service, Duration interval, Consumer<DeadlineReport> onChange) {
+        this(service, interval, onChange, STOP_WAIT);
+    }
+
+    /** @param stopWait how long {@link #stop()} waits for a running check; tests make it short */
+    BorrowingDeadlineTimer(BorrowingDeadlineService service, Duration interval, Consumer<DeadlineReport> onChange,
+                           Duration stopWait) {
         this.service = Objects.requireNonNull(service, "service");
         this.interval = Objects.requireNonNull(interval, "interval");
         this.onChange = Objects.requireNonNull(onChange, "onChange");
+        this.stopWait = Objects.requireNonNull(stopWait, "stopWait");
         if (interval.isZero() || interval.isNegative()) {
             throw new IllegalArgumentException("The timer needs a pause between checks.");
         }
@@ -66,15 +77,25 @@ public class BorrowingDeadlineTimer {
         thread.scheduleWithFixedDelay(this::check, 0, interval.toMillis(), TimeUnit.MILLISECONDS);
     }
 
-    /** Stops checking. A check that is running finishes first. Stopping a stopped timer changes nothing. */
+    /**
+     * Stops checking. A check that is running may finish first, for up to {@link #STOP_WAIT}; one
+     * that takes longer, for example because the save file is locked, is interrupted, so closing
+     * the app never hangs. Nothing is lost then: the save file is replaced only by a complete new
+     * one, and the next start of the app runs the check again. Stopping a stopped timer changes
+     * nothing.
+     */
     public synchronized void stop() {
         if (thread == null) {
             return;
         }
         thread.shutdown();
         try {
-            thread.awaitTermination(5, TimeUnit.SECONDS);
+            if (!thread.awaitTermination(stopWait.toMillis(), TimeUnit.MILLISECONDS)) {
+                thread.shutdownNow();
+                System.err.println("[BorrowingDeadlineTimer] A deadline check did not finish in time and was interrupted.");
+            }
         } catch (InterruptedException e) {
+            thread.shutdownNow();
             Thread.currentThread().interrupt();
         }
         thread = null;

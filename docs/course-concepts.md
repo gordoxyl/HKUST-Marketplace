@@ -36,7 +36,7 @@ L15-16 Analysis & Design).
 | Black box: thread testing (L13) | A test follows one use-case flow through all the objects it touches, often across roles. | `MyDealsServiceTest.oneDeal_fromOfferThroughAcceptanceToCompletion_acrossThreeUseCases`, `OfferServiceTest.offerThenAcceptance_acrossBothRoles_endsWithAReservedListing`, `ChatServiceTest`, `NotificationBoardFlowTest` |
 | Black box: state-based testing (L13) | The object is first put into each state through its state machine, then the event is applied and the resulting state checked. | `ListingStateMachineTest`, `OfferServiceTest.listingThatIsNotLive_acceptsNoOffer`, `MyDealsServiceTest` (a deal in each of its five states, with "mark complete" and "return" applied to each) |
 | Integration testing: sandwich, critical subsystems (L14) | The shared middle is tested bottom-up with drivers while the portals are built on top. The critical parts (deal lifecycle, concurrency, saving) have their own tests. | `README.md`, "How We Build and Test"; `OfferServiceTest.claimsSubmittedAtTheSameMoment_onlyTheFirstSucceeds` |
-| Regression testing (L13-14) | Every bug is reproduced, recorded with its input and correct output, and kept as a test. All tests run on every build. | `docs/regression-log.md` (R1-R8; R8 was reproduced as a failing test before the fix) |
+| Regression testing (L13-14) | Every bug is reproduced, recorded with its input and correct output, and kept as a test. All tests run on every build. | `docs/regression-log.md` (R1-R9; R8 and R9 were reproduced as failing tests before the fix, R9 from a recorded acceptance-test run) |
 | System and acceptance testing (L14) | Manual scenarios through the screens, one per flow of each use case. | `docs/acceptance-tests.md` |
 
 ## Process

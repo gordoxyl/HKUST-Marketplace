@@ -39,11 +39,11 @@ class OfferTextTest {
     void borrowRequest_showsItsPeriod_andTheSellersCounter() {
         BorrowRequest request = new BorrowRequest("L1", "bea", START, END);
 
-        assertEquals("Borrow request: 02 Nov 2026 13:00 – 09 Nov 2026 13:00", OfferText.summary(request));
+        assertEquals("Borrow request: 02 Nov 2026 13:00:00 – 09 Nov 2026 13:00:00", OfferText.summary(request));
         assertEquals(Optional.empty(), OfferText.counter(request));
 
         request.counter(START.plusDays(1), END.plusDays(1));
-        assertEquals(Optional.of("Seller's counter: 03 Nov 2026 13:00 – 10 Nov 2026 13:00"), OfferText.counter(request));
+        assertEquals(Optional.of("Seller's counter: 03 Nov 2026 13:00:00 – 10 Nov 2026 13:00:00"), OfferText.counter(request));
     }
 
     @Test
@@ -66,7 +66,7 @@ class OfferTextTest {
         // UC5 step 9
         assertEquals("Your price offer for 'Desk Lamp' was submitted: HK$ 160. The seller has been notified.",
                 OfferText.submitted(new PriceOffer("L1", "bea", 160), "Desk Lamp"));
-        assertEquals("Your borrow request for 'Calculator' was submitted: 02 Nov 2026 13:00 – 09 Nov 2026 13:00. "
+        assertEquals("Your borrow request for 'Calculator' was submitted: 02 Nov 2026 13:00:00 – 09 Nov 2026 13:00:00. "
                         + "The seller has been notified.",
                 OfferText.submitted(new BorrowRequest("L1", "bea", START, END), "Calculator"));
         assertEquals("Your claim for 'Desk Lamp' was submitted. The seller has been notified.",

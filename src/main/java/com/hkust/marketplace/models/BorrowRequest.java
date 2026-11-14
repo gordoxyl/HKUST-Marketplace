@@ -15,7 +15,7 @@ public class BorrowRequest extends Offer {
     /** How long before the due date the buyer is reminded (UC12 Special Requirement 2). */
     public static final Duration REMINDER_LEAD_TIME = Duration.ofHours(24);
 
-    private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", Locale.ENGLISH);
+    private static final DateTimeFormatter BORROW_TIME = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm:ss", Locale.ENGLISH);
 
     private final LocalDateTime proposedStartDate;
     private final LocalDateTime proposedEndDate;
@@ -66,9 +66,13 @@ public class BorrowRequest extends Offer {
         return proposedEndDate.minus(REMINDER_LEAD_TIME);
     }
 
-    /** "17 Nov 2026 09:00": a date and time as notifications and screens show it. */
-    public static String formatDateTime(LocalDateTime time) {
-        return time.format(DATE_TIME);
+    /**
+     * A borrow time to the second, as screens and notifications show it: "14 Nov 2026 14:06:44".
+     * Borrowing works to the second (the shortest loan is {@link #MIN_BORROW_TIME}), so a time
+     * shown to the minute would make an item that is returned on time look late (regression log R9).
+     */
+    public static String formatBorrowTime(LocalDateTime time) {
+        return time.format(BORROW_TIME);
     }
 
     /** True if the item was returned automatically when the period ended (UC12). */

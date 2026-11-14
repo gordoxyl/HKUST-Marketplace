@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -251,7 +252,7 @@ public final class PracticeData {
      */
     public static void main(String[] args) {
         boolean force = List.of(args).contains("--force");
-        String chosen = List.of(args).stream().filter(arg -> !arg.startsWith("--")).findFirst().orElse(null);
+        String chosen = Arrays.stream(args).filter(arg -> !arg.startsWith("--")).findFirst().orElse(null);
 
         DataStore store = DataStore.getInstance();
         if (store.getLoadProblem() != null) {

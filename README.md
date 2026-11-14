@@ -223,7 +223,7 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `ProfileService`: UC3 Manage Profile. `updateProfile(name, newPassword, confirm)` for everyone, and `updateSellerProfile(..., bio, locations)` for sellers. A blank new password keeps the current one; the username and residence hall can't change.
 
 **Shared UI kit (`ui/`): use it on every screen, so the three portals look and behave the same.**
-- `Formats`: dates (`09 Nov 2026 14:05`), prices (`HK$ 180`), stars (`★★★★☆`), average ratings (`4.5 / 5 (2 ratings)` or `No ratings yet`), borrow periods, durations.
+- `Formats`: dates (`09 Nov 2026 14:05`), prices (`HK$ 180`), stars (`★★★★☆`), average ratings (`4.5 / 5 (2 ratings)` or `No ratings yet`), durations, and borrow times to the second (`borrowTime`, `period`: `14 Nov 2026 14:06:44`), because a loan can be as short as 5 seconds.
 - `Dialogs`: `confirm` (ask before every destructive action), `info`, `error`, `problem(ServiceException)`, and `askReason` (asks again until a reason is typed). `TextInputs.dateTime(date, typedTime)` joins a date picker's date and a typed time (`14:30` or `14:30:05`).
 - `NotificationBoard` (UC4): the notification board all three portals show, with newest first, an unread count, and Mark as read. Open it with `show("Notifications", new NotificationBoard(new NotificationService()))`.
 - `ProfileView` (UC3): the profile screen all three portals show. Sellers also get bio and meet-up locations; buyers see their residence hall, which can't be changed.

@@ -47,8 +47,9 @@ class PracticeDataTest {
         SessionManager.logout();
     }
 
-    private Map<String, Deal> dealsOf(String buyer) {
-        SessionManager.login(store.findUser(buyer));
+    /** Alice's My Deals by listing title: she is the buyer the practice data is added for. */
+    private Map<String, Deal> aliceDeals() {
+        SessionManager.login(store.findUser("alice"));
         return new MyDealsService(store).getMyDeals().stream()
                 .collect(Collectors.toMap(deal -> deal.listing().getTitle(), deal -> deal));
     }
@@ -61,7 +62,7 @@ class PracticeDataTest {
     void buyerGetsADealForEveryButtonOfMyDeals() {
         PracticeData.addTo(store, "alice", "bob");
 
-        Map<String, Deal> deals = dealsOf("alice");
+        Map<String, Deal> deals = aliceDeals();
 
         assertTrue(deals.get("Desk Fan").canBeMarkedComplete());
         assertTrue(deals.get("Free Notebooks").canBeMarkedComplete());
@@ -82,17 +83,17 @@ class PracticeDataTest {
     @Test
     void shortBorrow_canBeReturnedOnlyUntilItsDueDate_thenTheTimerReturnsIt() {
         PracticeData.addTo(store, "alice", "bob");
-        assertTrue(dealsOf("alice").get("HDMI Cable").canBeReturned());
+        assertTrue(aliceDeals().get("HDMI Cable").canBeReturned());
 
         clock.advance(Duration.ofMinutes(5)); // the due date
 
-        assertFalse(dealsOf("alice").get("HDMI Cable").canBeReturned());
-        assertTrue(dealsOf("alice").get("Camera Tripod").canBeReturned());
+        assertFalse(aliceDeals().get("HDMI Cable").canBeReturned());
+        assertTrue(aliceDeals().get("Camera Tripod").canBeReturned());
 
         new BorrowingDeadlineService(store).process(); // UC12: the timer's next check
 
-        assertTrue(((BorrowRequest) dealsOf("alice").get("HDMI Cable").offer()).isAutoReturned());
-        assertFalse(dealsOf("alice").get("Camera Tripod").offer().isCompleted());
+        assertTrue(((BorrowRequest) aliceDeals().get("HDMI Cable").offer()).isAutoReturned());
+        assertFalse(aliceDeals().get("Camera Tripod").offer().isCompleted());
     }
 
     @Test

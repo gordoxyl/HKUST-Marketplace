@@ -81,19 +81,23 @@ The use-case spec `Diagrams and Use-Case Specifications.pdf` is authoritative fo
 ## 4. `data/DataStore` (use `DataStore.getInstance()`; services take a `DataStore` in a second constructor for tests)
 
 ```java
-store.transaction(() -> { ... });          // atomic write step, saved at the end; may return a value
-store.read(() -> ...);                     // several reads as one consistent step
-store.now();
-store.addListing(listing);                 // gives id + posted date, status Pending Review
-store.findListing(id); store.getListingsBySeller(username);
-store.getOffersForSeller(username);        // every offer on the seller's listings
-store.getOffersForListing(listingId); store.findOffer(id); store.getListingOf(offer);
-store.getFullName(username);               // falls back to the username if the account was deleted
-store.getReviewsForSeller(username);       // hidden reviews already excluded: use this, nothing else
-store.getAverageRating(username);          // OptionalDouble, hidden excluded
-store.getRatingCount(username);
-store.getTotalViews(username); store.getOffersReceivedCount(username); store.getCompletedDealCount(username);
-store.getBuyerUsername(review);            // who wrote a review
+// The calls a seller service makes on its DataStore ("store")
+void dataStoreCalls(DataStore store, String username, String listingId, String offerId,
+                    Listing listing, Offer offer, Review review) {
+    store.transaction(() -> { /* change model objects here */ });  // atomic write step, saved at the end; may return a value
+    store.read(() -> store.findListing(listingId));                 // several reads as one consistent step, never saves
+    store.now();                                                    // the current time: never LocalDateTime.now()
+    store.addListing(listing);                 // gives id + posted date, status Pending Review
+    store.findListing(listingId); store.getListingsBySeller(username);
+    store.getOffersForSeller(username);        // every offer on the seller's listings
+    store.getOffersForListing(listingId); store.findOffer(offerId); store.getListingOf(offer);
+    store.getFullName(username);               // falls back to the username if the account was deleted
+    store.getReviewsForSeller(username);       // hidden reviews already excluded: use this, nothing else
+    store.getAverageRating(username);          // OptionalDouble, hidden excluded
+    store.getRatingCount(username);
+    store.getTotalViews(username); store.getOffersReceivedCount(username); store.getCompletedDealCount(username);
+    store.getBuyerUsername(review);            // who wrote a review
+}
 ```
 For the stats charts (View Seller Stats steps 4-5): per-listing views = `listing.getViewCount()`, per-listing
 offers = `store.getOffersForListing(id).size()`, completed deals by type = `getOffersForSeller` filtered by
@@ -131,17 +135,25 @@ Sending to an account the admin deleted returns null and is not an error.
 
 ### `ChatService` (UC6; buyer and seller)
 ```java
-Conversation chat = chatService.openForOffer(offer.getId());       // "Open chat" on an incoming offer (3.6)
-host.show(ChatText.title(chat), new ChatView(chatService, chat));  // host = the dashboard (ContentHost)
+// "Open chat" on an incoming offer (Manage Offers & Requests 3.6); host is the dashboard (ContentHost)
+void openChat(ChatService chatService, ContentHost host, Offer offer) {
+    Conversation chat = chatService.openForOffer(offer.getId());
+    host.show(ChatText.title(chat), new ChatView(chatService, chat));
+}
 ```
 Also `getMyConversations()` (the Chats screen, already wired), `send(chat, text)`, `search(chat, keyword)`,
 `reload(chat)`. A seller cannot start a chat; one exists as soon as the buyer wrote or made an offer.
 
 ### `PhotoService` (Create Listing step 8)
 ```java
-List<String> ids = new ArrayList<>();
-for (File f : chosenFiles) ids.add(photoService.importPhoto(f.toPath()));  // PNG/JPEG/GIF/BMP, else ServiceException
-listing.setPhotos(ids);                                                     // at most 6; first = thumbnail
+// Create Listing step 8, when the listing is submitted
+void addPhotos(PhotoService photoService, Listing listing, List<File> chosenFiles) {
+    List<String> ids = new ArrayList<>();
+    for (File f : chosenFiles) {
+        ids.add(photoService.importPhoto(f.toPath()));   // PNG/JPEG/GIF/BMP, else ServiceException
+    }
+    listing.setPhotos(ids);                              // at most 6; first = thumbnail
+}
 ```
 Import **when the listing is submitted**, not when files are chosen. Enforce "at most 6" in your service
 before importing (A4: reject the extra photos and tell the seller). Photos are stored encrypted in
@@ -154,7 +166,8 @@ Already wired. `AccountValidator` has the username / full name / password rules 
 
 - `Dialogs.confirm(title, msg)` (ask before every delete), `info`, `error`, `problem(ServiceException)`,
   `askReason(title, question)` → `Optional<String>`.
-- `Formats`: `date`, `dateTime`, `period(start, end)`, `price(double)`, `duration(Duration)`, `stars(int)`,
+- `Formats`: `date`, `dateTime` (to the minute), `borrowTime` and `period(start, end)` (to the second: use them for
+  borrow periods and due dates), `price(double)`, `duration(Duration)`, `stars(int)`,
   `averageRating(OptionalDouble, count)` ("No ratings yet" when none), `preview(text, max)`, `NONE`.
 - `OfferText`: `summary(offer)` ("Price offer: HK$ 160"), `counter(offer)`, `status(offer)`,
   `badgeStyle(offer)`, `kind(offer)`. Use it on the offers screen.
@@ -168,12 +181,12 @@ Already wired. `AccountValidator` has the username / full name / password rules 
 ```java
 public class SellerListingService {
     private final DataStore store;
-    private final DealRules rules;
-    private final NotificationService notifications;
+    private final DealRules rules;     // declineOpenOffers below also notifies the buyers
 
     public SellerListingService() { this(DataStore.getInstance()); }
     public SellerListingService(DataStore store) {
-        this.store = store; this.rules = new DealRules(store); this.notifications = new NotificationService(store);
+        this.store = store;
+        this.rules = new DealRules(store);
     }
 
     /** Manage Listings 3.2: delete. */
@@ -197,12 +210,18 @@ public class SellerListingService {
 ## 8. Testing support (`src/test/java/.../testsupport`)
 
 ```java
+// In a test class (see DealRulesTest for a whole one)
 TestClock clock = Fixtures.clock();                 // starts at Fixtures.START; clock.advance(Duration)
 DataStore store = Fixtures.store(clock);            // in memory, nothing written to disk
 Seller sam = Fixtures.seller(store, "sam");  Buyer bea = Fixtures.buyer(store, "bea");
 SaleListing book = Fixtures.live(Fixtures.sale(store, "sam", 100));   // also lend(...), giveaway(...)
-Fixtures.moveTo(Fixtures.sale(store, "sam", 50), ListingStatus.RESERVED);  // any status, via the state machine
-SessionManager.login(sam);                          // then call your service; SessionManager.logout() in @AfterEach
+
+@Test
+void deletingAReservedListing_isRefused() {
+    Listing reserved = Fixtures.moveTo(Fixtures.sale(store, "sam", 50), ListingStatus.RESERVED); // any status, via the state machine
+    SessionManager.login(sam);                      // then call your service; SessionManager.logout() in @AfterEach
+    assertThrows(ServiceException.class, () -> new SellerListingService(store).deleteListing(reserved.getId()));
+}
 ```
 Examples to copy: `DealRulesTest`, `ChatServiceTest`, `ProfileServiceTest`. Demo logins: sellers
 `charlie`, `diana`, password `Demo@1234`.

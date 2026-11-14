@@ -113,7 +113,7 @@ public class BorrowingDeadlineService {
         Listing listing = store.getListingOf(request);
         notifications.send(request.getBuyerUsername(), NotificationCategory.DUE_DATE_REMINDER,
                 "Reminder: '" + listing.getTitle() + "' is due on "
-                        + BorrowRequest.formatDateTime(request.getDueDate()) + ".");
+                        + BorrowRequest.formatBorrowTime(request.getDueDate()) + ".");
         request.markReminderSent();
     }
 }

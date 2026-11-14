@@ -13,7 +13,7 @@ import javafx.stage.Stage;
 /**
  * HKUST Marketplace - Main Application Entry Point
  *
- * This application provides the Buyer, Seller and Admin portals. All data is kept in
+ * <p>This application provides the Buyer, Seller and Admin portals. All data is kept in
  * DataStore, which saves it to an encrypted file after every change and loads it here
  * at start-up. While it runs, the borrowing-deadline timer (UC12) sends due-date reminders and
  * returns borrowed items whose period has ended, whichever screen is open.

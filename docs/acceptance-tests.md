@@ -93,7 +93,8 @@ Scenarios marked *needs Task 2.5* need the seller's Manage Offers screen to acce
 The Timer starts with the app and checks twice a second. These scenarios need a borrowed item:
 run `scripts\practice-data.cmd` after a reset, then **start the app within a minute** and log in as
 `alice`. The practice *HDMI Cable* is borrowed for 5 minutes from when the script ran: the reminder
-comes after 2.5 minutes, the automatic return after 5.
+comes after 2.5 minutes, the automatic return after 5. Borrow times are shown to the second (My Deals:
+"Due … 14:06:44"); the return should come within a second of that time (Special Requirement 1).
 
 | ID | Flow | Steps | Expected result | Result |
 |---|---|---|---|---|

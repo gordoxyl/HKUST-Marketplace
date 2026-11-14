@@ -15,7 +15,9 @@ import javafx.scene.layout.VBox;
  * }</pre>
  * Going back shows the earlier screen as it was, so what the user typed or chose there is kept.
  */
-public class SubScreen extends VBox {
+public class SubScreen extends VBox implements Refreshable {
+
+    private final Node content;
 
     /**
      * @param backLabel where Back leads, such as "Back to listings"
@@ -24,11 +26,20 @@ public class SubScreen extends VBox {
      */
     public SubScreen(String backLabel, Runnable back, Node content) {
         super(10);
+        this.content = content;
         setPadding(new Insets(4));
         Button backButton = new Button("← " + backLabel);
         backButton.getStyleClass().addAll("btn-outline", "btn-sm");
         backButton.setOnAction(e -> back.run());
         VBox.setVgrow(content, Priority.ALWAYS);
         getChildren().addAll(backButton, content);
+    }
+
+    /** Reloads the screen it holds, if that screen can reload. */
+    @Override
+    public void refresh() {
+        if (content instanceof Refreshable screen) {
+            screen.refresh();
+        }
     }
 }

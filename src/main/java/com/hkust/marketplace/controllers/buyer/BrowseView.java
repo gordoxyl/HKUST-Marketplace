@@ -12,6 +12,7 @@ import com.hkust.marketplace.services.ServiceException;
 import com.hkust.marketplace.ui.BrowseText;
 import com.hkust.marketplace.ui.Dialogs;
 import com.hkust.marketplace.ui.ListingCard;
+import com.hkust.marketplace.ui.Refreshable;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -39,7 +40,7 @@ import java.util.function.Consumer;
  * same keyword, filters and sort order (UC8 step 8); {@link #refresh()} then reloads the
  * results. Which listings match is decided by the tested {@link BrowseService}.
  */
-public class BrowseView extends VBox {
+public class BrowseView extends VBox implements Refreshable {
 
     private final BrowseService service;
     private final Consumer<Listing> onOpen;
@@ -77,6 +78,7 @@ public class BrowseView extends VBox {
     }
 
     /** Runs the last accepted search again, for example after the buyer comes back from a listing. */
+    @Override
     public final void refresh() {
         show(shown);
     }

@@ -94,6 +94,21 @@ class OfferTextTest {
         assertStatus("Completed", "badge-sold", accepted);
     }
 
+    @Test
+    void borrowedItem_saysHowItCameBack() {
+        // UC12 step 4: a deal the timer returned is shown as Auto-returned
+        BorrowRequest byBuyer = new BorrowRequest("L1", "bea", START, END);
+        byBuyer.accept(START);
+        assertStatus("Accepted", "badge-live", byBuyer);
+        byBuyer.complete(START.plusDays(1));
+        assertStatus("Returned", "badge-sold", byBuyer);
+
+        BorrowRequest byTimer = new BorrowRequest("L1", "bea", START, END);
+        byTimer.accept(START);
+        byTimer.autoReturn();
+        assertStatus("Auto-returned", "badge-sold", byTimer);
+    }
+
     private static void assertStatus(String status, String style, Offer offer) {
         assertEquals(status, OfferText.status(offer));
         assertEquals(style, OfferText.badgeStyle(offer));

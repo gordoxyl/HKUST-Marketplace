@@ -17,8 +17,10 @@ import com.hkust.marketplace.ui.ChatText;
 import com.hkust.marketplace.ui.ChatView;
 import com.hkust.marketplace.ui.ContentHost;
 import com.hkust.marketplace.ui.Dialogs;
+import com.hkust.marketplace.ui.LiveUpdates;
 import com.hkust.marketplace.ui.NotificationBoard;
 import com.hkust.marketplace.ui.ProfileView;
+import com.hkust.marketplace.ui.Refreshable;
 import com.hkust.marketplace.ui.SubScreen;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
@@ -60,7 +62,16 @@ public class BuyerDashboardController implements ContentHost {
     public void initialize() {
         showGreeting();
         currentActiveBtn = btnBrowse;
+        // UC12 step 4: when the timer returns an item or sends a reminder, the open screen shows it
+        LiveUpdates.setOnDataChanged(() -> contentPane.getScene() != null, this::refreshCurrentScreen);
         showBrowse();
+    }
+
+    /** Reloads the screen now shown, if it can reload. */
+    private void refreshCurrentScreen() {
+        if (!contentPane.getChildren().isEmpty() && contentPane.getChildren().get(0) instanceof Refreshable screen) {
+            screen.refresh();
+        }
     }
 
     /** Greets the logged-in user by name. Runs again after a profile change, so a new name shows at once. */
@@ -143,6 +154,7 @@ public class BuyerDashboardController implements ContentHost {
         view.setOnChat(() -> openChat(listing, backToListing));
         view.setOnReport(() -> reportListing(listing));
         view.setOnSellerProfile(() -> showSellerProfile(listing.getSellerUsername(), backToListing));
+        view.setOnRefresh(backToListing); // a reload, not a new opening: no view is counted
         show(listing.getTitle(), new SubScreen(backLabel, back, view));
     }
 

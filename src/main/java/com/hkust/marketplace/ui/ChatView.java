@@ -42,7 +42,7 @@ import java.util.function.Consumer;
  * {@link ChatService}, and the wording in {@link ChatText} and {@link OfferText}; this class
  * only lays the chat out.
  */
-public class ChatView extends VBox {
+public class ChatView extends VBox implements Refreshable {
 
     private static final double BUBBLE_WIDTH = 520;
 
@@ -126,6 +126,7 @@ public class ChatView extends VBox {
     }
 
     /** Reloads the history, for example after an offer was made or the other party wrote. */
+    @Override
     public final void refresh() {
         try {
             conversation = service.reload(conversation);

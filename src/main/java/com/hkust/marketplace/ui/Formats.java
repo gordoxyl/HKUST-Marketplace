@@ -1,5 +1,6 @@
 package com.hkust.marketplace.ui;
 
+import com.hkust.marketplace.models.BorrowRequest;
 import com.hkust.marketplace.models.LendListing;
 import com.hkust.marketplace.models.Review;
 import com.hkust.marketplace.models.SaleListing;
@@ -20,7 +21,6 @@ public final class Formats {
     public static final String NONE = "—";
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH);
-    private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", Locale.ENGLISH);
     private static final DateTimeFormatter TIME_OF_DAY = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.ENGLISH);
 
     private Formats() {
@@ -34,7 +34,7 @@ public final class Formats {
 
     /** "09 Nov 2026 14:20", or {@link #NONE} for no date. */
     public static String dateTime(LocalDateTime time) {
-        return time == null ? NONE : time.format(DATE_TIME);
+        return time == null ? NONE : BorrowRequest.formatDateTime(time); // the same form as in notifications
     }
 
     /** The time of day with seconds, as it is typed into a time box: "14:05:30"; empty text for no time. */

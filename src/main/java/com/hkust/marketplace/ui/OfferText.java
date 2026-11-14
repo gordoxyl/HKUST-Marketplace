@@ -78,9 +78,19 @@ public final class OfferText {
         return Optional.empty();
     }
 
-    /** "Pending", "Accepted", "Declined" or "Countered"; "Completed" once an accepted deal is completed or returned. */
+    /**
+     * "Pending", "Accepted", "Declined" or "Countered". Once the deal is completed: "Completed"
+     * for a purchase or claim, and for a borrowed item "Returned" if the buyer returned it or
+     * "Auto-returned" if it was returned when its period ended (UC12 step 4; UC11).
+     */
     public static String status(Offer offer) {
-        return offer.isCompleted() ? "Completed" : offer.getStatus().getDisplayName();
+        if (!offer.isCompleted()) {
+            return offer.getStatus().getDisplayName();
+        }
+        if (offer instanceof BorrowRequest request) {
+            return request.isAutoReturned() ? "Auto-returned" : "Returned";
+        }
+        return "Completed";
     }
 
     /** The status badge's style class in styles.css: orange while waiting, green, red, or blue. */

@@ -6,6 +6,8 @@ import com.hkust.marketplace.testsupport.Fixtures;
 import com.hkust.marketplace.testsupport.TestClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -89,6 +91,33 @@ class DealRulesTest {
     void acceptBorrowRequest_lendsTheListing() {
         BorrowRequest request = acceptedBorrow(Duration.ofDays(2));
         assertEquals(ListingStatus.LENT, store.getListingOf(request).getStatus());
+    }
+
+    /**
+     * Regression R8: a borrow request whose period has already ended cannot be accepted any
+     * more. Boundary at the end of the period: one second before it the request is accepted,
+     * at the end and after it the acceptance is refused and nothing changes.
+     */
+    @ParameterizedTest(name = "accepted {0} s from the end of the period: allowed = {1}")
+    @CsvSource({"-1, true", "0, false", "1, false", "86400, false"})
+    void acceptBorrowRequest_refusedOnceItsPeriodHasEnded(long secondsFromTheEnd, boolean allowed) {
+        LendListing calculator = Fixtures.live(Fixtures.lend(store, "sam", Duration.ofDays(7)));
+        BorrowRequest request = (BorrowRequest) store.addOffer(
+                new BorrowRequest(calculator.getId(), "bea", clock.now(), clock.now().plusSeconds(5)));
+        clock.set(request.getDueDate().plusSeconds(secondsFromTheEnd)); // the seller answers this late
+
+        if (allowed) {
+            rules.accept(request);
+            assertEquals(OfferStatus.ACCEPTED, request.getStatus());
+            assertEquals(ListingStatus.LENT, calculator.getStatus());
+        } else {
+            ServiceException refused = assertThrows(ServiceException.class, () -> rules.accept(request));
+            assertEquals("The borrow period of this request has already ended. Decline it, or counter with new dates.",
+                    refused.getMessage());
+            assertEquals(OfferStatus.PENDING, request.getStatus()); // the seller can still decline or counter it
+            assertEquals(ListingStatus.LIVE, calculator.getStatus());
+            assertTrue(board("bea").isEmpty());
+        }
     }
 
     @Test

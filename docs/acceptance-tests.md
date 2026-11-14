@@ -87,3 +87,22 @@ Scenarios marked *needs Task 2.5* need the seller's Manage Offers screen to acce
 | AT-UC7-11 | SR3 no self-return after the due date *(needs Task 2.5)* | As `alice`, request the calculator for a 5-second period; as `diana`, accept it; wait until the end has passed; as `alice`, open My Deals. | No Return Item button: the item is returned automatically (UC12). | |
 | AT-UC7-12 | SR4 Agree to a counter *(needs Task 2.5)* | As `charlie`, counter Alice's offer on the charger. As `alice`, open My Deals and press Agree to Counter, then Submit. | The deal shows "Seller's counter: HK$ …" and an Agree to Counter button. The form starts with the counter price. Afterwards a new Pending offer is listed above the Countered one. | |
 | AT-UC7-13 | Saved data | After AT-UC7-04, close the app and start it again. | The calculus deal is still under Completed deals, and the listing is still Sold. | |
+
+## UC12 Process Borrowing Deadlines (Tasks 1.6, 1.8)
+
+The Timer starts with the app and checks twice a second. These scenarios need a borrowed item:
+run `scripts\practice-data.cmd` after a reset, then **start the app within a minute** and log in as
+`alice`. The practice *HDMI Cable* is borrowed for 5 minutes from when the script ran: the reminder
+comes after 2.5 minutes, the automatic return after 5.
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-UC12-01 | Step 2, reminder (SR2: halfway for a short period) | Open the Notification Board and wait until 2.5 minutes after the script ran. | A "Due-Date Reminder" appears by itself, without reopening the board: "Reminder: 'HDMI Cable' is due on <date and time>." | |
+| AT-UC12-02 | SR3, one reminder | Keep the board open for another minute; open it again. | Still exactly one reminder for the HDMI Cable. | |
+| AT-UC12-03 | Step 3-4, automatic return | Open My Deals and wait until 5 minutes after the script ran. | Without clicking, the HDMI Cable moves to "Completed deals" with status **Auto-returned** and "Returned automatically <date>"; its Return Item button is gone and Rate Seller appears. | |
+| AT-UC12-04 | Step 3, notifications (SR6) | Open the Notification Board. Then log in as `charlie` and open Notifications. | Alice: "'HDMI Cable' was returned automatically because the borrowing period ended." Charlie: "'HDMI Cable', borrowed by Alice Chan, was returned automatically…". | |
+| AT-UC12-05 | Step 3, listing Live again | As `alice`, open Browse. | The HDMI Cable is no longer greyed out: Available, and Request Borrow works on its detail. | |
+| AT-UC12-06 | App closed past the due date | Run the practice script, keep the app closed for more than 5 minutes, then start it and open My Deals. | The HDMI Cable is already Auto-returned, and there is one reminder and one return notification. | |
+| AT-UC12-07 | A1 listing removed while lent *(needs Task 3.7)* | While the cable is lent, as `admin` remove the listing; wait for the due date. | The deal is Auto-returned with both notifications, but the listing stays Removed and is not on Browse. | |
+| AT-UC12-08 | SR5 returned once | Press Return Item on the HDMI Cable a few seconds before it is due, confirm after the due date has passed. | Either it was returned by Alice, or the message "The borrowing period has ended. The item is returned automatically." appears; never both, and only one return notification. | |
+| AT-UC12-09 | Late acceptance refused (R8) *(needs Task 2.5)* | As `alice`, request the calculator for a 5-second period; wait 10 seconds; as `diana`, accept it. | "The borrow period of this request has already ended. Decline it, or counter with new dates." The request stays Pending. | |

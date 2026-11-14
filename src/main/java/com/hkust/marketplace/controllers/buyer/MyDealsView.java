@@ -7,6 +7,7 @@ import com.hkust.marketplace.services.ServiceException;
 import com.hkust.marketplace.ui.DealText;
 import com.hkust.marketplace.ui.Dialogs;
 import com.hkust.marketplace.ui.OfferText;
+import com.hkust.marketplace.ui.Refreshable;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -32,7 +33,7 @@ import java.util.List;
  * {@link Actions}: reopening the listing or the chat (A4), agreeing to a counter (UC5) and
  * rating the seller (UC10).
  */
-public class MyDealsView extends ScrollPane {
+public class MyDealsView extends ScrollPane implements Refreshable {
 
     /** What the dashboard does when the buyer leaves My Deals for another use case. */
     public interface Actions {
@@ -64,7 +65,11 @@ public class MyDealsView extends ScrollPane {
         refresh();
     }
 
-    /** Reloads the deals: after one was completed or returned, or when the buyer comes back to this screen. */
+    /**
+     * Reloads the deals: after one was completed or returned, when the buyer comes back to this
+     * screen, or when the borrowing-deadline timer returned an item (UC12 step 4).
+     */
+    @Override
     public final void refresh() {
         list.getChildren().clear();
         List<Deal> deals;

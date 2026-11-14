@@ -28,7 +28,8 @@ import java.util.List;
  * My Deals, current     Desk Fan             price offer accepted   -> Mark Complete (becomes Sold)
  *                       Free Notebooks       claim accepted         -> Mark Complete (becomes Given)
  *                       Camera Tripod        borrowed, due in 7 days -> Return Item
- *                       HDMI Cable           borrowed, due in 3 minutes -> Return Item, until the due date
+ *                       HDMI Cable           borrowed for 5 minutes -> reminded after 2.5 minutes, returned
+ *                                            automatically after 5 (UC12), while the app runs
  *                       Bluetooth Speaker    price offer countered  -> Agree to Counter
  *                       Camping Tent         borrow request countered -> Agree to Counter
  *                       Scientific Calculator price offer pending
@@ -131,8 +132,8 @@ public final class PracticeData {
         accept(borrow(tripod, buyer, now.minusHours(2), now.plusDays(7)));          // Lent -> Return Item
 
         at(now);
-        Listing cable = lend("charlie", "HDMI Cable", Category.ELECTRONICS, ItemCondition.USED, "2 m long.", Duration.ofMinutes(3));
-        accept(borrow(cable, buyer, now, now.plusMinutes(3)));                      // Lent, due in 3 minutes
+        Listing cable = lend("charlie", "HDMI Cable", Category.ELECTRONICS, ItemCondition.USED, "2 m long.", Duration.ofMinutes(5));
+        accept(borrow(cable, buyer, now, now.plusMinutes(5)));                      // Lent, due in 5 minutes (UC12)
 
         at(now.minusDays(1));
         Listing speaker = sale("charlie", "Bluetooth Speaker", Category.ELECTRONICS, ItemCondition.LIKE_NEW, "Waterproof, 10 hours of battery.", 300);
@@ -272,7 +273,8 @@ public final class PracticeData {
         }
         System.out.println("Added practice data for @" + buyer + " (the other buyer is @" + other + ").");
         System.out.println("  My Deals: Desk Fan and Free Notebooks (Mark Complete), Camera Tripod and HDMI Cable (Return Item;");
-        System.out.println("            the cable is due in 3 minutes), Bluetooth Speaker and Camping Tent (Agree to Counter),");
+        System.out.println("            the cable is due in 5 minutes: reminder after 2.5, then returned automatically),");
+        System.out.println("            Bluetooth Speaker and Camping Tent (Agree to Counter),");
         System.out.println("            Scientific Calculator (pending), USB-C Hub (completed, Rate Seller), Umbrella (returned).");
         System.out.println("  Browse:   4 more available listings; Study Desk, Projector and Winter Jacket are greyed out.");
     }

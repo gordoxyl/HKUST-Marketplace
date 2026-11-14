@@ -7,6 +7,7 @@ import com.hkust.marketplace.services.ListingDetail;
 import com.hkust.marketplace.services.SellerProfile;
 import com.hkust.marketplace.ui.ListingSummary;
 import com.hkust.marketplace.ui.PhotoFrame;
+import com.hkust.marketplace.ui.Refreshable;
 import com.hkust.marketplace.ui.ReviewList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -32,7 +33,7 @@ import javafx.scene.layout.VBox;
  * profile (UC8 A3) with the {@code setOn...} methods (UC8 Special Requirement 3).
  * What the screen says comes from the tested {@link ListingSummary}.
  */
-public class ListingDetailView extends ScrollPane {
+public class ListingDetailView extends ScrollPane implements Refreshable {
 
     private static final double PHOTO_WIDTH = 200;
     private static final double PHOTO_HEIGHT = 150;
@@ -41,6 +42,7 @@ public class ListingDetailView extends ScrollPane {
     private final Button chat = new Button("Chat with Seller");
     private final Button report = new Button("Report Listing");
     private final Hyperlink sellerName = new Hyperlink();
+    private Runnable reload = () -> { };
 
     /** A detail screen for a listing in the app's store. */
     public ListingDetailView(ListingDetail detail) {
@@ -58,6 +60,17 @@ public class ListingDetailView extends ScrollPane {
         setContent(page);
         setFitToWidth(true);
         setStyle("-fx-background-color: transparent;");
+    }
+
+    /** How the screen reloads, for example when the timer returned the item and it is available again. */
+    public ListingDetailView setOnRefresh(Runnable reload) {
+        this.reload = reload;
+        return this;
+    }
+
+    @Override
+    public void refresh() {
+        reload.run();
     }
 
     /** What the action button does: start Make Offer (UC5) for this listing. */

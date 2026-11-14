@@ -3,9 +3,11 @@ package com.hkust.marketplace.testsupport;
 import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.data.EncryptedJsonStorage;
 import com.hkust.marketplace.data.SeedData;
+import com.hkust.marketplace.models.BorrowRequest;
 import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.ListingStatus;
 import com.hkust.marketplace.services.BrowseQuery;
+import com.hkust.marketplace.services.BorrowingDeadlineService;
 import com.hkust.marketplace.services.BrowseService;
 import com.hkust.marketplace.services.Deal;
 import com.hkust.marketplace.services.MyDealsService;
@@ -78,14 +80,19 @@ class PracticeDataTest {
     }
 
     @Test
-    void shortBorrow_canBeReturnedOnlyUntilItsDueDate() {
+    void shortBorrow_canBeReturnedOnlyUntilItsDueDate_thenTheTimerReturnsIt() {
         PracticeData.addTo(store, "alice", "bob");
         assertTrue(dealsOf("alice").get("HDMI Cable").canBeReturned());
 
-        clock.advance(Duration.ofMinutes(3)); // the due date
+        clock.advance(Duration.ofMinutes(5)); // the due date
 
         assertFalse(dealsOf("alice").get("HDMI Cable").canBeReturned());
         assertTrue(dealsOf("alice").get("Camera Tripod").canBeReturned());
+
+        new BorrowingDeadlineService(store).process(); // UC12: the timer's next check
+
+        assertTrue(((BorrowRequest) dealsOf("alice").get("HDMI Cable").offer()).isAutoReturned());
+        assertFalse(dealsOf("alice").get("Camera Tripod").offer().isCompleted());
     }
 
     @Test

@@ -104,7 +104,15 @@ offers = `store.getOffersForListing(id).size()`, completed deals by type = `getO
 ### `DealRules` (no role check: check ownership in your service, then call)
 - `accept(Offer)`: offer → Accepted, listing → Reserved (sale, giveaway) or Lent (lend), every other open
   offer on the listing declined and its buyer notified, the accepted buyer notified. Throws
-  `ServiceException` if the offer is not Pending or the listing is not Live (A2).
+  `ServiceException` if the offer is not Pending, the listing is not Live (A2), or (since 2026-11-13,
+  regression log R8) it is a borrow request whose period has already ended: show the message; the seller
+  can still decline or counter it.
+- **Borrowed items come back by themselves.** The app runs `BorrowingDeadlineTimer` (UC12): at the due date
+  the item is returned automatically and the listing becomes Live again (stays Removed if the admin removed
+  it), and the seller gets a Deal Completed notification. To show this on an open My Listings screen, make
+  the screen implement `ui.Refreshable` and register the dashboard once in `initialize()`:
+  `LiveUpdates.setOnDataChanged(() -> contentPane.getScene() != null, this::refreshCurrentScreen);`
+  (see `BuyerDashboardController` for the 5-line pattern).
 - `declineOpenOffers(Listing, NotificationCategory, String because)`: declines every open offer on the
   listing and notifies each buyer: "Your {kind} for '{title}' was declined because {because}." Returns the
   declined offers. **Call it when the seller saves an edit or deletes a listing** (Manage Listings A3),

@@ -77,6 +77,41 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 - **Fix:** `ProfileView` takes an action to run after every successful save, and each dashboard passes its own `showGreeting`.
 - **Test:** none automated: this is a screen-only fault, and screens have no automated tests (README, "Reports"). The input steps above are a **manual acceptance check**, for all three portals. That the name itself is saved is covered by `ProfileServiceTest`.
 
+## R7: A listing was hidden when its seller's username was typed in another case
+
+- **Area / owner:** **shared core** (`models/Listing`, `data/DataStore`). It would have shown up in the **Admin** portal's Add Listing (Manage Marketplace Listings 5.6.2), where the admin types the seller's username. That screen is not built yet, so no user met the bug. No seller or admin file changed. **The admin teammate should know:** pass the username to the listing as the admin typed it.
+- **Found:** 2026-11-11, while reviewing the shared core against the specification. **Fixed:** the same day.
+- **Input:** the seller account `sam` exists and is active. Add a sale listing whose seller username is given as `Sam` (or `SAM`, or ` sam ` with spaces around it) and approve it.
+- **Correct output:** the listing is live and available: `isLive` and `isAvailable` are true, and it is listed in `getLiveListings()` (Browse) and in `getListingsBySeller("sam")` (the seller's My Listings).
+- **Output before the fix:** the status was Live, but `isLive` and `isAvailable` were false and the listing was missing from Browse; a buyer's card would have said "Live" instead of "Available". Typed as ` sam `, it was also missing from the seller's My Listings.
+- **Reproduced:** 2026-11-11, with the two tests below on the unfixed code: *seller typed as 'Sam' ==> expected: <true> but was: <false>* and *expected: <sam> but was: < Sam >*.
+- **Cause:** accounts keep their username in lower case and are found ignoring case and surrounding spaces (UC1 A1). `Listing` kept the seller's username exactly as it was given, and `DataStore.isSellerActive` looked the seller up by that exact text. The seller was then "not found", which counts as not active.
+- **Fix:** `Listing` keeps the seller's username in lower case without surrounding spaces, as `User` does. `isSellerActive` finds the seller with `findUser`, like every other lookup.
+- **Test:** `DataStoreTest.listing_sellerUsernameTypedInAnotherCaseOrWithSpaces_isStillTheSellersLiveListing` and `ModelRulesTest.listing_storesTheSellersUsernameInLowerCaseWithoutSurroundingSpaces`.
+
+## R8: A borrow request could be accepted after its period had ended
+
+- **Area / owner:** **shared core** (`services/DealRules.accept`). It would show up in the **Seller** portal's Manage Offers & Requests (Task 2.5), which is not built yet, so no user met it. No seller file changed. **The seller teammate should know:** accepting such a request now fails with a message, and the screen should show it.
+- **Found:** 2026-11-11, while reviewing the shared core against the specification (finding F2). **Fixed:** 2026-11-13, on Gordon's decision to refuse the acceptance.
+- **Input:** a Live lend listing; a buyer's borrow request for a 5-second period starting now; the seller accepts it 5 seconds or more later.
+- **Correct output:** the acceptance is refused with "The borrow period of this request has already ended. Decline it, or counter with new dates."; the request stays Pending and the listing Live; nobody is notified. Accepted 1 second before the end, it still works.
+- **Output before the fix:** the request was accepted and the listing Lent; on the timer's next check (UC12) the item was returned automatically with the due date as its completion date, which was *before* the date it was accepted.
+- **Reproduced:** 2026-11-13, by the test below on the unfixed code: 3 of its 4 cases failed with *Expected ServiceException to be thrown, but nothing was thrown*.
+- **Cause:** acceptance checked the offer's status and the listing's status, but not whether a borrow period that had already ended could still begin.
+- **Test:** `DealRulesTest.acceptBorrowRequest_refusedOnceItsPeriodHasEnded` (boundary values: 1 s before the end, at the end, 1 s and 1 day after).
+
+## R9: A borrowed item looked about 45 seconds late, because its due time was shown to the minute
+
+- **Area / owner:** **shared UI** and the buyer's screens (`ui/Formats`, `ui/DealText`) and the due-date reminder (`services/BorrowingDeadlineService`, `models/BorrowRequest`), all Gordon's. No seller or admin file changed.
+- **Found:** 2026-11-14, by Gordon in acceptance scenario AT-UC12-03 (practice data, dev mode): "the auto return came roughly 45 seconds after the due date". **Fixed:** the same day.
+- **Input:** the practice *HDMI Cable*, lent to `buyer` from 14:01:44 to 14:06:44 on 14 Nov 2026; My Deals open while the timer runs.
+- **Correct output:** My Deals shows "Borrow request: 14 Nov 2026 14:01:44 – 14 Nov 2026 14:06:44" and "Due 14 Nov 2026 14:06:44", and the reminder says "…is due on 14 Nov 2026 14:06:44.", so the return at 14:06:44 is visibly on time.
+- **Output before the fix:** "Borrow request: 14 Nov 2026 14:01 – 14 Nov 2026 14:06" and "…is due on 14 Nov 2026 14:06.". Waiting from 14:06:00, the return at 14:06:44 looked 44 seconds late. A 5-second loan even read "14:01 – 14:01".
+- **Reproduced:** the save file showed the timer itself was on time: the "returned automatically" notifications are stamped 14:06:44.058, 0.06 s after the due time, and the reminder 0.18 s after its time (UC12 SR1 is met). The tests below failed on the unfixed code, for example *expected: <Borrow request: 14 Nov 2026 14:01:44 – 14 Nov 2026 14:06:44> but was: <Borrow request: 14 Nov 2026 14:01 – 14 Nov 2026 14:06>*.
+- **Cause:** borrow times were formatted like every other time, to the minute, although borrowing works to the second (the shortest loan is 5 seconds).
+- **Fix:** borrow periods, due dates and the reminder are shown to the second (`Formats.borrowTime`, `BorrowRequest.formatBorrowTime`); messages, notifications and postings stay to the minute.
+- **Test:** `DealTextTest.shortLoan_showsItsPeriodAndDueTimeToTheSecond` (the recorded input), `BorrowingDeadlineServiceTest.reminderOfAShortLoan_namesTheDueTimeToTheSecond`, `FormatsTest.period_ofAFiveSecondLoan_showsBothEnds`, `FormatsTest.borrowTimes_areToTheSecond_otherTimesToTheMinute`. AT-UC12-03 stays a manual acceptance check.
+
 ---
 
 ## Tooling notes (not code bugs, so no test)

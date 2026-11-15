@@ -293,6 +293,13 @@
     -fx-opacity: 0.75;
 }
 
+/* ---------- Reviews (ui/ReviewList; UC8) ---------- */
+.review-stars {
+    -fx-text-fill: #A68137;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
 /* ---------- Chat (ui/ChatView, ui/ChatList; UC6) ---------- */
 .chat-history {
     -fx-background-color: transparent;

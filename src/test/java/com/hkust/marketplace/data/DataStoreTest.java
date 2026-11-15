@@ -104,6 +104,24 @@ class DataStoreTest {
         assertFalse(store.isAvailable(listing));
     }
 
+    /**
+     * Regression R7: a listing's seller is found whatever case or surrounding spaces the
+     * username was typed with, as for every username (the admin types it in Add Listing, 5.6.2).
+     */
+    @Test
+    void listing_sellerUsernameTypedInAnotherCaseOrWithSpaces_isStillTheSellersLiveListing() {
+        for (String typed : List.of("Sam", "SAM", " sam ")) {
+            Listing listing = live(new SaleListing(typed, "Book", Category.TEXTBOOKS, ItemCondition.USED, "desc",
+                    MeetupLocation.LIBRARY, 100));
+            String input = "seller typed as '" + typed + "'";
+
+            assertTrue(store.isLive(listing), input);
+            assertTrue(store.isAvailable(listing), input);
+            assertTrue(store.getLiveListings().contains(listing), input);
+            assertTrue(store.getListingsBySeller("sam").contains(listing), input);
+        }
+    }
+
     @Test
     void availability_followsStatusAndPendingClaims() {
         Listing book = sale();

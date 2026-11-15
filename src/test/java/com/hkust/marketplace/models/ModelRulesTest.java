@@ -46,6 +46,13 @@ class ModelRulesTest {
                 "desc", MeetupLocation.LIBRARY).getPriceDisplay());
     }
 
+    /** Regression R7: the seller is stored the way accounts store their username. */
+    @Test
+    void listing_storesTheSellersUsernameInLowerCaseWithoutSurroundingSpaces() {
+        assertEquals("sam", new SaleListing(" Sam ", "Book", Category.TEXTBOOKS, ItemCondition.USED,
+                "desc", MeetupLocation.LIBRARY, 100).getSellerUsername());
+    }
+
     @Test
     void newListing_isPendingReviewWithNoViews() {
         Listing listing = book();

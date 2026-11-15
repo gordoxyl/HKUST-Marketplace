@@ -1,20 +1,27 @@
 package com.hkust.marketplace.controllers.buyer;
 
-import com.hkust.marketplace.data.DataStore;
-import com.hkust.marketplace.models.Category;
-import com.hkust.marketplace.models.LendListing;
 import com.hkust.marketplace.models.Listing;
-import com.hkust.marketplace.models.SaleListing;
 import com.hkust.marketplace.models.User;
-import com.hkust.marketplace.models.UserRole;
+import com.hkust.marketplace.services.BrowseService;
 import com.hkust.marketplace.services.ChatService;
+import com.hkust.marketplace.services.Deal;
+import com.hkust.marketplace.services.ListingDetail;
+import com.hkust.marketplace.services.MyDealsService;
 import com.hkust.marketplace.services.NotificationService;
+import com.hkust.marketplace.services.OfferService;
 import com.hkust.marketplace.services.ProfileService;
+import com.hkust.marketplace.services.SellerProfile;
+import com.hkust.marketplace.services.ServiceException;
 import com.hkust.marketplace.ui.ChatList;
+import com.hkust.marketplace.ui.ChatText;
+import com.hkust.marketplace.ui.ChatView;
 import com.hkust.marketplace.ui.ContentHost;
-import com.hkust.marketplace.ui.ListingCard;
+import com.hkust.marketplace.ui.Dialogs;
+import com.hkust.marketplace.ui.LiveUpdates;
 import com.hkust.marketplace.ui.NotificationBoard;
 import com.hkust.marketplace.ui.ProfileView;
+import com.hkust.marketplace.ui.Refreshable;
+import com.hkust.marketplace.ui.SubScreen;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
 import javafx.collections.FXCollections;
@@ -25,8 +32,14 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
-import java.util.List;
 
+/**
+ * The buyer's dashboard: the sidebar, and the main area that shows one screen at a time.
+ * It only moves between screens and connects their buttons to the use cases; the rules are in
+ * the services, and each screen is a class of its own ({@link BrowseView},
+ * {@link ListingDetailView}, {@link SellerProfileView}, {@link MakeOfferFlow},
+ * {@link MyDealsView} and the shared ones in {@code ui}).
+ */
 public class BuyerDashboardController implements ContentHost {
 
     @FXML private StackPane contentPane;
@@ -36,11 +49,29 @@ public class BuyerDashboardController implements ContentHost {
 
     private Button currentActiveBtn;
 
+    private final BrowseService browseService = new BrowseService();
+    private final ChatService chatService = new ChatService();
+    private final MakeOfferFlow makeOffer = new MakeOfferFlow(new OfferService());
+    private final MyDealsService myDealsService = new MyDealsService();
+    /** The My Deals screen now open. It is kept while a deal's listing or chat is open, so Back returns to it. */
+    private MyDealsView myDealsView;
+    /** The Browse screen now open. It is kept while a listing is open, so Back returns to it as it was. */
+    private BrowseView browseView;
+
     @FXML
     public void initialize() {
         showGreeting();
         currentActiveBtn = btnBrowse;
+        // UC12 step 4: when the timer returns an item or sends a reminder, the open screen shows it
+        LiveUpdates.setOnDataChanged(() -> contentPane.getScene() != null, this::refreshCurrentScreen);
         showBrowse();
+    }
+
+    /** Reloads the screen now shown, if it can reload. */
+    private void refreshCurrentScreen() {
+        if (!contentPane.getChildren().isEmpty() && contentPane.getChildren().get(0) instanceof Refreshable screen) {
+            screen.refresh();
+        }
     }
 
     /** Greets the logged-in user by name. Runs again after a profile change, so a new name shows at once. */
@@ -67,166 +98,157 @@ public class BuyerDashboardController implements ContentHost {
         contentPane.getChildren().setAll(content);
     }
 
+    // ========== UC8 Browse Marketplace ==========
+
     @FXML
     private void showBrowse() {
         setActive(btnBrowse, "Browse Marketplace");
-        contentPane.getChildren().clear();
+        browseView = new BrowseView(browseService,
+                listing -> openListing(listing.getId(), "Back to listings", this::returnToBrowse));
+        show("Browse Marketplace", browseView);
+    }
 
-        VBox root = new VBox(16);
-        root.setPadding(new Insets(4));
+    /** UC8 step 8: back to the listings, with the keyword, filters and sort order as they were. */
+    private void returnToBrowse() {
+        browseView.refresh();
+        show("Browse Marketplace", browseView);
+    }
 
-        // Filter bar
-        HBox filterBar = new HBox(12);
-        filterBar.setAlignment(Pos.CENTER_LEFT);
-        ComboBox<String> categoryFilter = new ComboBox<>(FXCollections.observableArrayList("All Categories"));
-        for (Category c : Category.values()) categoryFilter.getItems().add(c.getDisplayName());
-        categoryFilter.getSelectionModel().selectFirst();
-        ComboBox<String> typeFilter = new ComboBox<>(FXCollections.observableArrayList("All Types", "Sell", "Lend", "Giveaway"));
-        typeFilter.getSelectionModel().selectFirst();
-        TextField searchField = new TextField();
-        searchField.setPromptText("Search listings...");
-        searchField.setPrefWidth(220);
-        Button searchBtn = new Button("Search");
-        searchBtn.getStyleClass().addAll("btn-primary", "btn-sm");
-        filterBar.getChildren().addAll(
-                new Label("Category:"), categoryFilter,
-                new Label("Type:"), typeFilter,
-                searchField, searchBtn
-        );
-        root.getChildren().add(filterBar);
-
-        // Listing grid (shared listing card)
-        FlowPane grid = ListingCard.grid();
-
-        List<Listing> live = DataStore.getInstance().getLiveListings();
-        if (live.isEmpty()) {
-            Label empty = new Label("No live listings at the moment.");
-            empty.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 15px;");
-            root.getChildren().add(empty);
-        } else {
-            for (Listing listing : live) {
-                grid.getChildren().add(createListingCard(listing));
-            }
-            root.getChildren().add(grid);
+    /**
+     * Opens a listing's detail screen, which adds one view (UC8 steps 5-7).
+     * @param backLabel where Back leads, such as "Back to listings"
+     * @param back      shows the screen the listing was opened from
+     */
+    private void openListing(String listingId, String backLabel, Runnable back) {
+        try {
+            showListing(browseService.openListing(listingId), backLabel, back);
+        } catch (ServiceException e) {
+            Dialogs.problem(e);
         }
-
-        ScrollPane scroll = new ScrollPane(root);
-        scroll.setFitToWidth(true);
-        scroll.setStyle("-fx-background-color: transparent;");
-        contentPane.getChildren().add(scroll);
     }
 
-    private ListingCard createListingCard(Listing listing) {
-        ListingCard card = new ListingCard(listing, UserRole.BUYER);
-
-        // The buyer can act only on an available listing (UC8 Special Requirement 1)
-        Button actionBtn = new Button();
-        actionBtn.setDisable(!card.summary().available());
-        actionBtn.getStyleClass().addAll("btn-primary", "btn-sm");
-        switch (listing.getType()) {
-            case SELL -> {
-                actionBtn.setText("Make Offer");
-                actionBtn.setOnAction(e -> showOfferDialog(listing));
-            }
-            case LEND -> {
-                actionBtn.setText("Request Borrow");
-                actionBtn.setOnAction(e -> showBorrowDialog(listing));
-            }
-            case GIVEAWAY -> {
-                actionBtn.setText("Claim Item");
-                actionBtn.setOnAction(e -> claimItem(listing));
-            }
+    /**
+     * Shows an open listing again with its current data: after the buyer acted on it, or came
+     * back to it from the chat or the seller's profile. This is not a new opening, so no view
+     * is counted. If the listing can no longer be shown, the buyer is taken back.
+     */
+    private void reloadListing(String listingId, String backLabel, Runnable back) {
+        try {
+            showListing(browseService.reloadListing(listingId), backLabel, back);
+        } catch (ServiceException e) {
+            Dialogs.problem(e);
+            back.run();
         }
-
-        card.addActions(actionBtn);
-        return card;
     }
 
-    private void showOfferDialog(Listing listing) {
-        TextInputDialog dialog = new TextInputDialog(String.valueOf(listing instanceof SaleListing sale ? sale.getPrice() : 0));
-        dialog.setTitle("Make an Offer");
-        dialog.setHeaderText("Offer for: " + listing.getTitle());
-        dialog.setContentText("Your offer price (HK$):");
-        dialog.showAndWait().ifPresent(priceStr -> {
-            try {
-                double price = Double.parseDouble(priceStr);
-                Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                alert.setTitle("Offer Submitted");
-                alert.setHeaderText(null);
-                alert.setContentText("Your offer of HK$" + price + " has been sent to " + DataStore.getInstance().getFullName(listing.getSellerUsername()) + ".\n\n(Demo only – no backend)");
-                alert.showAndWait();
-            } catch (NumberFormatException ex) {
-                new Alert(Alert.AlertType.ERROR, "Invalid price.").showAndWait();
-            }
+    /** The detail screen, with its buttons connected to the other use cases (UC8 Special Requirement 3). */
+    private void showListing(ListingDetail detail, String backLabel, Runnable back) {
+        Listing listing = detail.listing();
+        Runnable backToListing = () -> reloadListing(listing.getId(), backLabel, back);
+        ListingDetailView view = new ListingDetailView(detail);
+
+        view.setOnAction(() -> {
+            makeOffer.start(listing.getId()); // UC5
+            backToListing.run();              // the listing may be unavailable now, for example after a claim
         });
+        view.setOnChat(() -> openChat(listing, backToListing));
+        view.setOnReport(() -> reportListing(listing));
+        view.setOnSellerProfile(() -> showSellerProfile(listing.getSellerUsername(), backToListing));
+        view.setOnRefresh(backToListing); // a reload, not a new opening: no view is counted
+        show(listing.getTitle(), new SubScreen(backLabel, back, view));
     }
 
-    private void showBorrowDialog(Listing listing) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Borrow Request");
-        alert.setHeaderText("Request to borrow: " + listing.getTitle());
-        alert.setContentText("Proposed duration: " + (listing instanceof LendListing lend ? lend.getDurationDisplay() : "N/A") +
-                "\n\nSend borrow request to seller?");
-        alert.showAndWait().ifPresent(resp -> {
-            if (resp == ButtonType.OK) {
-                new Alert(Alert.AlertType.INFORMATION, "Borrow request sent!\n(Demo only)").showAndWait();
-            }
-        });
+    /** UC8 A3: the seller's profile, from the seller's name on the detail screen. */
+    private void showSellerProfile(String sellerUsername, Runnable backToListing) {
+        try {
+            SellerProfile seller = browseService.getSellerProfile(sellerUsername);
+            show("Seller: " + seller.fullName(),
+                    new SubScreen("Back to listing", backToListing, new SellerProfileView(seller)));
+        } catch (ServiceException e) {
+            Dialogs.problem(e);
+        }
     }
 
-    private void claimItem(Listing listing) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Claim Item");
-        alert.setHeaderText("Claim: " + listing.getTitle());
-        alert.setContentText("Are you sure you want to claim this giveaway item?");
-        alert.showAndWait().ifPresent(resp -> {
-            if (resp == ButtonType.OK) {
-                new Alert(Alert.AlertType.INFORMATION, "Item claimed successfully!\n(Demo only)").showAndWait();
-            }
-        });
+    /** UC6: the buyer's chat with the seller about this listing, from the detail screen. */
+    private void openChat(Listing listing, Runnable backToListing) {
+        try {
+            ChatView chat = new ChatView(chatService, chatService.openForListing(listing.getId()));
+            addOfferOptions(chat);
+            show(ChatText.title(chat.conversation()), new SubScreen("Back to listing", backToListing, chat));
+        } catch (ServiceException e) {
+            Dialogs.problem(e);
+        }
     }
+
+    /**
+     * The two ways into Make Offer that start in a chat (UC5 step 1): the Make Offer option,
+     * and agreeing to a seller's counter. Every chat the buyer opens gets them.
+     */
+    private void addOfferOptions(ChatView chat) {
+        chat.setOnMakeOffer(() -> makeOffer.start(chat.conversation().listing().getId()));
+        chat.setOnAgreeToCounter(offer -> makeOffer.startFromCounter(offer.getId()));
+    }
+
+    /** UC9 Report Listing starts here. It is built later (B7). */
+    private void reportListing(Listing listing) {
+        Dialogs.info("Not built yet", "Reporting '" + listing.getTitle() + "' (UC9) is built later.");
+    }
+
+    // ========== UC7 Manage My Deals ==========
 
     @FXML
     private void showMyDeals() {
         setActive(btnDeals, "My Deals");
-        contentPane.getChildren().clear();
+        myDealsView = new MyDealsView(myDealsService, new MyDealsView.Actions() {
+            @Override
+            public void viewListing(Deal deal) { // A4; opening it adds one view (UC8 Special Requirement 2)
+                openListing(deal.listing().getId(), "Back to My Deals", BuyerDashboardController.this::returnToMyDeals);
+            }
 
-        VBox root = new VBox(16);
-        root.setPadding(new Insets(4));
+            @Override
+            public void openChat(Deal deal) { // A4
+                openChatOfDeal(deal);
+            }
 
-        Label info = new Label("Active offers, borrow requests and claims");
-        info.setStyle("-fx-text-fill: #5a5a7a;");
-        root.getChildren().add(info);
+            @Override
+            public void agreeToCounter(Deal deal) { // Special Requirement 4: through Make Offer (UC5)
+                makeOffer.startFromCounter(deal.offer().getId());
+                myDealsView.refresh();
+            }
 
-        TableView<String[]> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-
-        TableColumn<String[], String> colTitle = new TableColumn<>("Item");
-        colTitle.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue()[0]));
-        TableColumn<String[], String> colSeller = new TableColumn<>("Seller");
-        colSeller.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue()[1]));
-        TableColumn<String[], String> colType = new TableColumn<>("Type");
-        colType.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue()[2]));
-        TableColumn<String[], String> colStatus = new TableColumn<>("Status");
-        colStatus.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue()[3]));
-        TableColumn<String[], String> colAction = new TableColumn<>("Action");
-        colAction.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue()[4]));
-
-        table.getColumns().addAll(colTitle, colSeller, colType, colStatus, colAction);
-
-        // Dummy rows
-        table.setItems(FXCollections.observableArrayList(
-                new String[]{"Calculus Textbook (Stewart)", "Charlie Lee", "Buy", "Accepted", "Chat / Complete"},
-                new String[]{"Graphing Calculator TI-84", "Diana Ng", "Borrow", "Pending", "View"}
-        ));
-
-        root.getChildren().add(table);
-        Label note = new Label("💡 Self-return for borrowed items and mark-complete are available here in the full version.");
-        note.setStyle("-fx-text-fill: #9aa0b0; -fx-font-size: 12px;");
-        root.getChildren().add(note);
-
-        contentPane.getChildren().add(root);
+            @Override
+            public void rateSeller(Deal deal) { // step 9 and Special Requirement 6: through Review Seller (UC10)
+                reviewSeller(deal);
+            }
+        });
+        show("My Deals", myDealsView);
     }
+
+    /** Back to My Deals from a deal's listing or chat, with the deals as they are now. */
+    private void returnToMyDeals() {
+        myDealsView.refresh();
+        show("My Deals", myDealsView);
+    }
+
+    /** UC7 A4: the chat thread of a deal. */
+    private void openChatOfDeal(Deal deal) {
+        try {
+            ChatView chat = new ChatView(chatService, chatService.openForOffer(deal.offer().getId()));
+            addOfferOptions(chat);
+            show(ChatText.title(chat.conversation()),
+                    new SubScreen("Back to My Deals", this::returnToMyDeals, chat));
+        } catch (ServiceException e) {
+            Dialogs.problem(e);
+        }
+    }
+
+    /** UC10 Review Seller starts here. It is built later (B5). */
+    private void reviewSeller(Deal deal) {
+        Dialogs.info("Not built yet", "Rating and reviewing " + deal.sellerName() + " (UC10) is built later. "
+                + "The Rate Seller button stays on this deal in My Deals.");
+    }
+
+    // ========== Screens that are still the skeleton's demo ==========
 
     @FXML
     private void showHistory() {
@@ -289,7 +311,7 @@ public class BuyerDashboardController implements ContentHost {
     @FXML
     private void showChats() {
         setActive(btnChats, "Chats");
-        show("Chats", new ChatList(new ChatService(), this)); // UC6, shared chat screens
+        show("Chats", new ChatList(chatService, this, this::addOfferOptions)); // UC6, shared chat screens
     }
 
     @FXML

@@ -3,10 +3,14 @@ package com.hkust.marketplace.controllers.seller;
 import com.hkust.marketplace.models.*;
 import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.services.ChatService;
+import com.hkust.marketplace.services.CreateListingService;
 import com.hkust.marketplace.services.NotificationService;
+import com.hkust.marketplace.services.PhotoService;
 import com.hkust.marketplace.services.ProfileService;
+import com.hkust.marketplace.services.ServiceException;
 import com.hkust.marketplace.ui.ChatList;
 import com.hkust.marketplace.ui.ContentHost;
+import com.hkust.marketplace.ui.Dialogs;
 import com.hkust.marketplace.ui.ListingCard;
 import com.hkust.marketplace.ui.NotificationBoard;
 import com.hkust.marketplace.ui.ProfileView;
@@ -24,8 +28,12 @@ import javafx.scene.chart.PieChart;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.stage.FileChooser;
 
+import java.io.File;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
 public class SellerDashboardController implements ContentHost {
@@ -127,8 +135,8 @@ public class SellerDashboardController implements ContentHost {
         setActive(btnCreate, "Create New Listing");
         contentPane.getChildren().clear();
 
-        VBox form = new VBox(12);
-        form.setMaxWidth(520);
+        VBox form = new VBox(10);
+        form.setMaxWidth(560);
         form.getStyleClass().add("card");
         form.setPadding(new Insets(20));
 
@@ -141,88 +149,185 @@ public class SellerDashboardController implements ContentHost {
 
         TextField nameField = new TextField();
         nameField.setPromptText("Item name *");
+
         ComboBox<Category> catCombo = new ComboBox<>(FXCollections.observableArrayList(Category.values()));
         catCombo.setPromptText("Category *");
         catCombo.setMaxWidth(Double.MAX_VALUE);
+
         ComboBox<ItemCondition> condCombo = new ComboBox<>(FXCollections.observableArrayList(ItemCondition.values()));
         condCombo.setPromptText("Condition *");
         condCombo.setMaxWidth(Double.MAX_VALUE);
+
         TextArea descArea = new TextArea();
-        descArea.setPromptText("Description");
+        descArea.setPromptText("Description *");
         descArea.setPrefRowCount(3);
+        descArea.setWrapText(true);
 
         TextField priceField = new TextField();
-        priceField.setPromptText("Price (HK$) – required for Sell");
-        TextField daysField = new TextField();
-        daysField.setPromptText("Lending duration (days) – required for Lend");
+        priceField.setPromptText("Price (HK$), required for Sell");
+        priceField.setDisable(true);
+
+        TextField durationField = new TextField();
+        durationField.setPromptText("e.g. 7");
+        durationField.setDisable(true);
+        ComboBox<String> durationUnit = new ComboBox<>(FXCollections.observableArrayList(
+                "seconds", "minutes", "hours", "days"));
+        durationUnit.getSelectionModel().select("days");
+        durationUnit.setDisable(true);
 
         ComboBox<MeetupLocation> meetupCombo = new ComboBox<>(FXCollections.observableArrayList(MeetupLocation.values()));
         meetupCombo.setPromptText("Meet-up location *");
         meetupCombo.setMaxWidth(Double.MAX_VALUE);
 
-        Label photoNote = new Label("📷 Photos: up to 6 (UI placeholder – file chooser not wired in demo)");
-        photoNote.setStyle("-fx-text-fill: #9aa0b0; -fx-font-size: 12px;");
+        List<File> chosenPhotos = new ArrayList<>();
+        Label photoLabel = new Label("No photos chosen (optional, up to 6)");
+        photoLabel.setWrapText(true);
+        photoLabel.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 12px;");
+        Button choosePhotos = new Button("Add Photos…");
+        choosePhotos.getStyleClass().addAll("btn-outline", "btn-sm");
+        choosePhotos.setOnAction(e -> {
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Choose listing photos");
+            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
+                    "Images (" + PhotoService.SUPPORTED_FORMATS + ")",
+                    "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp"));
+            List<File> files = chooser.showOpenMultipleDialog(
+                    contentPane.getScene() == null ? null : contentPane.getScene().getWindow());
+            if (files == null) {
+                return;
+            }
+            for (File file : files) {
+                if (chosenPhotos.size() >= Listing.MAX_PHOTOS) {
+                    Dialogs.error("Too many photos",
+                            "A listing can have at most " + Listing.MAX_PHOTOS + " photos.");
+                    break;
+                }
+                chosenPhotos.add(file);
+            }
+            showChosenPhotos(photoLabel, chosenPhotos);
+        });
+
+        // The type decides which extra field applies (Create Listings steps 3-4).
+        typeCombo.valueProperty().addListener((observable, oldType, newType) -> {
+            boolean sell = newType == ListingType.SELL;
+            boolean lend = newType == ListingType.LEND;
+            priceField.setDisable(!sell);
+            durationField.setDisable(!lend);
+            durationUnit.setDisable(!lend);
+            if (!sell) {
+                priceField.clear();
+            }
+            if (!lend) {
+                durationField.clear();
+            }
+        });
+
+        Label hint = new Label("Photos are optional; the first one is used as the thumbnail.");
+        hint.setStyle("-fx-text-fill: #9aa0b0; -fx-font-size: 11px;");
 
         Button submitBtn = new Button("Submit for Review");
         submitBtn.getStyleClass().add("btn-gold");
-        submitBtn.setOnAction(e -> {
-            if (typeCombo.getValue() == null || nameField.getText().isBlank() ||
-                    catCombo.getValue() == null || condCombo.getValue() == null ||
-                    meetupCombo.getValue() == null) {
-                new Alert(Alert.AlertType.WARNING, "Please fill all required fields.").showAndWait();
-                return;
-            }
-            User user = SessionManager.getCurrentUser();
-            String itemName = nameField.getText().trim();
-            Listing listing;
-            switch (typeCombo.getValue()) {
-                case SELL -> {
-                    try {
-                        listing = new SaleListing(user.getUsername(), itemName, catCombo.getValue(), condCombo.getValue(),
-                                descArea.getText(), meetupCombo.getValue(), Double.parseDouble(priceField.getText()));
-                    } catch (IllegalArgumentException ex) { // also catches NumberFormatException
-                        new Alert(Alert.AlertType.WARNING, "Valid price required for Sell listings.").showAndWait();
-                        return;
-                    }
-                }
-                case LEND -> {
-                    try {
-                        listing = new LendListing(user.getUsername(), itemName, catCombo.getValue(), condCombo.getValue(),
-                                descArea.getText(), meetupCombo.getValue(), Duration.ofDays(Integer.parseInt(daysField.getText())));
-                    } catch (IllegalArgumentException ex) { // also catches NumberFormatException
-                        new Alert(Alert.AlertType.WARNING, "Valid lending days required.").showAndWait();
-                        return;
-                    }
-                }
-                default -> listing = new GiveawayListing(user.getUsername(), itemName, catCombo.getValue(),
-                        condCombo.getValue(), descArea.getText(), meetupCombo.getValue());
-            }
-            DataStore.getInstance().addListing(listing);
-            // Notify admin
-            for (User admin : DataStore.getInstance().getUsersByRole(UserRole.ADMIN)) {
-                DataStore.getInstance().addNotification(new Notification(admin.getUsername(),
-                        NotificationCategory.LISTING_SUBMITTED,
-                        user.getFullName() + " submitted '" + listing.getTitle() + "' for review."));
-            }
-            new Alert(Alert.AlertType.INFORMATION,
-                    "Listing submitted! Status: Pending Review.\nAdmin will review shortly.\n(Demo – in-memory only)").showAndWait();
-            showMyListings();
-        });
+        submitBtn.setOnAction(e -> submitListing(typeCombo.getValue(), nameField.getText(),
+                catCombo.getValue(), condCombo.getValue(), descArea.getText(), meetupCombo.getValue(),
+                priceField.getText(), durationField.getText(), durationUnit.getValue(), chosenPhotos));
 
         form.getChildren().addAll(title,
                 new Label("Listing Type *"), typeCombo,
                 new Label("Item Name *"), nameField,
                 new Label("Category *"), catCombo,
                 new Label("Condition *"), condCombo,
-                new Label("Description"), descArea,
+                new Label("Description *"), descArea,
                 new Label("Price (Sell only)"), priceField,
-                new Label("Lending Days (Lend only)"), daysField,
+                new Label("Lending Duration (Lend only)"), new HBox(8, durationField, durationUnit),
                 new Label("Meet-up Location *"), meetupCombo,
-                photoNote, submitBtn);
+                new Label("Photos (optional)"), new HBox(8, choosePhotos), photoLabel, hint,
+                submitBtn);
 
         ScrollPane scroll = new ScrollPane(form);
         scroll.setFitToWidth(true);
         contentPane.getChildren().add(scroll);
+    }
+
+    /**
+     * Reads the form and asks the service to post the listing (Task 2.3). All rules are in
+     * {@link CreateListingService}; this method only converts the typed values and shows the
+     * service's message when it refuses.
+     */
+    private void submitListing(ListingType type, String name, Category category, ItemCondition condition,
+                               String description, MeetupLocation location, String priceText,
+                               String durationText, String durationUnit, List<File> chosenPhotos) {
+        if (type == null) {
+            Dialogs.error("Missing listing type", "Choose Sell, Lend or Give Away first.");
+            return;
+        }
+        List<Path> photoFiles = chosenPhotos.stream().map(File::toPath).toList();
+        CreateListingService service = new CreateListingService();
+        Listing created;
+        try {
+            switch (type) {
+                case SELL -> created = service.createSale(name, category, condition, description, location,
+                        parsePrice(priceText), photoFiles);
+                case LEND -> created = service.createLend(name, category, condition, description, location,
+                        parseDuration(durationText, durationUnit), photoFiles);
+                default -> created = service.createGiveaway(name, category, condition, description,
+                        location, photoFiles);
+            }
+        } catch (ServiceException e) {
+            Dialogs.problem(e);
+            return;
+        }
+        Dialogs.info("Listing submitted",
+                "'" + created.getTitle() + "' is now Pending Review. The admin has been notified.");
+        showMyListings();
+    }
+
+    /** A2: a typed price, turned into a number; a non-number is reported like any other rule. */
+    private static double parsePrice(String priceText) {
+        try {
+            return Double.parseDouble(priceText.trim());
+        } catch (NumberFormatException e) {
+            throw new ServiceException("The price must be a positive number, such as 180 or 99.50.");
+        }
+    }
+
+    /** A3: a typed duration in the chosen unit; the service checks the 5-second minimum. */
+    private static Duration parseDuration(String durationText, String unit) {
+        long amount;
+        try {
+            amount = Long.parseLong(durationText.trim());
+        } catch (NumberFormatException e) {
+            throw new ServiceException("The lending duration must be a whole number of seconds, "
+                    + "minutes, hours or days.");
+        }
+        if (amount <= 0) {
+            throw new ServiceException("The lending duration must be at least 5 seconds.");
+        }
+        try {
+            return switch (unit == null ? "days" : unit) {
+                case "seconds" -> Duration.ofSeconds(amount);
+                case "minutes" -> Duration.ofMinutes(amount);
+                case "hours" -> Duration.ofHours(amount);
+                default -> Duration.ofDays(amount);
+            };
+        } catch (ArithmeticException e) {
+            throw new ServiceException("The lending duration is too long.");
+        }
+    }
+
+    /** A4: shows how many photos were chosen and their names. */
+    private static void showChosenPhotos(Label label, List<File> files) {
+        if (files.isEmpty()) {
+            label.setText("No photos chosen (optional, up to 6)");
+            return;
+        }
+        StringBuilder names = new StringBuilder();
+        for (File file : files) {
+            if (names.length() > 0) {
+                names.append(", ");
+            }
+            names.append(file.getName());
+        }
+        label.setText(files.size() + (files.size() == 1 ? " photo: " : " photos: ") + names);
     }
 
     @FXML

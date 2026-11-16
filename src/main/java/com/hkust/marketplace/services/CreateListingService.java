@@ -1,7 +1,6 @@
 package com.hkust.marketplace.services;
 
 import com.hkust.marketplace.data.DataStore;
-import com.hkust.marketplace.models.BorrowRequest;
 import com.hkust.marketplace.models.Category;
 import com.hkust.marketplace.models.GiveawayListing;
 import com.hkust.marketplace.models.ItemCondition;
@@ -55,10 +54,8 @@ public class CreateListingService {
                               String description, MeetupLocation meetupLocation,
                               double price, List<Path> photoFiles) {
         Seller seller = AccessControl.requireSeller();
-        requireCommonFields(title, category, condition, description, meetupLocation);
-        if (!(price > 0) || Double.isInfinite(price)) {
-            throw new ServiceException("The price must be a positive number, such as 180 or 99.50.");
-        }
+        ListingFormRules.requireCommonFields(title, category, condition, description, meetupLocation);
+        ListingFormRules.requirePrice(price);
         return publish(seller, new SaleListing(seller.getUsername(), title.trim(), category,
                 condition, description.trim(), meetupLocation, price), photoFiles);
     }
@@ -74,12 +71,8 @@ public class CreateListingService {
                               String description, MeetupLocation meetupLocation,
                               Duration lendingDuration, List<Path> photoFiles) {
         Seller seller = AccessControl.requireSeller();
-        requireCommonFields(title, category, condition, description, meetupLocation);
-        if (lendingDuration == null
-                || lendingDuration.compareTo(BorrowRequest.MIN_BORROW_TIME) < 0) {
-            throw new ServiceException("The lending duration must be at least "
-                    + LendListing.formatDuration(BorrowRequest.MIN_BORROW_TIME) + ".");
-        }
+        ListingFormRules.requireCommonFields(title, category, condition, description, meetupLocation);
+        ListingFormRules.requireLendingDuration(lendingDuration);
         return publish(seller, new LendListing(seller.getUsername(), title.trim(), category,
                 condition, description.trim(), meetupLocation, lendingDuration), photoFiles);
     }
@@ -89,29 +82,9 @@ public class CreateListingService {
                                   String description, MeetupLocation meetupLocation,
                                   List<Path> photoFiles) {
         Seller seller = AccessControl.requireSeller();
-        requireCommonFields(title, category, condition, description, meetupLocation);
+        ListingFormRules.requireCommonFields(title, category, condition, description, meetupLocation);
         return publish(seller, new GiveawayListing(seller.getUsername(), title.trim(), category,
                 condition, description.trim(), meetupLocation), photoFiles);
-    }
-
-    /** A1: every field the form asks for, whatever the type. */
-    private static void requireCommonFields(String title, Category category, ItemCondition condition,
-                                            String description, MeetupLocation meetupLocation) {
-        if (title == null || title.isBlank()) {
-            throw new ServiceException("The item name cannot be empty.");
-        }
-        if (category == null) {
-            throw new ServiceException("Please choose a category.");
-        }
-        if (condition == null) {
-            throw new ServiceException("Please choose the item's condition.");
-        }
-        if (description == null || description.isBlank()) {
-            throw new ServiceException("The description cannot be empty.");
-        }
-        if (meetupLocation == null) {
-            throw new ServiceException("Please choose a meet-up location.");
-        }
     }
 
     /**
@@ -120,9 +93,7 @@ public class CreateListingService {
      */
     private Listing publish(Seller seller, Listing listing, List<Path> photoFiles) {
         List<Path> files = photoFiles == null ? List.of() : photoFiles;
-        if (files.size() > Listing.MAX_PHOTOS) {
-            throw new ServiceException("A listing can have at most " + Listing.MAX_PHOTOS + " photos.");
-        }
+        ListingFormRules.requirePhotoCount(files.size());
         List<String> photoIds = new ArrayList<>();
         for (Path file : files) {
             photoIds.add(photos.importPhoto(file));

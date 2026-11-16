@@ -2,11 +2,15 @@ package com.hkust.marketplace.ui;
 
 import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.models.GiveawayListing;
+import com.hkust.marketplace.models.LendListing;
 import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.ListingStatus;
+import com.hkust.marketplace.models.SaleListing;
 import com.hkust.marketplace.models.User;
 import com.hkust.marketplace.models.UserRole;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -23,7 +27,9 @@ import java.util.Optional;
  *       status, the seller's username next to the full name, the submitted date and time, and
  *       the number of photos.</li>
  * </ul>
- * All of this is tested in ListingSummaryTest; {@link ListingCard} only displays it.
+ * It also words the listing detail screen (UC8 step 7): {@link #fields()} and
+ * {@link #actionText()}. All of this is tested in ListingSummaryTest; {@link ListingCard} and
+ * the detail screen only display it.
  *
  * @param listing      the listing shown
  * @param viewer       the role of the user looking at the card
@@ -157,5 +163,49 @@ public record ListingSummary(Listing listing, UserRole viewer, String sellerName
      */
     public Optional<String> thumbnail() {
         return Optional.ofNullable(listing.getThumbnail());
+    }
+
+    // ========== Listing detail screen (UC8 step 7; Task 1.4) ==========
+
+    /** One named value on the listing detail screen, such as "Condition" and "Used". */
+    public record Field(String name, String value) { }
+
+    /**
+     * All the listing's fields, in the order the detail screen shows them: listing type, the
+     * price of a sale or the lending duration of a lend listing, category, condition, meet-up
+     * location, when it was posted, the availability (a buyer) or status (the seller and
+     * admin), and the number of views.
+     */
+    public List<Field> fields() {
+        List<Field> fields = new ArrayList<>();
+        fields.add(new Field("Listing type", typeText()));
+        if (listing instanceof SaleListing) {
+            fields.add(new Field("Price", priceText()));
+        }
+        if (listing instanceof LendListing lend) {
+            fields.add(new Field("Lending duration", lend.getDurationDisplay()));
+        }
+        fields.add(new Field("Category", listing.getCategory().getDisplayName()));
+        fields.add(new Field("Condition", listing.getCondition().getDisplayName()));
+        fields.add(new Field("Meet-up location", listing.getMeetupLocation().getDisplayName()));
+        fields.add(new Field("Posted", Formats.dateTime(listing.getPostedDate())));
+        fields.add(new Field(viewer == UserRole.BUYER ? "Availability" : "Status", badgeText()));
+        fields.add(new Field("Views", String.valueOf(listing.getViewCount())));
+        return List.copyOf(fields);
+    }
+
+    /** The full description, or "No description." when the seller wrote none. */
+    public String descriptionText() {
+        String description = listing.getDescription();
+        return description == null || description.isBlank() ? "No description." : description.strip();
+    }
+
+    /**
+     * The buyer's action button on the detail screen, by listing type (Task 1.4): "Make Offer"
+     * for a sale, "Request Borrow" for a lend listing, "Claim Item" for a giveaway. It starts
+     * Make Offer (UC5) and is disabled when the listing is not {@link #available}.
+     */
+    public String actionText() {
+        return OfferText.actionText(listing.getType());
     }
 }

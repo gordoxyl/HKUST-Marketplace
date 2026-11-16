@@ -1,5 +1,6 @@
 package com.hkust.marketplace.ui;
 
+import com.hkust.marketplace.models.BorrowRequest;
 import com.hkust.marketplace.models.LendListing;
 import com.hkust.marketplace.models.Review;
 import com.hkust.marketplace.models.SaleListing;
@@ -21,6 +22,7 @@ public final class Formats {
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH);
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", Locale.ENGLISH);
+    private static final DateTimeFormatter TIME_OF_DAY = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.ENGLISH);
 
     private Formats() {
         // Utility class
@@ -31,14 +33,31 @@ public final class Formats {
         return time == null ? NONE : time.format(DATE);
     }
 
-    /** "09 Nov 2026 14:20", or {@link #NONE} for no date. */
+    /**
+     * "09 Nov 2026 14:20", or {@link #NONE} for no date: the time of a message, a notification
+     * or a posting. Times of borrowing use {@link #borrowTime} instead.
+     */
     public static String dateTime(LocalDateTime time) {
         return time == null ? NONE : time.format(DATE_TIME);
     }
 
-    /** A borrow period: "10 Nov 2026 09:00 – 17 Nov 2026 09:00". */
+    /**
+     * A time of borrowing, to the second: "14 Nov 2026 14:06:44", or {@link #NONE} for no time.
+     * Used for borrow periods and due dates, because borrowing works to the second; the
+     * due-date reminder names the due time in the same form (regression log R9).
+     */
+    public static String borrowTime(LocalDateTime time) {
+        return time == null ? NONE : BorrowRequest.formatBorrowTime(time);
+    }
+
+    /** The time of day with seconds, as it is typed into a time box: "14:05:30"; empty text for no time. */
+    public static String timeOfDay(LocalDateTime time) {
+        return time == null ? "" : time.format(TIME_OF_DAY);
+    }
+
+    /** A borrow period, to the second: "10 Nov 2026 09:00:00 – 17 Nov 2026 09:00:00". */
     public static String period(LocalDateTime start, LocalDateTime end) {
-        return dateTime(start) + " – " + dateTime(end);
+        return borrowTime(start) + " – " + borrowTime(end);
     }
 
     /** "HK$ 180", or "HK$ 99.50" when there are cents. */

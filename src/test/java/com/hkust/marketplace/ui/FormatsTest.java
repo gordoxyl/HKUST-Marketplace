@@ -21,7 +21,33 @@ class FormatsTest {
         assertEquals("09 Nov 2026 14:05", Formats.dateTime(TIME));
         assertEquals(Formats.NONE, Formats.date(null));
         assertEquals(Formats.NONE, Formats.dateTime(null));
-        assertEquals("09 Nov 2026 14:05 – 10 Nov 2026 14:05", Formats.period(TIME, TIME.plusDays(1)));
+        assertEquals("09 Nov 2026 14:05:00 – 10 Nov 2026 14:05:00", Formats.period(TIME, TIME.plusDays(1)));
+    }
+
+    @Test
+    void borrowTimes_areToTheSecond_otherTimesToTheMinute() {
+        LocalDateTime due = LocalDateTime.of(2026, 11, 14, 14, 6, 44);
+
+        assertEquals("14 Nov 2026 14:06:44", Formats.borrowTime(due));
+        assertEquals("14 Nov 2026 14:06", Formats.dateTime(due)); // messages, notifications, postings
+        assertEquals(Formats.NONE, Formats.borrowTime(null));
+    }
+
+    /** Regression R9: the shortest loan, 5 seconds, no longer reads "14:01 – 14:01". */
+    @Test
+    void period_ofAFiveSecondLoan_showsBothEnds() {
+        LocalDateTime start = LocalDateTime.of(2026, 11, 14, 14, 1, 10);
+
+        assertEquals("14 Nov 2026 14:01:10 – 14 Nov 2026 14:01:15", Formats.period(start, start.plusSeconds(5)));
+    }
+
+    @Test
+    void timeOfDay_hasSeconds_andCanBeTypedBack() {
+        LocalDateTime time = LocalDateTime.of(2026, 11, 9, 14, 5, 30);
+
+        assertEquals("14:05:30", Formats.timeOfDay(time));
+        assertEquals("", Formats.timeOfDay(null));
+        assertEquals(java.util.Optional.of(time), TextInputs.dateTime(time.toLocalDate(), Formats.timeOfDay(time)));
     }
 
     @Test

@@ -145,7 +145,7 @@ public class AdminListingService {
             store.addListingAction(new ListingActionRecord(
                     listing.getId(), admin.getUsername(), ListingAction.EDIT_LISTING, null));
             // fix 3: the seller's account may have been deleted (the listing is kept as archive)
-            notifySellerIfAccountExists(listing.getSellerUsername(), NotificationCategory.ANNOUNCEMENT,
+            notifications.send(listing.getSellerUsername(), NotificationCategory.ANNOUNCEMENT,
                     "An administrator edited your listing '" + listing.getTitle() + "'.");
         });
     }
@@ -240,34 +240,27 @@ public class AdminListingService {
         if (f.fromDate() != null && f.toDate() != null && f.fromDate().isAfter(f.toDate())) {
             throw new ServiceException("The date range is invalid.");
         }
-
-        // Reported filter: the ids of all listings that have at least one report
-        Set<String> reportedIds = f.reportedOnly()
-                ? store.getAllReports().stream().map(Report::getListingId).collect(Collectors.toSet())
-                : Set.of();
         String sellerText = f.seller() == null ? "" : f.seller().trim().toLowerCase(Locale.ROOT);
 
-        List<Listing> result = new ArrayList<>(store.getAllListings().stream()
-                .filter(l -> f.status() == null || l.getStatus() == f.status())
-                .filter(l -> !f.reportedOnly() || reportedIds.contains(l.getId()))
-                .filter(l -> f.category() == null || l.getCategory() == f.category())
-                .filter(l -> f.type() == null || l.getType() == f.type())
-                .filter(l -> sellerText.isEmpty() || sellerMatches(l, sellerText))
-                .filter(l -> f.fromDate() == null || !l.getPostedDate().toLocalDate().isBefore(f.fromDate()))
-                .filter(l -> f.toDate() == null || !l.getPostedDate().toLocalDate().isAfter(f.toDate()))
-                .toList());
+        return store.read(() -> {
+            Set<String> reportedIds = f.reportedOnly()
+                    ? store.getAllReports().stream().map(Report::getListingId).collect(Collectors.toSet())
+                    : Set.of();
 
-        // Newest posted first; listings posted at the same moment: the one added last comes first
-        Collections.reverse(result);
-        result.sort(Comparator.comparing(Listing::getPostedDate).reversed());
-        return result;
-    }
+            List<Listing> result = new ArrayList<>(store.getAllListings().stream()
+                    .filter(l -> f.status() == null || l.getStatus() == f.status())
+                    .filter(l -> !f.reportedOnly() || reportedIds.contains(l.getId()))
+                    .filter(l -> f.category() == null || l.getCategory() == f.category())
+                    .filter(l -> f.type() == null || l.getType() == f.type())
+                    .filter(l -> sellerText.isEmpty() || sellerMatches(l, sellerText))
+                    .filter(l -> f.fromDate() == null || !l.getPostedDate().toLocalDate().isBefore(f.fromDate()))
+                    .filter(l -> f.toDate() == null || !l.getPostedDate().toLocalDate().isAfter(f.toDate()))
+                    .toList());
 
-    /** True if the text (already lower case) is in the seller's username or full name. */
-    private boolean sellerMatches(Listing listing, String lowerCaseText) {
-        String username = listing.getSellerUsername().toLowerCase(Locale.ROOT);
-        String fullName = store.getFullName(listing.getSellerUsername()).toLowerCase(Locale.ROOT);
-        return username.contains(lowerCaseText) || fullName.contains(lowerCaseText);
+            Collections.reverse(result);
+            result.sort(Comparator.comparing(Listing::getPostedDate).reversed());
+            return result;
+        });
     }
 
     /**
@@ -279,14 +272,24 @@ public class AdminListingService {
      */
     public ListingDetails getListingDetails(String listingId) {
         AccessControl.requireAdmin();
-        Listing listing = store.findListing(listingId);
-        if (listing == null) {
-            throw new ServiceException("This listing no longer exists.");
-        }
-        return new ListingDetails(listing,
-                store.getFullName(listing.getSellerUsername()),
-                store.getReportsForListing(listing.getId()));
+        return store.read(() -> {
+            Listing listing = store.findListing(listingId);
+            if (listing == null) {
+                throw new ServiceException("This listing no longer exists.");
+            }
+            return new ListingDetails(listing,
+                    store.getFullName(listing.getSellerUsername()),
+                    store.getReportsForListing(listing.getId()));
+        });
     }
+
+    /** True if the text (already lower case) is in the seller's username or full name. */
+    private boolean sellerMatches(Listing listing, String lowerCaseText) {
+        String username = listing.getSellerUsername().toLowerCase(Locale.ROOT);
+        String fullName = store.getFullName(listing.getSellerUsername()).toLowerCase(Locale.ROOT);
+        return username.contains(lowerCaseText) || fullName.contains(lowerCaseText);
+    }
+
 
 
     /** The listing, if it exists and waits for review; otherwise the user-facing error. */
@@ -312,11 +315,5 @@ public class AdminListingService {
         }
     }
 
-    /** A deleted account keeps its listings as archive, but NotificationService.send refuses it. */
-    private void notifySellerIfAccountExists(String sellerUsername, NotificationCategory category, String text) {
-        if (store.findUser(sellerUsername) != null) {
-            notifications.send(sellerUsername, category, text);
-        }
-    }
 
 }

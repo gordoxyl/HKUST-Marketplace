@@ -17,7 +17,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.hkust.marketplace.testsupport.Fixtures;
 
 /**
- * Tests for Manage Marketplace Listings 5.2 (approve) and 5.3 (reject).
+ * Tests for Manage Marketplace Listings: 3.2 (approve), 3.2 (reject), 3.7 (edit),
+ * 3.7 (remove / take down), 3.7 (add), and A1 input validation.
+ * Access-denied tests for all methods are in {@link AdminAccessControlTest}.
  */
 class AdminListingServiceTest {
 
@@ -260,7 +262,7 @@ class AdminListingServiceTest {
     }
 
     @Test
-    void manageMarketplaceListings_A1_durationOnSaleListing_addIsRefused() {
+    void manageMarketplaceListings_A1_durationOnSaleListing_editIsRefused() {
         SaleListing book = support.pendingSale();
 
         ServiceException e = assertThrows(ServiceException.class, () -> service.editListing(book.getId(),
@@ -270,7 +272,7 @@ class AdminListingServiceTest {
     }
 
     @Test
-    void manageMarketplaceListings_A1_moreThanSixPhotos_addIsRefused() {
+    void manageMarketplaceListings_A1_moreThanSixPhotos_editIsRefused() {
         SaleListing book = support.pendingSale();
         List<String> seven = List.of("1", "2", "3", "4", "5", "6", "7");
 

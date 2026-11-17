@@ -186,6 +186,8 @@ HKUST-Marketplace/
 
 ## Shared Core (read before building a feature)
 
+The use-case specification is authoritative for behaviour, except where the client (TA) answered our questions differently: those answers, with what each one changes and who does it, are in [docs/client-answers.md](docs/client-answers.md).
+
 The model follows the domain class diagram in our use-case specification:
 
 | Base class (abstract) | Subclasses | Notes |
@@ -205,7 +207,7 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `addReview`, `addReport`, `addUser`: refuse a second review of a deal, a second report by the same buyer, and a taken username
 - A deleted listing is not removed from the store: the seller's delete is `listing.withdraw()` and the admin's removal is `listing.remove()`, both giving status Removed.
 - `getTotalViews(seller)`, `getOffersReceivedCount(seller)`, `getCompletedDealCount(seller)`: the seller's statistics (the derived attributes in the class diagram), for Seller Stats and the admin's Seller Ratings. With `getAverageRating` and `getRatingCount`, that is all five.
-- `deleteAccount(username)`: the data step of the admin's Delete User, all at once. It deletes the account, its chat threads, the reviews it wrote and its notifications; declines its open offers and those on its listings; and sets its listings to Removed. Deals stay as records, and the username can never be registered again. It returns a `DeletedAccount` with what was affected and a text `snapshot()` for the Audit Log entry. Notifying the affected users and writing the Audit Log entry are the admin use case's job.
+- `deleteAccount(username)`: the data step of the admin's Delete User, all at once. It deletes the account, its chat threads, the reviews it wrote and its notifications; declines its open offers and those on its listings; and sets its listings to Removed. Deals stay as records, and the username can never be registered again. It returns a `DeletedAccount` with what was affected and a text `snapshot()` for the Audit Log entry. Notifying the affected users and writing the Audit Log entry are the admin use case's job. The client has since decided that the reviews a deleted buyer wrote are kept, shown as "Deleted User"; that change to `deleteAccount` is still to do ([client answer #6](docs/client-answers.md)).
 - `addPhoto(bytes)` and `readPhoto(id)`: listing photos, each kept encrypted in a file of its own. Use `PhotoService` and `PhotoFrame` (below) instead of calling these directly.
 - `read(() -> ...)`: several reads as one consistent step, without saving.
 

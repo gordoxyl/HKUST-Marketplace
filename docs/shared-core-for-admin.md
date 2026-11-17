@@ -2,11 +2,12 @@
 
 Audience: the AI agent (or developer) building the **Admin portal**. Everything below already exists,
 is tested, and is meant to be **called, not rewritten**. Package root: `com.hkust.marketplace`.
-Written 2026-11-10 by the shared-core owner (Gordon, Buyer role). If something here does not match the
-code, the code and its Javadoc win; then tell Gordon.
+Written 2026-11-10 by the shared-core owner (Gordon, Buyer role); updated 2026-11-17 for the client's
+answers. If something here does not match the code, the code and its Javadoc win; then tell Gordon.
 
 Read first: `README.md` section "Shared Core", `docs/state-machines.md`, `docs/regression-log.md`.
-The use-case spec `Diagrams and Use-Case Specifications.pdf` is authoritative for behaviour.
+The use-case spec `Diagrams and Use-Case Specifications.pdf` is authoritative for behaviour, except where
+the client (TA) answered differently: `docs/client-answers.md` wins over the spec.
 
 ## 1. Hard rules (these break other roles if ignored)
 
@@ -44,7 +45,7 @@ The use-case spec `Diagrams and Use-Case Specifications.pdf` is authoritative fo
 | Manage All Listings (3.7) | `Listing.remove()`, setters, `store.addListing`, `DealRules.declineOpenOffers`, `PhotoService` | service + edit/add forms (placeholders now) |
 | Users (3.3) | `User.setActive`, **`store.deleteAccount`**, `AuditLogEntry`, `store.addAuditLogEntry` | service; "Delete" currently only deactivates |
 | Seller Ratings (3.8) | `getReviewsForSellerIncludingHidden`, `Review.setHidden`, rating/stat queries | service + screen |
-| All Deals Record (3.5) | `store.getAllOffers`, `store.getListingOf`, `ui/OfferText` | filters, export; table shows dummy rows now |
+| All Deals Record (3.5) | `store.getAllOffers`, `store.getListingOf`, `ui/OfferText` | filters, export; table shows dummy rows now. Start Date (client answer #4): a loan's agreed borrow start (`BorrowRequest.getProposedStartDate()` of the accepted request), otherwise `getAcceptedDate()` |
 
 `controllers/admin/AdminDashboardController` implements `ContentHost` (`show(title, node)`), has
 `showGreeting()`, and already uses the shared board, profile and listing card. The admin has no chat.
@@ -122,6 +123,12 @@ One atomic step that makes **all** the data changes of 6.4.4:
   use-case decision.
 - Throws `IllegalArgumentException` if there is no such account. Does **not** check roles, validate the
   reason, write the Audit Log, or notify anyone: that is your service.
+- **Client answer of 16 Nov (`docs/client-answers.md` #6), not yet in the code:** the reviews a deleted buyer
+  wrote must be **kept** and shown as written by "Deleted User". Gordon changes `deleteAccount` (shared core)
+  so it no longer deletes them; build Delete User against the method as it is, and your tests will only need
+  the review assertions updated. Reports filed by or against the user are kept, as they already are.
+- Reports have no resolved or dismissed status (answer #7): the admin handles a report by acting on the
+  listing, with Remove (`AdminListingService.removeListing`).
 
 `DeletedAccount` record: `user()`, `chatThreads()`, `reviews()`, `notifications()`, `declinedOffers()`,
 `removedListings()`, `snapshot()` (plain text of everything above as it was before, without the password
@@ -245,10 +252,12 @@ Examples to copy: `DealRulesTest`, `AccountDeletionTest`, `AccountDeletionFlowTe
 (`adminDeactivationAndReviewHiding_surviveARestart`, `auditEntryWithASnapshot_alsoWritesAnEncryptedTxtFile`).
 Demo logins: admin `admin` / `Admin@1234`; sellers `charlie`, `diana`; buyers `alice`, `bob` (`Demo@1234`).
 
-## 9. Known gaps on the admin side (as of 2026-11-10)
+## 9. Known gaps on the admin side (as of 2026-11-17)
 
-- Listing Review: approve/reject run inline in the controller, with raw `Alert`s instead of `Dialogs`.
+`AdminListingService` (approve, reject, edit, remove, add, filtered list, details) is merged (PR #10), but no
+screen calls it yet:
+- Listing Review: approve/reject still run inline in the controller, with raw `Alert`s instead of `Dialogs`.
 - Manage All Listings: Edit and Add are placeholders; Remove does not decline open offers, record a
-  `ListingActionRecord`, ask for a reason, or notify.
+  `ListingActionRecord`, ask for a reason, or notify. Wiring it to `AdminListingService` fixes all of this.
 - Users: Deactivate does not decline offers, write the Audit Log or notify; Delete only deactivates.
 - All Deals shows dummy rows; no export. Seller Ratings: hide has no reason, Audit Log entry or notifications.

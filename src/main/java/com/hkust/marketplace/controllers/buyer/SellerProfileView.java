@@ -37,6 +37,5 @@ public class SellerProfileView extends ScrollPane {
         page.setPadding(new Insets(4, 12, 12, 4));
         setContent(page);
         setFitToWidth(true);
-        setStyle("-fx-background-color: transparent;");
     }
 }

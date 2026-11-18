@@ -39,6 +39,11 @@ import javafx.scene.layout.*;
  * the services, and each screen is a class of its own ({@link BrowseView},
  * {@link ListingDetailView}, {@link SellerProfileView}, {@link MakeOfferFlow},
  * {@link MyDealsView} and the shared ones in {@code ui}).
+ *
+ * <p>The screens never call each other. Each one reports what the buyer asked for (for
+ * example through {@code MyDealsView.Actions}), and the dashboard decides what opens next:
+ * the Mediator pattern (Lecture 18). As the lecture warns, a mediator can grow into a God
+ * Class, so every new screen gets a class of its own and this class only connects them.
  */
 public class BuyerDashboardController implements ContentHost {
 
@@ -298,11 +303,11 @@ public class BuyerDashboardController implements ContentHost {
         root.setPadding(new Insets(4));
         root.setAlignment(Pos.CENTER);
         Label icon = new Label("♥");
-        icon.setStyle("-fx-font-size: 48px; -fx-text-fill: #A68137;");
+        icon.getStyleClass().add("placeholder-icon");
         Label title = new Label("Favourites, Bookmarks & Following");
-        title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #003974;");
+        title.getStyleClass().add("placeholder-title");
         Label desc = new Label("Save listings you like and follow favourite sellers.\nThis section is a UI placeholder for students to implement.");
-        desc.setStyle("-fx-text-fill: #5a5a7a; -fx-text-alignment: center;");
+        desc.getStyleClass().add("placeholder-text");
         desc.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
         root.getChildren().addAll(icon, title, desc);
         contentPane.getChildren().add(root);

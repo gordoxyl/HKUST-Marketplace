@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
  * SaleListing book = Fixtures.live(Fixtures.sale(store, "sam", 100));
  * }</pre>
  * Listings reach a status only through the state machine's events, the same way the app
- * does it (Lecture 14, state-based testing: first put the object in the state you need).
+ * does it (Lecture 13, state-based testing: first put the object in the state you need).
  */
 public final class Fixtures {
 

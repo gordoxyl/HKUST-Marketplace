@@ -5,7 +5,7 @@ import java.util.Optional;
 /**
  * Where a DataStore's data is kept between runs. DataStore depends only on this interface,
  * not on files or formats, so how data is stored can change without touching the rest of
- * the system (Lecture 16: encapsulate the implementation environment behind a bridge).
+ * the system (Lecture 15: encapsulate the implementation environment behind a bridge).
  * The app uses {@link EncryptedJsonStorage}; tests use a store without storage.
  */
 public interface Storage {

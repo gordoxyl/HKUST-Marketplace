@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests for how offers, borrow requests and claims are worded on every screen. State-based
- * (Lecture 14): each offer is moved through its states and the wording is checked in each.
+ * (Lecture 13): each offer is moved through its states and the wording is checked in each.
  */
 class OfferTextTest {
 

@@ -240,7 +240,7 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `LiveUpdates` and `Refreshable`: when the timer changes data, the open dashboard reloads its screen. A dashboard registers once in `initialize()` with `LiveUpdates.setOnDataChanged(() -> contentPane.getScene() != null, this::refresh…)`; screens that can reload implement `Refreshable` (the notification board, chats, Browse, My Deals do). The seller's My Listings can use it to show a returned item Live again.
 - `ContentHost`: implemented by each dashboard as `show(title, content)`. Shared components get the dashboard as a `ContentHost`, so they can open another screen with its data, such as a chat from the Chats screen.
 
-**How a service method is shaped.** One control class per actor and use case (Lecture 16), each method in this order:
+**How a service method is shaped.** One control class per actor and use case (Lecture 15), each method in this order:
 ```java
 public void acceptOffer(String offerId) {
     Seller seller = AccessControl.requireSeller();                  // 1. role check
@@ -265,7 +265,7 @@ The screen calls the service and shows any `ServiceException` message to the use
 
 ## How We Build and Test
 
-We use **sandwich integration** (COMP 3111 Lecture 15). The bottom layer (models and `DataStore`) and the top layer (the portal screens from the skeleton) already exist, and we meet in the middle:
+We use **sandwich integration** (COMP 3111 Lecture 14). The bottom layer (models and `DataStore`) and the top layer (the portal screens from the skeleton) already exist, and we meet in the middle:
 - **The shared middle** (`DealRules`, `NotificationService`, the state machines and the conventions above) is built first, bottom-up, and tested with JUnit tests acting as drivers. It holds the critical subsystems: the deal lifecycle, concurrency and the borrowing-deadline timer.
 - **Each portal** (buyer, seller, admin) is then built in parallel by its owner, one use case at a time: control class plus tests, then the screen.
 

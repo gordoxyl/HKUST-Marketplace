@@ -25,7 +25,7 @@ import java.util.Optional;
  * The forms of Make Offer (UC5 step 4, {Enter Terms}): one for the price of a price offer,
  * one for the period of a borrow request. A claim has no form.
  *
- * <p>These are boundary classes only (Lecture 16): they collect what the buyer typed and hand
+ * <p>These are boundary classes only (Lecture 15): they collect what the buyer typed and hand
  * it over unchecked. Whether a price or a period is acceptable is decided by
  * {@code OfferService}. Each form returns empty when the buyer cancels (A4).
  */
@@ -126,7 +126,7 @@ final class OfferDialogs {
         Label hint = new Label(text);
         hint.setWrapText(true);
         hint.setMaxWidth(380);
-        hint.setStyle("-fx-text-fill: #5a5a7a; -fx-font-size: 12px;");
+        hint.getStyleClass().add("dialog-hint"); // a dialog with an owner uses the owner's styles.css
         return hint;
     }
 }

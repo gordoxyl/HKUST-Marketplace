@@ -313,7 +313,6 @@ public class ChatView extends VBox implements Refreshable {
         ScrollPane listPane = new ScrollPane(list);
         listPane.setFitToWidth(true);
         listPane.setMaxHeight(150);
-        listPane.setStyle("-fx-background-color: transparent;");
 
         searchResults.getChildren().setAll(top);
         if (!matches.isEmpty()) {

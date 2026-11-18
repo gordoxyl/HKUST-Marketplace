@@ -1,8 +1,10 @@
 # COMP 3111 concepts in this project
 
 Where each concept from the course is applied, with one place to look. Lecture numbers are the
-course's own (L5 Development, L6-9 Requirements, L10-11 Implementation, L12-14 Testing,
-L15-16 Analysis & Design).
+deck file numbers on Canvas, here and in the code's comments: L10 is `L10Implementation.pdf`.
+The slides inside some decks show older numbers (the slides of `L10Implementation.pdf` say
+"Lecture 11"). L5 Development, L6-9 Requirements, L10-11 Implementation, L12-14 Testing,
+L15-18 Analysis & Design, L19 Software Quality Assurance, L20 Project Management.
 
 ## Requirements, analysis and design
 
@@ -10,11 +12,16 @@ L15-16 Analysis & Design).
 |---|---|---|
 | Use cases with basic and alternative flows (L6-9) | Every feature is built from its use-case specification. A service method covers named steps, and each alternative flow has its own check and message. | `Diagrams and Use-Case Specifications.pdf`; `OfferService` (UC5 A1-A4 named in the code) |
 | Domain class diagram (L3, L15) | The model classes follow the diagram: generalizations, constraints such as "at most 6 photos", derived attributes calculated on demand. | `models/`; `DataStore.getTotalViews` |
-| State machine diagrams (L15-16) | Listing and Offer change status only through events that refuse invalid transitions. | `docs/state-machines.md`; `Listing.acceptDeal()` |
-| Boundary, control and entity classes (L15-16) | Screens are boundaries, one control class per use case holds the rules, entities hold the data. Screens contain no rule. | UC5: `controllers/buyer/MakeOfferFlow` + `OfferDialogs` (boundary), `services/OfferService` (control), `models/Offer` (entity). UC7: `MyDealsView` asks for confirmation, `MyDealsService` decides, and tells the screen which buttons a deal gets (`Deal.canBeMarkedComplete()`) |
+| State machine diagrams (L16) | Listing and Offer change status only through events that refuse invalid transitions. | `docs/state-machines.md`; `Listing.acceptDeal()` |
+| Boundary, control and entity classes (L15) | Screens are boundaries, one control class per use case holds the rules, entities hold the data. Screens contain no rule. | UC5: `controllers/buyer/MakeOfferFlow` + `OfferDialogs` (boundary), `services/OfferService` (control), `models/Offer` (entity). UC7: `MyDealsView` asks for confirmation, `MyDealsService` decides, and tells the screen which buttons a deal gets (`Deal.canBeMarkedComplete()`) |
 | Layers and subsystems; low coupling, high cohesion (L15) | `controllers` / `ui` → `services` → `data` + `models`; a lower layer never uses a higher one. Shared parts (card, chat, notifications, profile) exist once and are used by all three portals. | `README.md`, "Shared Core" |
 | Active classes (L15) | The Timer actor of UC12 is an active class with its own thread of control, so deadlines are met whatever screen is open. Its changes are made in one store transaction, so the screens' thread and the timer never see half of each other's work. | `services/BorrowingDeadlineTimer` (active class) calls `BorrowingDeadlineService` (control) |
 | Bridge classes for the implementation environment (L15) | `DataStore` talks to a `Storage` interface, so files, format and encryption can change without touching the rest. | `data/Storage`, `EncryptedJsonStorage` |
+| Design principles (L17) | Program to an interface, not an implementation (`DataStore` knows only `Storage`); strive for loosely coupled designs (screens know services, never each other). | `data/Storage`; `controllers/buyer/BuyerDashboardController` |
+| Singleton (L18) | The app has one store, created lazily on first use. Adapted for testing: the constructors stay public, so each test makes its own store. | `DataStore.getInstance` |
+| Observer (L17) | The simplest form: the borrowing-deadline timer is the subject and the dashboard on show its one observer, which reloads its screen. | `ui/LiveUpdates`, `ui/Refreshable` |
+| Mediator (L18) | Screens report what the buyer asked for through small interfaces, and the dashboard decides what opens next, so no screen knows another. | `BuyerDashboardController`, `MyDealsView.Actions` |
+| Avoiding the God Class anti pattern (L18) | `DataStore` is the largest class, because it holds all the data. To keep it from growing, a use case's own queries go in its control class, which reads the store through `store.read`; each new screen is a class of its own. | `services/MyDealsService`; `controllers/buyer/` |
 
 ## Implementation
 
@@ -22,7 +29,7 @@ L15-16 Analysis & Design).
 |---|---|---|
 | Defensive programming: the barricade (L10) | Everything typed or clicked is untrusted. Services check it and answer with a `ServiceException` written for the user; behind them, model classes take clean values. | `OfferService.submitPriceOffer`, `Amounts.parse` |
 | Assertions, preconditions and postconditions (L10) | Conditions that must never be false are checked as assertions or model-level exceptions, never used as input validation. | `OfferService.record` (postconditions); `Listing` state checks |
-| Refactoring (L10) | Duplicates are removed when the second use appears. | `services/Amounts` (extracted from the Browse price filter when Make Offer needed it); `ui/ListingCard` |
+| Refactoring (L10) | Duplicates are removed when the second use appears. Long methods are split into named parts, and magic constants get names, with the behaviour checked to be unchanged. | `services/Amounts` (extracted from the Browse price filter when Make Offer needed it); `ui/ListingCard`; `AccountValidator.validatePassword` (split into named checks) and `AccountSnapshot.describe` (one method per section); colours named in `styles.css` instead of inline styles |
 | Code review (L10) | The shared core was reviewed against the specification; the review found R7. | `docs/regression-log.md`, R7 |
 
 ## Testing
@@ -43,4 +50,5 @@ L15-16 Analysis & Design).
 
 | Concept | How it is used here | Where to look |
 |---|---|---|
+| Quality metrics: McCabe's cyclomatic complexity (L19, L12) | JaCoCo reports the complexity of every method. Methods above McCabe's suggested limit of 10 are split: in the shared core, `validatePassword` went from 17 to 9 and `AccountSnapshot.describe` from 11 to 1. | `target/reports/jacoco` (column "Cxty") |
 | Scrum sprint, backlog and burn-down (L5) | Sprint 2 has an estimated backlog; remaining hours are recorded daily for the burn-down chart. | Team PDF (Gantt chart, burn-down chart, meeting minutes) |

@@ -59,7 +59,6 @@ public class ListingDetailView extends ScrollPane implements Refreshable {
         page.setPadding(new Insets(4, 12, 12, 4));
         setContent(page);
         setFitToWidth(true);
-        setStyle("-fx-background-color: transparent;");
     }
 
     /** How the screen reloads, for example when the timer returned the item and it is available again. */

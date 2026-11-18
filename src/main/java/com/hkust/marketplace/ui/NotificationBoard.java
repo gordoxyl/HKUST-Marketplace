@@ -58,7 +58,7 @@ public class NotificationBoard extends ScrollPane implements Refreshable {
         if (notifications.isEmpty()) {
             // UC4 A1
             Label empty = new Label("There are no notifications yet.");
-            empty.setStyle("-fx-text-fill: #5a5a7a;");
+            empty.getStyleClass().add("text-muted");
             list.getChildren().add(empty);
             return;
         }
@@ -71,7 +71,7 @@ public class NotificationBoard extends ScrollPane implements Refreshable {
         Label category = new Label(notification.getCategory().getDisplayName());
         category.getStyleClass().addAll("badge", "badge-sold");
         Label time = new Label(Formats.dateTime(notification.getTimestamp()));
-        time.setStyle("-fx-text-fill: #9aa0b0; -fx-font-size: 11px;");
+        time.getStyleClass().add("notif-time");
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         HBox top = new HBox(8, category, time, spacer);
@@ -79,7 +79,7 @@ public class NotificationBoard extends ScrollPane implements Refreshable {
 
         Label content = new Label(notification.getContent());
         content.setWrapText(true);
-        content.setStyle("-fx-text-fill: #1a1a2e; -fx-font-size: 13px;");
+        content.getStyleClass().add("notif-text");
 
         VBox box = new VBox(6, top, content);
         box.getStyleClass().add("notif-item");

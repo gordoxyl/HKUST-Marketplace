@@ -15,7 +15,7 @@ import java.util.List;
  * UC7 Manage My Deals, for the Buyer (Task 1.6): the buyer's current and completed deals,
  * marking a purchase or claim complete, and returning a borrowed item before its due date.
  *
- * <p><b>Design (Lecture 16).</b> This is the use case's control class. The boundary is the
+ * <p><b>Design (Lecture 15).</b> This is the use case's control class. The boundary is the
  * buyer's My Deals screen ({@code controllers.buyer.MyDealsView}), which also asks the buyer
  * to confirm (steps 4-5; A3) before calling {@link #markComplete} or {@link #returnItem}. The
  * entities are {@link Offer}, {@link Listing} and the store. What a completed or returned deal

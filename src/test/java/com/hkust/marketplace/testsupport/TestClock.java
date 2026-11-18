@@ -8,7 +8,7 @@ import java.time.ZoneId;
 
 /**
  * A clock for tests: it stands still until the test moves it. This is the stub that
- * replaces real time (Lecture 15: stubs), so time rules such as the 5-second minimum
+ * replaces real time (Lecture 14: stubs), so time rules such as the 5-second minimum
  * borrow or a due-date reminder can be tested instantly and repeatably.
  * <pre>{@code
  * TestClock clock = new TestClock(Fixtures.START);

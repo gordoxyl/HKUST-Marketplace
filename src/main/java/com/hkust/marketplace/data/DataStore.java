@@ -90,7 +90,12 @@ public class DataStore {
         this.storage = storage;
     }
 
-    /** The app's store: the saved data, or the demo data from {@link SeedData} on the first run. */
+    /**
+     * The app's store: the saved data, or the demo data from {@link SeedData} on the first run.
+     * This is the Singleton pattern (Lecture 18) with lazy creation, adapted for testing: the
+     * app uses only this one instance, but the constructors stay public so that each test can
+     * make a store of its own.
+     */
     public static DataStore getInstance() {
         return AppStore.INSTANCE;
     }

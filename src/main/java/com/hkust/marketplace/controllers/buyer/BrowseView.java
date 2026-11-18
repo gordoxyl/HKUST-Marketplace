@@ -70,7 +70,6 @@ public class BrowseView extends VBox implements Refreshable {
         summary.getStyleClass().add("listing-card-line");
         ScrollPane results = new ScrollPane(new VBox(12, summary, grid));
         results.setFitToWidth(true);
-        results.setStyle("-fx-background-color: transparent;");
         VBox.setVgrow(results, Priority.ALWAYS);
 
         getChildren().addAll(searchBar(), results);

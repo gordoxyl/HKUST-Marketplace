@@ -22,7 +22,7 @@ import java.util.function.Supplier;
  * UC5 Make Offer, for the Buyer (Task 1.5): a price offer on a sale listing, a borrow request
  * on a lend listing, or a claim on a giveaway.
  *
- * <p><b>Design (Lecture 16).</b> This is the use case's control class. Its boundary classes
+ * <p><b>Design (Lecture 15).</b> This is the use case's control class. Its boundary classes
  * are the buyer's screens ({@code controllers.buyer.MakeOfferFlow} and its dialogs); its
  * entity classes are {@link Offer} and its subclasses, {@link Listing}, the chat thread and
  * {@link DataStore}. The screens hold no rule: they pass on what the buyer typed and show

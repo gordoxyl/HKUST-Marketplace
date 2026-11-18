@@ -82,7 +82,7 @@ public abstract class Listing {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
-    /** Photo file paths in order ({ordered}); the first is the thumbnail. */
+    /** The ids of the stored photos ({@code PhotoService}), in order ({ordered}); the first is the thumbnail. */
     public List<String> getPhotos() { return List.copyOf(photos); }
 
     /** @throws IllegalArgumentException if there are more than {@link #MAX_PHOTOS} photos */

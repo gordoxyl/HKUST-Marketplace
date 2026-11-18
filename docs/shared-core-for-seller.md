@@ -2,11 +2,12 @@
 
 Audience: the AI agent (or developer) building the **Seller portal**. Everything below already exists,
 is tested, and is meant to be **called, not rewritten**. Package root: `com.hkust.marketplace`.
-Written 2026-11-10 by the shared-core owner (Gordon, Buyer role). If something here does not match the
-code, the code and its Javadoc win; then tell Gordon.
+Written 2026-11-10 by the shared-core owner (Gordon, Buyer role); updated 2026-11-17 for the client's
+answers. If something here does not match the code, the code and its Javadoc win; then tell Gordon.
 
 Read first: `README.md` section "Shared Core", `docs/state-machines.md`, `docs/regression-log.md`.
-The use-case spec `Diagrams and Use-Case Specifications.pdf` is authoritative for behaviour.
+The use-case spec `Diagrams and Use-Case Specifications.pdf` is authoritative for behaviour, except where
+the client (TA) answered differently: `docs/client-answers.md` wins over the spec.
 
 ## 1. Hard rules (these break other roles if ignored)
 
@@ -62,6 +63,10 @@ The use-case spec `Diagrams and Use-Case Specifications.pdf` is authoritative fo
   - **State machine events** (each throws `IllegalStateException` if not allowed):
     `resubmit()` (seller saved an edit → Pending Review), `withdraw()` (seller deleted → Removed, the record
     stays), `acceptDeal()` / `completeDeal()` (called by `DealRules`, not by you).
+    **Client answer of 16 Nov (`docs/client-answers.md` #5):** an edit of a **Live** listing that has **no
+    open offers** keeps it Live, so do not call `resubmit()` then. Rejected and Pending Review listings are
+    still resubmitted, and so is a Live listing whose open offers the edit declines (still to be confirmed
+    with the client).
     `isLocked()` = Reserved, Sold, Lent, Given or Removed → cannot be edited or deleted (Manage Listings A2).
   - A new listing is `PENDING_REVIEW`; the admin approves it.
 - `ListingStatus`: PENDING_REVIEW, LIVE, REJECTED, RESERVED, SOLD, LENT, GIVEN, REMOVED.
@@ -226,9 +231,10 @@ void deletingAReservedListing_isRefused() {
 Examples to copy: `DealRulesTest`, `ChatServiceTest`, `ProfileServiceTest`. Demo logins: sellers
 `charlie`, `diana`, password `Demo@1234`.
 
-## 9. Known gaps on the seller side (as of 2026-11-10)
+## 9. Known gaps on the seller side (as of 2026-11-17)
 
-- Create Listing: photo chooser not wired; lending duration is entered in whole days, but the 5-second
-  borrow test (Task 1.5) needs shorter durations to be possible.
-- My Listings: Edit is a placeholder; Delete calls `withdraw()` inline and does not decline open offers.
-- No Offers & Requests screen yet; Stats shows demo numbers; Reviews has no reply/flag service.
+Tasks 2.1, 2.3, 2.4 and 2.5 are merged (PR #11: `CreateListingService`, `SellerListingService`,
+`SellerOfferService`). Still open:
+- The follow-ups listed on PR #11, first of all the client's answer above: an edited Live listing with no
+  open offers stays Live.
+- Stats (2.8) shows demo numbers; Reviews (2.9) has no reply or flag service.

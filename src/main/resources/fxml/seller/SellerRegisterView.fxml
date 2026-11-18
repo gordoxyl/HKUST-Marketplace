@@ -32,14 +32,19 @@
                 <VBox spacing="5">
                     <Label text="Password *" style="-fx-font-weight: 600;"/>
                     <PasswordField fx:id="passwordField" promptText="Min 8 chars: upper, lower, digit, symbol" prefHeight="38"/>
+                    <!-- Task 2.1: show the password rules under the field -->
+                    <Label fx:id="passwordRulesLabel" wrapText="true"
+                           style="-fx-text-fill: #9aa0b0; -fx-font-size: 11px;"/>
                 </VBox>
                 <VBox spacing="5">
                     <Label text="Confirm Password *" style="-fx-font-weight: 600;"/>
                     <PasswordField fx:id="confirmPasswordField" promptText="Re-enter password" prefHeight="38"/>
                 </VBox>
                 <VBox spacing="5">
-                    <Label text="Preferred Meet-up Location (optional)" style="-fx-font-weight: 600;"/>
-                    <ComboBox fx:id="meetupCombo" promptText="Select location" prefHeight="38" maxWidth="Infinity"/>
+                    <!-- Task 2.1: multiple meet-up locations (was a single ComboBox) -->
+                    <Label text="Preferred Meet-up Locations (optional)" style="-fx-font-weight: 600;"/>
+                    <FlowPane fx:id="meetupChoices" hgap="12" vgap="6" prefWrapLength="380"/>
+                    <Label text="Choose any that apply." style="-fx-text-fill: #9aa0b0; -fx-font-size: 11px;"/>
                 </VBox>
                 <VBox spacing="5">
                     <Label text="Seller Bio (optional)" style="-fx-font-weight: 600;"/>

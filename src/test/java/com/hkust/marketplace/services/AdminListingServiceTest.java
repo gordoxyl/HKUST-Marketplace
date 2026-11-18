@@ -41,7 +41,7 @@ class AdminListingServiceTest {
     // ---------- 3.2 Approve ----------
 
     @Test
-    void manageMarketplaceListings_5_2_basicFlow_approveMakesListingLive_recordsAction_notifiesSeller() {
+    void manageMarketplaceListings__basicFlow_approveMakesListingLive_recordsAction_notifiesSeller() {
         SaleListing book = support.pendingSale();
         support.clock.advance(Duration.ofHours(3));
 
@@ -78,7 +78,7 @@ class AdminListingServiceTest {
     // ---------- 3.2 Reject ----------
 
     @Test
-    void manageMarketplaceListings_5_3_basicFlow_rejectStoresReason_notifiesSellerWithReason() {
+    void manageMarketplaceListings_5_2_basicFlow_rejectStoresReason_notifiesSellerWithReason() {
         SaleListing book = support.pendingSale();
 
         service.rejectListing(book.getId(), "  Photo is blurry ");
@@ -108,7 +108,7 @@ class AdminListingServiceTest {
     }
 
     @Test
-    void manageMarketplaceListings_5_3_rejectRefusedWhenListingIsNotPendingReview() {
+    void manageMarketplaceListings_5_2_rejectRefusedWhenListingIsNotPendingReview() {
         SaleListing live = support.liveSale();
 
         ServiceException e = assertThrows(ServiceException.class, () -> service.rejectListing(live.getId(), "Spam"));
@@ -197,7 +197,7 @@ class AdminListingServiceTest {
     }
 
     @Test
-    void manageMarketplaceListings_5_4_SR2_editDoesNotChangeStatus() {
+    void manageMarketplaceListings_3_7_SR2_editDoesNotChangeStatus() {
         SaleListing pending = support.pendingSale();
         SaleListing live = support.liveSale();
 
@@ -284,7 +284,7 @@ class AdminListingServiceTest {
     }
 
     @Test
-    void manageMarketplaceListings_5_4_editRefusedWhenListingDoesNotExist() {
+    void manageMarketplaceListings_3_7_editRefusedWhenListingDoesNotExist() {
         ServiceException e = assertThrows(ServiceException.class, () -> service.editListing("L999",
                 "x", "d", Category.TEXTBOOKS, MeetupLocation.LIBRARY, null, null, null));
         assertEquals("This listing no longer exists.", e.getMessage());
@@ -550,7 +550,7 @@ class AdminListingServiceTest {
     }
 
     @Test
-    void manageMarketplaceListings_5_4_editListingOfDeletedSeller_worksAndSkipsTheNotification() {
+    void manageMarketplaceListings_3_7_editListingOfDeletedSeller_worksAndSkipsTheNotification() {
         // store.deleteAccount (Gordon, 6.4.4) keeps the listing as archive and removes the account
         SaleListing book = support.liveSale();
         support.store.deleteAccount("sam");

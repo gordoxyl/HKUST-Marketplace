@@ -247,7 +247,7 @@ class AdminListingQueryTest {
     }
 
     @Test
-    void manageMarketplaceListings_5_1_view_listingWithoutReports_hasAnEmptyReportList() {
+    void manageMarketplaceListings_3_7_view_listingWithoutReports_hasAnEmptyReportList() {
         SaleListing book = support.pendingSale();
 
         ListingDetails details = service.getListingDetails(book.getId());
@@ -256,7 +256,7 @@ class AdminListingQueryTest {
     }
 
     @Test
-    void manageMarketplaceListings_5_1_view_ofDeletedSeller_showsTheUsername() {
+    void manageMarketplaceListings_3_7_view_ofDeletedSeller_showsTheUsername() {
         SaleListing book = support.liveSale();
         support.store.deleteAccount("sam");   // listing stays as archive
 
@@ -266,7 +266,7 @@ class AdminListingQueryTest {
     }
 
     @Test
-    void manageMarketplaceListings_5_1_view_unknownListing_isRefused() {
+    void manageMarketplaceListings_3_7_view_unknownListing_isRefused() {
         ServiceException e = assertThrows(ServiceException.class, () -> service.getListingDetails("L999"));
 
         assertEquals("This listing no longer exists.", e.getMessage());

@@ -264,7 +264,7 @@ public class AdminListingService {
     }
 
     /**
-     * The details the admin sees when viewing one listing (Manage Marketplace Listings 5.1): the
+     * The details the admin sees when viewing one listing (Manage Marketplace Listings 3.7): the
      * listing, its seller's full name and the reports filed on it. Only the admin may see who
      * reported (UC9 Special Requirement 4), which is why this is admin-only.
      *

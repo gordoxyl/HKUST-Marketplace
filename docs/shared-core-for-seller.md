@@ -39,7 +39,7 @@ the client (TA) answered differently: `docs/client-answers.md` wins over the spe
 | Register as Seller (2.1), Login (2.2) | `AuthService.registerSeller`, `AuthService.login`; screens wired | nothing |
 | Manage Profile (2.6) | `ProfileService.updateSellerProfile`, shared `ui/ProfileView`, wired | nothing |
 | Notification Board (2.7) | `NotificationService`, shared `ui/NotificationBoard`, wired | send the right notifications from your services |
-| Chat (2.5 "open the linked chat thread") | `ChatService`, `ui/ChatView`, `ui/ChatList`, "Chats" sidebar button wired | call `openForOffer` from your offers screen |
+| Chat (2.5 "open the linked chat thread") | `ChatService`, `ui/ChatView`, `ui/ChatList`, "Chats" sidebar button wired; the deal actions under Send with `ChatView.setOnAnswerOffer` and `services/OfferAction` | call `openForOffer` from your offers screen; give every chat your answers (see "Answering offers inside the chat") |
 | Create Listing (2.3) | models, `store.addListing`, `PhotoService.importPhoto` | service + form (photo chooser is a placeholder; duration is whole days only) |
 | My Listings (2.4) | `ui/ListingCard` already used; `Listing` state machine; `DealRules.declineOpenOffers` | edit/delete service (current buttons are placeholders / inline) |
 | Manage Offers & Requests (2.5) | `DealRules.accept`, offer model methods, `ui/OfferText` | service (accept / decline / counter) + screen |
@@ -148,6 +148,79 @@ void openChat(ChatService chatService, ContentHost host, Offer offer) {
 ```
 Also `getMyConversations()` (the Chats screen, already wired), `send(chat, text)`, `search(chat, keyword)`,
 `reload(chat)`. A seller cannot start a chat; one exists as soon as the buyer wrote or made an offer.
+
+### Answering offers inside the chat (`ChatView.setOnAnswerOffer`; since 19 Nov 2026)
+
+The chat's offer cards only show history and status. The deal actions are buttons in one row under Send, the
+same in both portals (non-functional requirement: a consistent interface across the three user types):
+
+| Listing type | Buyer (already wired) | Seller (yours to wire) | Seller's dialog |
+|---|---|---|---|
+| Sale | Make Offer; Agree to Counter (n) | Answer Offers (n) | Pending: Accept, Decline, Counter. Countered: Decline only |
+| Lend | Request Borrow; Agree to Counter (n) | Answer Requests (n) | the same; Counter asks for new dates |
+| Giveaway | Claim Item | Answer Claim | Accept, Decline (a claim cannot be countered) |
+
+The seller's button opens a dialog with the chat's open offers, newest first and the newest already chosen. The
+list scrolls after about four offers. The actions are on the left and Cancel on the right, and an action the chosen
+offer does not allow is disabled. `ChatView` draws all of this. Your part is the three answers:
+
+```java
+// in ui/ChatView (shared core): the contract your class implements
+public interface OfferAnswers {
+    boolean accept(Offer offer);    // Pre: was Pending.  Post: true = Accepted (the other open offers are declined)
+    boolean decline(Offer offer);   // Pre: was open (Pending or Countered).  Post: true = Declined
+    boolean counter(Offer offer);   // Pre: was Pending, never a Claim.  Post: true = Countered
+}
+```
+
+- **What the chat guarantees.** It calls these on the JavaFX thread, after the seller chose an offer of this chat's
+  listing and the dialog closed. It reloads the chat after every call. If a call returns `false`, the dialog opens
+  again.
+- **What your methods do:**
+  - ask your usual confirmation or counter form;
+  - call `SellerOfferService` with `offer.getId()`, because the object may be out of date;
+  - show the outcome with `Dialogs.info`;
+  - return `true` only if the offer changed;
+  - catch `ServiceException`, show it with `Dialogs.problem`, and return `false`;
+  - do not change the screen: the seller stays in the chat.
+- **Wiring.** Give the same object to every chat the seller opens: the 3-argument `ChatList(service, this,
+  chat -> chat.setOnAnswerOffer(answers))` and `openForOffer`. A chat without answers shows no seller button, so
+  nothing breaks before you wire it.
+- **Same rules everywhere.** `services/OfferAction.allowedFor(offer, false)` lists the answers an offer allows now
+  (it follows the Offer state machine). Use it for the buttons of Offers & Requests too, so both screens offer the
+  same actions. `OfferActionTest` checks it against `SellerOfferService`.
+- **Changes to the contract.** New interactions are added as `default` methods, so your class keeps compiling
+  (open-closed principle). Ask Gordon before you rely on a change.
+
+A testable shape (L14: drivers and stubs). Put the answers in your own class, which asks the seller through a
+small interface that a JUnit test can stub:
+
+```java
+// controllers/seller/SellerOfferAnswers.java (yours)
+final class SellerOfferAnswers implements ChatView.OfferAnswers {
+
+    interface SellerPrompts {                                   // Dialogs in the app, a stub in tests
+        boolean confirm(String title, String message);
+        Optional<String> askCounterPrice(PriceOffer offer, String typedBefore);   // empty if cancelled
+        Optional<Period> askCounterPeriod(BorrowRequest request, Period before);  // empty if cancelled
+        void info(String title, String message);
+        void problem(ServiceException e);
+        record Period(LocalDate startDate, String startTime, LocalDate endDate, String endTime) { } // as entered
+    }
+
+    private final SellerOfferService offers;
+    private final SellerPrompts prompts;
+
+    SellerOfferAnswers(SellerOfferService offers, SellerPrompts prompts) {
+        this.offers = offers;
+        this.prompts = prompts;
+    }
+
+    @Override public boolean accept(Offer offer)  { /* confirm, offers.accept(offer.getId()), info */ return false; }
+    @Override public boolean decline(Offer offer) { /* confirm, offers.decline(offer.getId()), info */ return false; }
+    @Override public boolean counter(Offer offer) { /* ask, offers.counterPrice or counterBorrow, info */ return false; }
+}
+```
 
 ### `PhotoService` (Create Listing step 8)
 ```java

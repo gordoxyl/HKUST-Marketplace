@@ -26,7 +26,7 @@ import java.util.List;
  * ones. Each deal shows its listing, seller, type, status, terms, the seller's counter and,
  * for a borrowed item, the due date; and it has the buttons for what can be done with it.
  *
- * <p>This is the use case's boundary (Lecture 16). Which buttons a deal gets is decided by
+ * <p>This is the use case's boundary (Lecture 15). Which buttons a deal gets is decided by
  * {@link MyDealsService} ({@link Deal#canBeMarkedComplete()} and the like), and the wording
  * is in the tested {@link DealText} and {@link OfferText}. This class asks the buyer to
  * confirm (steps 4-5; A3), calls the service, and hands the rest to the dashboard through
@@ -61,7 +61,6 @@ public class MyDealsView extends ScrollPane implements Refreshable {
         list.setPadding(new Insets(4, 12, 12, 4));
         setContent(list);
         setFitToWidth(true);
-        setStyle("-fx-background-color: transparent;");
         refresh();
     }
 
@@ -82,7 +81,7 @@ public class MyDealsView extends ScrollPane implements Refreshable {
         if (deals.isEmpty()) {
             Label none = new Label(DealText.NO_DEALS); // A1
             none.setWrapText(true);
-            none.setStyle("-fx-text-fill: #5a5a7a;");
+            none.getStyleClass().add("text-muted");
             list.getChildren().add(none);
             return;
         }
@@ -173,13 +172,18 @@ public class MyDealsView extends ScrollPane implements Refreshable {
         if (!Dialogs.confirm("Return Item", DealText.confirmReturn(deal))) {
             return; // A3
         }
+        Deal returned;
         try {
-            Deal returned = service.returnItem(deal.offer().getId());
-            Dialogs.info("Item returned", DealText.returned(returned));
+            returned = service.returnItem(deal.offer().getId());
         } catch (ServiceException e) {
             Dialogs.problem(e);
+            refresh();
+            return;
         }
-        refresh();
+        refresh(); // shown as returned
+        if (Dialogs.confirm("Item returned", DealText.returnedRatePrompt(returned))) { // client answer #3
+            actions.rateSeller(returned);
+        }
     }
 
     // ---------- Small parts ----------

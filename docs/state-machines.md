@@ -1,6 +1,6 @@
 # State machines: Listing and Offer
 
-`Listing` and `Offer` are the two classes whose behaviour spans use cases of **all three roles**, so each has a state machine (COMP 3111 Lecture 17). The code enforces both machines: an event that the diagram doesn't allow in the current state throws `IllegalStateException` and changes nothing. State-based tests: `ListingStateMachineTest`, `OfferTest`.
+`Listing` and `Offer` are the two classes whose behaviour spans use cases of **all three roles**, so each has a state machine (COMP 3111 Lecture 16). The code enforces both machines: an event that the diagram doesn't allow in the current state throws `IllegalStateException` and changes nothing. State-based tests: `ListingStateMachineTest`, `OfferTest`.
 
 Transitions are written as *event [guard] / effect*, as in the lectures.
 

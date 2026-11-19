@@ -7,7 +7,8 @@ import java.util.Objects;
  * One entry in the admin's Audit Log (Audit Log in the domain class diagram).
  * Used for account deactivation and deletion and for hiding reviews (Manage All User
  * Accounts and Reputation). Before an account is deleted, its data is kept here as a
- * snapshot, to be written to a .txt file once file saving exists.
+ * snapshot, which the store also writes to an encrypted .txt file of its own
+ * ({@code marketplace-audit/<id>.txt}; see {@link com.hkust.marketplace.data.EncryptedJsonStorage}).
  */
 public class AuditLogEntry {
 

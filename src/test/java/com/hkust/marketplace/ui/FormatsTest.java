@@ -10,7 +10,7 @@ import java.util.OptionalDouble;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Tests for the shared display formats (boundary values from Lecture 14). */
+/** Tests for the shared display formats (boundary values from Lecture 13). */
 class FormatsTest {
 
     private static final LocalDateTime TIME = LocalDateTime.of(2026, 11, 9, 14, 5);

@@ -39,7 +39,7 @@ There is no DBMS and no SQL. Persistence is an **in-process object store with sn
 - **Concurrency:** a single `ReentrantLock` serializes every access. In effect, every transaction runs serially.
 - **Durability:** when the *outermost* transaction completes normally, the whole store is serialized into one JSON document. The document is encrypted with AES-256-GCM and written to one file, replacing the previous one atomically. An unchanged document is not rewritten.
 - **Side files:** blobs (listing photos) and per-event documents (audit-log snapshots of deleted accounts) go to separate encrypted files beside the main file.
-- **Decoupling:** `DataStore` depends only on the `Storage` interface. Its Javadoc presents it as the bridge that encapsulates the implementation environment (Lecture 16). `EncryptedJsonStorage` is the only implementation the app uses. Tests use no storage at all (memory only), or a temporary folder.
+- **Decoupling:** `DataStore` depends only on the `Storage` interface. Its Javadoc presents it as the bridge that encapsulates the implementation environment (Lecture 15). `EncryptedJsonStorage` is the only implementation the app uses. Tests use no storage at all (memory only), or a temporary folder.
 
 ```mermaid
 flowchart LR

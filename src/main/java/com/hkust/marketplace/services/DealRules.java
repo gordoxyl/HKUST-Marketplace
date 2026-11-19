@@ -148,8 +148,11 @@ public class DealRules {
 
             String buyerName = store.getFullName(request.getBuyerUsername());
             if (automatic) {
+                // The buyer may not be using the app now, so the notification invites the
+                // rating that follows every return (client answer #3; UC10 step 1)
                 notifications.send(request.getBuyerUsername(), NotificationCategory.DEAL_COMPLETED,
-                        "'" + listing.getTitle() + "' was returned automatically because the borrowing period ended.");
+                        "'" + listing.getTitle() + "' was returned automatically because the borrowing period ended. "
+                                + "You can rate the seller from My Deals.");
                 notifications.send(listing.getSellerUsername(), NotificationCategory.DEAL_COMPLETED,
                         "'" + listing.getTitle() + "', borrowed by " + buyerName
                                 + ", was returned automatically because the borrowing period ended.");

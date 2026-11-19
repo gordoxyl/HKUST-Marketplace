@@ -37,9 +37,9 @@ public final class OfferText {
      * For a claim, which has no terms: "Your claim for 'Desk Lamp' was submitted. The seller has been notified."
      */
     public static String submitted(Offer offer, String listingTitle) {
-        String terms = summary(offer).substring(kind(offer).length()); // ": HK$ 160", or nothing for a claim
+        String terms = terms(offer);
         return "Your " + offer.getKindName() + " for '" + listingTitle + "' was submitted"
-                + (terms.isEmpty() ? "." : terms + ".") + " The seller has been notified.";
+                + (terms.isEmpty() ? "." : ": " + terms + ".") + " The seller has been notified.";
     }
 
     /** "Price offer", "Borrow request" or "Claim". */
@@ -53,13 +53,22 @@ public final class OfferText {
      * "Borrow request: 10 Nov 2026 09:00 – 17 Nov 2026 09:00", or "Claim" (a claim has no terms).
      */
     public static String summary(Offer offer) {
+        String terms = terms(offer);
+        return terms.isEmpty() ? kind(offer) : kind(offer) + ": " + terms;
+    }
+
+    /**
+     * What the buyer proposed, without the kind of offer: "HK$ 160" or
+     * "10 Nov 2026 09:00 – 17 Nov 2026 09:00". Empty for a claim, which has no terms.
+     */
+    public static String terms(Offer offer) {
         if (offer instanceof PriceOffer price) {
-            return kind(offer) + ": " + Formats.price(price.getOfferedPrice());
+            return Formats.price(price.getOfferedPrice());
         }
         if (offer instanceof BorrowRequest borrow) {
-            return kind(offer) + ": " + Formats.period(borrow.getProposedStartDate(), borrow.getProposedEndDate());
+            return Formats.period(borrow.getProposedStartDate(), borrow.getProposedEndDate());
         }
-        return kind(offer);
+        return "";
     }
 
     /**
@@ -68,12 +77,16 @@ public final class OfferText {
      * not countered; a claim cannot be countered.
      */
     public static Optional<String> counter(Offer offer) {
+        return counterTerms(offer).map(terms -> "Seller's counter: " + terms);
+    }
+
+    /** The terms of the seller's counter, without a label: "HK$ 170" or a period; empty if there is none. */
+    public static Optional<String> counterTerms(Offer offer) {
         if (offer instanceof PriceOffer price && price.getCounterPrice() != null) {
-            return Optional.of("Seller's counter: " + Formats.price(price.getCounterPrice()));
+            return Optional.of(Formats.price(price.getCounterPrice()));
         }
         if (offer instanceof BorrowRequest borrow && borrow.getCounterStartDate() != null) {
-            return Optional.of("Seller's counter: "
-                    + Formats.period(borrow.getCounterStartDate(), borrow.getCounterEndDate()));
+            return Optional.of(Formats.period(borrow.getCounterStartDate(), borrow.getCounterEndDate()));
         }
         return Optional.empty();
     }

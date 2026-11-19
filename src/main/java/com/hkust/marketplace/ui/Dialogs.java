@@ -2,8 +2,11 @@ package com.hkust.marketplace.ui;
 
 import com.hkust.marketplace.services.ServiceException;
 import com.hkust.marketplace.utils.SceneManager;
+import javafx.geometry.Insets;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
 import javafx.scene.control.TextInputDialog;
 import javafx.stage.Stage;
 
@@ -77,6 +80,36 @@ public final class Dialogs {
         }
     }
 
+    /**
+     * An empty form dialog with a heading and two buttons, centred on the app's window, for a
+     * screen to fill with its fields:
+     * <pre>{@code
+     * Dialog<ButtonType> dialog = Dialogs.form("Make Offer", "Your price offer for 'Desk Lamp'", SUBMIT, ButtonType.CANCEL);
+     * dialog.getDialogPane().setContent(new VBox(8, new Label("Your price (HK$)"), priceBox));
+     * }</pre>
+     * A form dialog uses the app's stylesheet, because it has the app's window as its owner.
+     * @param submit the button that sends the form
+     * @param cancel the button that closes it without sending
+     */
+    public static Dialog<ButtonType> form(String title, String header, ButtonType submit, ButtonType cancel) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle(title);
+        dialog.setHeaderText(header);
+        dialog.getDialogPane().getButtonTypes().addAll(submit, cancel);
+        dialog.getDialogPane().setPadding(new Insets(10));
+        placeOnAppWindow(dialog);
+        return dialog;
+    }
+
+    /** A note in a form dialog, such as the rules for what to type. */
+    public static Label hint(String text) {
+        Label hint = new Label(text);
+        hint.setWrapText(true);
+        hint.setMaxWidth(380);
+        hint.getStyleClass().add("dialog-hint");
+        return hint;
+    }
+
     private static Alert alert(Alert.AlertType type, String title, String message) {
         Alert alert = new Alert(type, message);
         alert.setTitle(title);
@@ -85,8 +118,11 @@ public final class Dialogs {
         return alert;
     }
 
-    /** Centres the dialog on the app's window, when there is one. */
-    private static void placeOnAppWindow(javafx.scene.control.Dialog<?> dialog) {
+    /**
+     * Centres the dialog on the app's window, when there is one. With the window as its owner,
+     * the dialog also uses the app's stylesheet.
+     */
+    static void placeOnAppWindow(Dialog<?> dialog) {
         Stage stage = SceneManager.getPrimaryStage();
         if (stage != null) {
             dialog.initOwner(stage);

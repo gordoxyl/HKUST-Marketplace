@@ -137,14 +137,14 @@ public class ProfileView extends ScrollPane {
     private static VBox fixedValue(String name, String value) {
         Label label = new Label(name);
         Label shown = new Label(value);
-        shown.setStyle("-fx-font-weight: bold; -fx-text-fill: #1a1a2e;");
+        shown.getStyleClass().add("fixed-value");
         return new VBox(2, label, shown, hint("This cannot be changed."));
     }
 
     private static Label hint(String text) {
         Label hint = new Label(text);
         hint.setWrapText(true);
-        hint.setStyle("-fx-text-fill: #9aa0b0; -fx-font-size: 11px;");
+        hint.getStyleClass().add("field-hint");
         return hint;
     }
 }

@@ -96,28 +96,7 @@ class MyDealsServiceTest {
 
     /** Moves a pending deal into the state, through the same events the app uses. */
     private Offer moveTo(Offer offer, String state) {
-        switch (state) {
-            case "PENDING" -> { }
-            case "COUNTERED" -> {
-                if (offer instanceof PriceOffer price) {
-                    price.counter(95);
-                } else {
-                    ((BorrowRequest) offer).counter(NOW.plusDays(1), NOW.plusDays(2));
-                }
-            }
-            case "DECLINED" -> offer.decline();
-            case "ACCEPTED" -> rules.accept(offer);
-            case "COMPLETED" -> {
-                rules.accept(offer);
-                if (offer instanceof BorrowRequest request) {
-                    rules.returnItem(request, false);
-                } else {
-                    rules.complete(offer);
-                }
-            }
-            default -> throw new IllegalArgumentException(state);
-        }
-        return offer;
+        return Fixtures.moveDealTo(rules, offer, state);
     }
 
     private List<Notification> boardOf(User user) {
@@ -434,6 +413,38 @@ class MyDealsServiceTest {
         assertThrows(ServiceException.class, () -> deals.returnItem(offerId));
     }
 
+    // ================= After an automatic return: the deals to prompt a review for (client answer #3) =================
+
+    @Test
+    void autoReturnedDealsToReview_areOnlyTheBuyersOwnAutomaticReturns_withoutAReview() {
+        BorrowRequest waiting = accepted(borrowRequest("bea"));
+        BorrowRequest reviewed = accepted(borrowRequest("bea"));
+        BorrowRequest selfReturned = accepted(borrowRequest("bea"));
+        accepted(borrowRequest("ben"));
+        moveTo(priceOffer("bea"), "COMPLETED");          // completed, but not a loan
+        deals.returnItem(selfReturned.getId());          // returned by the buyer: the prompt came then
+        clock.set(waiting.getDueDate());
+        new BorrowingDeadlineService(store).process();   // UC12: the three other loans are returned
+        store.addReview(new Review(reviewed.getId(), 5, "Good."));
+
+        assertEquals(List.of(waiting), deals.getAutoReturnedDealsToReview().stream().map(Deal::offer).toList());
+    }
+
+    @Test
+    void autoReturnedDealsToReview_listTheMostRecentlyReturnedFirst() {
+        BorrowRequest first = accepted(borrowRequest("bea"));
+        LendListing projector = Fixtures.live(Fixtures.lend(store, "sam", Duration.ofDays(7)));
+        BorrowRequest second = accepted((BorrowRequest) store.addOffer(
+                new BorrowRequest(projector.getId(), "bea", NOW.plusHours(2), NOW.plusDays(9))));
+        BorrowingDeadlineService timer = new BorrowingDeadlineService(store);
+        clock.set(first.getDueDate());
+        timer.process();
+        clock.set(second.getDueDate());
+        timer.process();
+
+        assertEquals(List.of(second, first), deals.getAutoReturnedDealsToReview().stream().map(Deal::offer).toList());
+    }
+
     // ================= Precondition: the Buyer is logged in =================
 
     @Test
@@ -445,6 +456,7 @@ class MyDealsServiceTest {
             assertThrows(AccessDeniedException.class, deals::getMyDeals, other.getUsername());
             assertThrows(AccessDeniedException.class, () -> deals.markComplete(purchase.getId()));
             assertThrows(AccessDeniedException.class, () -> deals.returnItem(loan.getId()));
+            assertThrows(AccessDeniedException.class, deals::getAutoReturnedDealsToReview);
         }
         SessionManager.logout();
         assertThrows(AccessDeniedException.class, deals::getMyDeals);

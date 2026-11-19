@@ -11,7 +11,7 @@ import java.util.function.Consumer;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * State-based tests for the Listing state machine (docs/state-machines.md; Lecture 14):
+ * State-based tests for the Listing state machine (docs/state-machines.md; Lecture 13):
  * each test puts a listing in a state, applies one event, and checks the resulting state.
  * Every allowed transition is tested, and every event is tried in the states that must refuse it.
  */
@@ -173,7 +173,7 @@ class ListingStateMachineTest {
 
     @Test
     void lendListing_cannotBeSoldOrGiven_andSaleListingCannotBeLent() {
-        // "Make errors impossible by design" (Lecture 12): these statuses are unreachable
+        // "Make errors impossible by design" (Lecture 11): these statuses are unreachable
         assertThrows(IllegalArgumentException.class, () -> Fixtures.moveTo(sale(), ListingStatus.LENT));
         assertThrows(IllegalArgumentException.class, () -> Fixtures.moveTo(lend(), ListingStatus.SOLD));
         assertThrows(IllegalArgumentException.class, () -> Fixtures.moveTo(giveaway(), ListingStatus.SOLD));

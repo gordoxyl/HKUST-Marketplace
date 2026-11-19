@@ -172,13 +172,18 @@ public class MyDealsView extends ScrollPane implements Refreshable {
         if (!Dialogs.confirm("Return Item", DealText.confirmReturn(deal))) {
             return; // A3
         }
+        Deal returned;
         try {
-            Deal returned = service.returnItem(deal.offer().getId());
-            Dialogs.info("Item returned", DealText.returned(returned));
+            returned = service.returnItem(deal.offer().getId());
         } catch (ServiceException e) {
             Dialogs.problem(e);
+            refresh();
+            return;
         }
-        refresh();
+        refresh(); // shown as returned
+        if (Dialogs.confirm("Item returned", DealText.returnedRatePrompt(returned))) { // client answer #3
+            actions.rateSeller(returned);
+        }
     }
 
     // ---------- Small parts ----------

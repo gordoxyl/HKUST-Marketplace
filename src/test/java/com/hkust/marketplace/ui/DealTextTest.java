@@ -108,8 +108,17 @@ class DealTextTest {
                 + "the item. It cannot be undone.", DealText.confirmComplete(purchase));       // UC7 step 4
         assertEquals("Return 'Calculus Textbook' to Sam Lee now? This ends the borrowing and cannot be undone.",
                 DealText.confirmReturn(purchase));                                             // A2 step 1
-        assertEquals("'Calculus Textbook' was returned. Sam Lee has been notified.", DealText.returned(purchase));
         assertEquals("The deal for 'Calculus Textbook' is complete, and Sam Lee has been notified. "
                 + "Would you like to rate and review the seller now?", DealText.ratePrompt(purchase)); // step 9
+    }
+
+    @Test
+    void theRatePrompt_alsoFollowsAReturn_byTheBuyerOrByTheTimer() { // client answer #3
+        Deal returned = deal(made(new PriceOffer("L1", "bea", 160)));
+
+        assertEquals("'Calculus Textbook' was returned, and Sam Lee has been notified. "
+                + "Would you like to rate and review the seller now?", DealText.returnedRatePrompt(returned)); // UC7 A2
+        assertEquals("'Calculus Textbook' was returned automatically because the borrowing period ended. "
+                + "Would you like to rate and review Sam Lee now?", DealText.autoReturnRatePrompt(returned)); // UC12
     }
 }

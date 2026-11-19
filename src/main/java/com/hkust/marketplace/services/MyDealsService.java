@@ -13,7 +13,8 @@ import java.util.List;
 
 /**
  * UC7 Manage My Deals, for the Buyer (Task 1.6): the buyer's current and completed deals,
- * marking a purchase or claim complete, and returning a borrowed item before its due date.
+ * marking a purchase or claim complete, and returning a borrowed item before its due date. It
+ * also finds the automatic returns whose seller the buyer has not reviewed yet (client answer #3).
  *
  * <p><b>Design (Lecture 15).</b> This is the use case's control class. The boundary is the
  * buyer's My Deals screen ({@code controllers.buyer.MyDealsView}), which also asks the buyer
@@ -114,6 +115,25 @@ public class MyDealsService {
             rules.returnItem(request, false); // refuses a request that is not accepted, or was already returned
             return dealOf(deal);
         });
+    }
+
+    // ========== After an automatic return (UC12; client answer #3) ==========
+
+    /**
+     * The logged-in buyer's borrowed items that were returned automatically (UC12) and whose
+     * seller the buyer has not reviewed yet, the most recently returned first. The buyer's
+     * dashboard asks the buyer to rate the seller of each one the timer returns while the buyer
+     * is using the app (client answer #3, UC10 step 1); for one returned while the buyer was
+     * away, the auto-return notification says so instead.
+     */
+    public List<Deal> getAutoReturnedDealsToReview() {
+        Buyer buyer = AccessControl.requireBuyer();
+        return store.read(() -> store.getOffersByBuyer(buyer.getUsername()).stream()
+                .filter(offer -> offer instanceof BorrowRequest request && request.isAutoReturned())
+                .filter(offer -> store.findReviewForOffer(offer.getId()) == null)
+                .sorted(Comparator.comparing(Offer::getCompletedDate, Comparator.reverseOrder()))
+                .map(this::dealOf)
+                .toList());
     }
 
     // ========== Rules ==========

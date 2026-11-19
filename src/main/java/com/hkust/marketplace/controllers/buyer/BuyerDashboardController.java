@@ -10,12 +10,14 @@ import com.hkust.marketplace.services.MyDealsService;
 import com.hkust.marketplace.services.NotificationService;
 import com.hkust.marketplace.services.OfferService;
 import com.hkust.marketplace.services.ProfileService;
+import com.hkust.marketplace.services.ReviewService;
 import com.hkust.marketplace.services.SellerProfile;
 import com.hkust.marketplace.services.ServiceException;
 import com.hkust.marketplace.ui.ChatList;
 import com.hkust.marketplace.ui.ChatText;
 import com.hkust.marketplace.ui.ChatView;
 import com.hkust.marketplace.ui.ContentHost;
+import com.hkust.marketplace.ui.DealText;
 import com.hkust.marketplace.ui.Dialogs;
 import com.hkust.marketplace.ui.LiveUpdates;
 import com.hkust.marketplace.ui.NotificationBoard;
@@ -24,6 +26,7 @@ import com.hkust.marketplace.ui.Refreshable;
 import com.hkust.marketplace.ui.SubScreen;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
@@ -31,6 +34,10 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 
 /**
@@ -58,6 +65,9 @@ public class BuyerDashboardController implements ContentHost {
     private final ChatService chatService = new ChatService();
     private final MakeOfferFlow makeOffer = new MakeOfferFlow(new OfferService());
     private final MyDealsService myDealsService = new MyDealsService();
+    private final ReviewSellerFlow reviewFlow = new ReviewSellerFlow(new ReviewService());
+    /** The automatic returns the buyer was asked about, or that happened before this dashboard opened (client answer #3). */
+    private final Set<String> autoReturnsSeen = new HashSet<>();
     /** The My Deals screen now open. It is kept while a deal's listing or chat is open, so Back returns to it. */
     private MyDealsView myDealsView;
     /** The Browse screen now open. It is kept while a listing is open, so Back returns to it as it was. */
@@ -67,9 +77,20 @@ public class BuyerDashboardController implements ContentHost {
     public void initialize() {
         showGreeting();
         currentActiveBtn = btnBrowse;
+        // Returned before the buyer logged in: their notification already invites the rating
+        autoReturnsToReview().forEach(deal -> autoReturnsSeen.add(deal.offer().getId()));
         // UC12 step 4: when the timer returns an item or sends a reminder, the open screen shows it
-        LiveUpdates.setOnDataChanged(() -> contentPane.getScene() != null, this::refreshCurrentScreen);
+        LiveUpdates.setOnDataChanged(() -> contentPane.getScene() != null, this::onDataChanged);
         showBrowse();
+    }
+
+    /**
+     * When the timer has changed the data (UC12 step 4): the open screen reloads, and the buyer
+     * is asked to rate the seller of each item the timer has just returned (client answer #3).
+     */
+    private void onDataChanged() {
+        refreshCurrentScreen();
+        Platform.runLater(this::promptAfterAutoReturns); // once the screen has reloaded
     }
 
     /** Reloads the screen now shown, if it can reload. */
@@ -247,10 +268,41 @@ public class BuyerDashboardController implements ContentHost {
         }
     }
 
-    /** UC10 Review Seller starts here. It is built later (B5). */
+    // ========== UC10 Review Seller ==========
+
+    /**
+     * UC10 from any of its starting points (step 1): the prompt after a deal is completed or an
+     * item returned, or the Rate Seller button of a completed deal. The open screen then shows
+     * the deal as it is now: a reviewed deal has no Rate Seller button.
+     */
     private void reviewSeller(Deal deal) {
-        Dialogs.info("Not built yet", "Rating and reviewing " + deal.sellerName() + " (UC10) is built later. "
-                + "The Rate Seller button stays on this deal in My Deals.");
+        reviewFlow.start(deal.offer().getId());
+        refreshCurrentScreen();
+    }
+
+    /**
+     * Client answer #3: the rate-seller prompt also follows an automatic return. The buyer is
+     * asked once about each item the timer returns while this dashboard is open.
+     */
+    private void promptAfterAutoReturns() {
+        if (contentPane.getScene() == null) {
+            return; // the buyer logged out meanwhile
+        }
+        for (Deal deal : autoReturnsToReview()) {
+            if (autoReturnsSeen.add(deal.offer().getId())
+                    && Dialogs.confirm("Item returned automatically", DealText.autoReturnRatePrompt(deal))) {
+                reviewSeller(deal);
+            }
+        }
+    }
+
+    /** The buyer's automatic returns not reviewed yet; none if the account can no longer act, which its next action reports. */
+    private List<Deal> autoReturnsToReview() {
+        try {
+            return myDealsService.getAutoReturnedDealsToReview();
+        } catch (ServiceException e) {
+            return List.of();
+        }
     }
 
     // ========== Screens that are still the skeleton's demo ==========

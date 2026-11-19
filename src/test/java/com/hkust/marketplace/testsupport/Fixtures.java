@@ -2,6 +2,7 @@ package com.hkust.marketplace.testsupport;
 
 import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.models.*;
+import com.hkust.marketplace.services.DealRules;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -112,5 +113,38 @@ public final class Fixtures {
             throw new IllegalArgumentException("A " + listing.getType() + " listing cannot become " + target + ".");
         }
         return listing;
+    }
+
+    // ---------- Deals in a chosen state, reached through the state machines ----------
+
+    /**
+     * Moves a pending offer into the state through the same events the app uses: "PENDING",
+     * "COUNTERED", "DECLINED", "ACCEPTED", or "COMPLETED", which for a borrow request means the
+     * buyer returned the item. The state is named as text so a parameterized test can list it.
+     * @param rules the deal rules of the offer's store, which accept, complete and return deals
+     */
+    public static Offer moveDealTo(DealRules rules, Offer offer, String state) {
+        switch (state) {
+            case "PENDING" -> { }
+            case "COUNTERED" -> {
+                if (offer instanceof PriceOffer price) {
+                    price.counter(95);
+                } else {
+                    ((BorrowRequest) offer).counter(START.plusDays(1), START.plusDays(2));
+                }
+            }
+            case "DECLINED" -> offer.decline();
+            case "ACCEPTED" -> rules.accept(offer);
+            case "COMPLETED" -> {
+                rules.accept(offer);
+                if (offer instanceof BorrowRequest request) {
+                    rules.returnItem(request, false);
+                } else {
+                    rules.complete(offer);
+                }
+            }
+            default -> throw new IllegalArgumentException(state);
+        }
+        return offer;
     }
 }

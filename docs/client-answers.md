@@ -4,7 +4,7 @@ The TA, acting as our client, answered Group 44's questions about the specificat
 
 **Where an answer differs from `Diagrams and Use-Case Specifications.pdf`, the answer wins.** The answers below are summarized, not quoted.
 
-Status as of 17 Nov 2026: **done** = the code already behaves this way; **to do** = a change is still needed.
+Status as of 18 Nov 2026: **done** = the code already behaves this way; **to do** = a change is still needed.
 
 ## The answers
 
@@ -12,12 +12,12 @@ Status as of 17 Nov 2026: **done** = the code already behaves this way; **to do*
 |---|---|---|---|---|
 | 1 | Deal History's "Outcome" is the deal's final result, such as Completed or Returned. Self-returns and automatic returns need not be told apart. | Showing "Auto-returned" is allowed but not required. | Buyer (Gordon) | done |
 | 2 | Only buyers make price offers, borrow requests and claims; sellers Accept, Decline or Counter. Agreeing to a counter by making a new offer with the counter's terms is acceptable. | Confirms the current design: a buyer cannot accept a counter directly (UC5 SR4). | All | done |
-| 3 | A lending deal is completed once the item is returned, by the buyer or automatically. The rate-seller prompt must also follow a return, as it follows Mark Complete. | Prompt to rate the seller after a self-return and after an automatic return too, not only after Mark Complete. | Buyer (Gordon, UC10) | to do |
+| 3 | A lending deal is completed once the item is returned, by the buyer or automatically. The rate-seller prompt must also follow a return, as it follows Mark Complete. | Prompt to rate the seller after a self-return and after an automatic return too, not only after Mark Complete. After an automatic return the prompt pops up if the buyer is using the app; otherwise the return notification says "You can rate the seller from My Deals." (team decision, 18 Nov). | Buyer (Gordon, UC10) | done |
 | 4 | Admin All Deals "Start Date": for a loan, the agreed borrow start; for a sale or giveaway, the date the offer was accepted. Buyer Deal History "Deal Date": the completion date (marked complete or returned). | All Deals uses the accepted borrow request's start date for loans and `getAcceptedDate()` for sales and giveaways. Deal History uses `getCompletedDate()`. | Admin (Jack, 3.5); Buyer (Gordon, UC11) | to do |
 | 5 | A seller may edit a rejected listing and resubmit it. Editing a live listing with no active offers does not need to go back to Pending Review. Changing the listing type is not forbidden, but a new listing is recommended. | Rejected → edit → Pending Review already works. **An edit of a Live listing with no open offers keeps it Live** (this overrides Manage Listings 3.1.6). The type stays fixed after posting. | Seller (Daniel, PR #11 follow-up); docs (Gordon) | to do (seller code) |
 | 6 | Deleting a user by archiving their data and then removing it is acceptable. Chat retention applies to active users and ongoing deals. Reviews written by a deleted buyer are kept and shown as "Deleted User". Reports filed by or against a deleted user are kept. | `DataStore.deleteAccount` must **keep the reviews the user wrote**, and screens must show their author as "Deleted User". Reports are already kept. What "chat retention" means for chats with an active user is still open (below). | Shared core (Gordon); Admin (Jack, Delete User) | to do |
 | 7 | Reports have no resolved or dismissed status. A report is handled by acting on the listing (take-down, Task 3.7). | Confirms `Report` without a status; the admin handles a report with Remove Listing. | Admin (Jack) | done |
-| 8 | One review per completed deal: borrowing the same item twice gives two reviews. A written review and a 1–5 rating are both expected; the written part is not optional. | Reviews stay keyed by deal. **The written comment becomes required** (UC10 says "may"). | Buyer (Gordon, UC10) | to do (comment) |
+| 8 | One review per completed deal: borrowing the same item twice gives two reviews. A written review and a 1–5 rating are both expected; the written part is not optional. | Reviews stay keyed by deal. **The written comment is required** (UC10 says "may"). | Buyer (Gordon, UC10) | done |
 
 ## Still open
 
@@ -34,8 +34,8 @@ To ask the client:
 
 For the team to decide:
 
-- How to prompt the buyer to rate the seller after an automatic return, which happens while the buyer may not be using the app.
+- ~~How to prompt the buyer after an automatic return~~: decided 18 Nov, see answer 3.
 - Whether "Deleted User" reviews still count in the seller's average rating.
-- The minimum length of the written review.
+- The minimum length of the written review (today: any text that is not blank).
 
 When the client answers more, update this page and the guides that state the old rule.

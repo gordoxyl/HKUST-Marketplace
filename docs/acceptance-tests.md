@@ -18,10 +18,10 @@ Demo listings after a reset: *MacBook Pro Charger 61W* (sale, HK$ 250, Charlie, 
 (giveaway, Diana, available), *Graphing Calculator TI-84* (lend, 90 days, Diana, available; Bob has a pending
 borrow request), *Calculus Textbook (Stewart)* (sale, HK$ 180, Charlie, **Reserved** for Alice).
 
-Scenarios marked *needs Task 2.5* need a seller to accept or counter an offer. Until the seller's Manage
-Offers screen exists, run `scripts\practice-data.cmd` after the reset: it adds deals that a seller has
-already accepted or countered for `alice` (Desk Fan, Free Notebooks, Camera Tripod, HDMI Cable, Bluetooth
-Speaker, Camping Tent), and those scenarios can be run on them instead.
+Scenarios marked *needs Task 2.5* need a seller to accept or counter an offer: log in as the seller
+(`charlie` or `diana`) and use **Offers & Requests**. To skip those steps, run `scripts\practice-data.cmd`
+after the reset: it adds deals that a seller has already accepted or countered for `alice` (Desk Fan, Free
+Notebooks, Camera Tripod, HDMI Cable, Bluetooth Speaker, Camping Tent), and the scenarios can be run on them.
 
 Scenarios for the other use cases are added as each one is built.
 
@@ -100,10 +100,31 @@ comes after 2.5 minutes, the automatic return after 5. Borrow times are shown to
 |---|---|---|---|---|
 | AT-UC12-01 | Step 2, reminder (SR2: halfway for a short period) | Open the Notification Board and wait until 2.5 minutes after the script ran. | A "Due-Date Reminder" appears by itself, without reopening the board: "Reminder: 'HDMI Cable' is due on <date and time>." | |
 | AT-UC12-02 | SR3, one reminder | Keep the board open for another minute; open it again. | Still exactly one reminder for the HDMI Cable. | |
-| AT-UC12-03 | Step 3-4, automatic return | Open My Deals and wait until 5 minutes after the script ran. | Without clicking, the HDMI Cable moves to "Completed deals" with status **Auto-returned** and "Returned automatically <date>"; its Return Item button is gone and Rate Seller appears. | |
-| AT-UC12-04 | Step 3, notifications (SR6) | Open the Notification Board. Then log in as `charlie` and open Notifications. | Alice: "'HDMI Cable' was returned automatically because the borrowing period ended." Charlie: "'HDMI Cable', borrowed by Alice Chan, was returned automatically…". | |
+| AT-UC12-03 | Step 3-4, automatic return | Open My Deals and wait until 5 minutes after the script ran. | Without clicking, the HDMI Cable moves to "Completed deals" with status **Auto-returned** and "Returned automatically <date>"; its Return Item button is gone and Rate Seller appears. The rate-seller prompt pops up too (AT-UC10-08); press Cancel to keep the review for later. | |
+| AT-UC12-04 | Step 3, notifications (SR6) | Open the Notification Board. Then log in as `charlie` and open Notifications. | Alice: "'HDMI Cable' was returned automatically because the borrowing period ended. You can rate the seller from My Deals." Charlie: "'HDMI Cable', borrowed by Alice Chan, was returned automatically…". | |
 | AT-UC12-05 | Step 3, listing Live again | As `alice`, open Browse. | The HDMI Cable is no longer greyed out: Available, and Request Borrow works on its detail. | |
 | AT-UC12-06 | App closed past the due date | Run the practice script, keep the app closed for more than 5 minutes, then start it and open My Deals. | The HDMI Cable is already Auto-returned, and there is one reminder and one return notification. | |
 | AT-UC12-07 | A1 listing removed while lent *(needs Task 3.7)* | While the cable is lent, as `admin` remove the listing; wait for the due date. | The deal is Auto-returned with both notifications, but the listing stays Removed and is not on Browse. | |
 | AT-UC12-08 | SR5 returned once | Press Return Item on the HDMI Cable a few seconds before it is due, confirm after the due date has passed. | Either it was returned by Alice, or the message "The borrowing period has ended. The item is returned automatically." appears; never both, and only one return notification. | |
 | AT-UC12-09 | Late acceptance refused (R8) *(needs Task 2.5)* | As `alice`, request the calculator for a 5-second period; wait 10 seconds; as `diana`, accept it. | "The borrow period of this request has already ended. Decline it, or counter with new dates." The request stays Pending. | |
+
+## UC10 Review Seller (Task 1.10)
+
+The client's answers (`docs/client-answers.md`) change two things: the written review is required (#8),
+and the rate-seller prompt also follows the return of a borrowed item (#3). A1 (the deal cannot be
+reviewed) cannot be reached through the screens, because only a completed deal without a review has a
+Rate Seller button; it is covered by `ReviewServiceTest`.
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-UC10-01 | Basic flow, from the prompt after Mark Complete (UC7 step 9) | As `alice`, open My Deals, press Mark Complete on the Calculus Textbook and confirm. Answer OK to the prompt. Choose 4 ★, write "Smooth deal, met on time.", press Submit Review. | The form is headed "Rate and review Charlie Lee for 'Calculus Textbook (Stewart)'". After submitting: "Thank you. Your review of Charlie Lee was submitted…". On My Deals the deal has no Rate Seller button. | |
+| AT-UC10-02 | Step 8, shown to all users | Open Browse, a listing of Charlie's, then Charlie's profile. | The review (★★★★☆, the comment, today's date) is listed on both, and the average rating and the number of ratings include it. | |
+| AT-UC10-03 | Step 9, the seller is notified | Log in as `charlie` and open Notifications. | "Review Received": "Alice Chan rated you 4 out of 5 stars for 'Calculus Textbook (Stewart)': "Smooth deal, met on time."" | |
+| AT-UC10-04 | A2, no rating | Open a review form, write a review, and press Submit Review without choosing stars. | "A rating from 1 to 5 stars is required." The form comes back with the review still written. | |
+| AT-UC10-05 | Written review required (client answer #8) | Choose stars, leave the review empty or only spaces, press Submit Review. | "A written review is required. Tell other buyers how the deal went." The form comes back with the stars still chosen. | |
+| AT-UC10-06 | A3, skip | In the form, press Skip. | No message, and nothing is recorded. The deal keeps its Rate Seller button, which opens the form again. | |
+| AT-UC10-07 | Prompt after the buyer returns an item (client answer #3) | After `scripts\practice-data.cmd`, as `alice`, press Return Item on the Camera Tripod and confirm. | "'Camera Tripod' was returned, and Diana Ng has been notified. Would you like to rate and review the seller now?" OK opens the form. | |
+| AT-UC10-08 | Prompt after an automatic return, in the app (client answer #3) | As in AT-UC12-03, stay logged in as `alice` until the HDMI Cable is returned automatically. | Without clicking: "'HDMI Cable' was returned automatically because the borrowing period ended. Would you like to rate and review Charlie Lee now?" OK opens the form; Cancel leaves the Rate Seller button. | |
+| AT-UC10-09 | Automatic return while away (client answer #3) | As in AT-UC12-06, keep the app closed past the due date, then log in as `alice`. | No pop-up. The notification ends "You can rate the seller from My Deals.", and the deal has a Rate Seller button. | |
+| AT-UC10-10 | SR1 once per deal; two loans give two reviews (client answer #8) *(needs Task 2.5)* | Borrow the calculator, have `diana` accept, return it and review it; then borrow it again and return it. | The second loan has its own Rate Seller button and review; each deal is reviewed once. | |
+| AT-UC10-11 | SR3, no change after submitting | After submitting a review, look for a way to change or delete it. | There is none; the deal has no Rate Seller button any more. | |

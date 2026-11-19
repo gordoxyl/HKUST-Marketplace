@@ -118,8 +118,11 @@ public final class Dialogs {
         return alert;
     }
 
-    /** Centres the dialog on the app's window, when there is one. */
-    private static void placeOnAppWindow(Dialog<?> dialog) {
+    /**
+     * Centres the dialog on the app's window, when there is one. With the window as its owner,
+     * the dialog also uses the app's stylesheet.
+     */
+    static void placeOnAppWindow(Dialog<?> dialog) {
         Stage stage = SceneManager.getPrimaryStage();
         if (stage != null) {
             dialog.initOwner(stage);

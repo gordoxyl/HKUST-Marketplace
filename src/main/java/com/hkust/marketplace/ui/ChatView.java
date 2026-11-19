@@ -1,10 +1,10 @@
 package com.hkust.marketplace.ui;
 
 import com.hkust.marketplace.models.Offer;
-import com.hkust.marketplace.models.OfferStatus;
 import com.hkust.marketplace.services.ChatEntry;
 import com.hkust.marketplace.services.ChatService;
 import com.hkust.marketplace.services.Conversation;
+import com.hkust.marketplace.services.OfferAction;
 import com.hkust.marketplace.services.ServiceException;
 import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
@@ -24,7 +24,8 @@ import javafx.scene.layout.VBox;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * The chat screen, the same in the buyer and seller portals (UC6 Chat About Listing; Tasks
@@ -34,13 +35,22 @@ import java.util.function.Consumer;
  * Conversation chat = chatService.openForOffer(offer.getId());       // or openForListing(listingId)
  * host.show(ChatText.title(chat), new ChatView(chatService, chat));
  * }</pre>
- * The buyer portal adds the two ways into Make Offer (UC5 step 1) that start in a chat: the
- * Make Offer option with {@link #setOnMakeOffer}, and agreeing to a seller's counter with
- * {@link #setOnAgreeToCounter}.
  *
- * <p>All rules (who may read and write, empty messages, searching) are in the tested
- * {@link ChatService}, and the wording in {@link ChatText} and {@link OfferText}; this class
- * only lays the chat out.
+ * <p><b>Deal actions.</b> The offers in the history only show what happened and their status.
+ * What can be done with them is in one row under Send, the same in both portals, and a button
+ * is there only while it is that person's turn (assumptions register 71):
+ * <ul>
+ *   <li>the buyer portal adds Make Offer with {@link #setOnMakeOffer} and, while the seller
+ *       has countered, Agree to Counter with {@link #setOnAgreeToCounter} (UC5 step 1);</li>
+ *   <li>the seller portal adds Answer Offers (or Answer Requests, Answer Claim) with
+ *       {@link #setOnAnswerOffer}: the same actions as Offers &amp; Requests.</li>
+ * </ul>
+ * Agree to Counter and Answer Offers open {@code OfferChoiceDialog}, which lists the offers to
+ * act on and returns the one chosen with its action.
+ *
+ * <p>All rules (who may read and write, empty messages, searching, which offers allow which
+ * action) are in the tested {@link ChatService}, {@link Conversation} and {@link OfferAction};
+ * the wording is in {@link ChatText} and {@link OfferText}. This class only lays the chat out.
  */
 public class ChatView extends VBox implements Refreshable {
 
@@ -60,10 +70,14 @@ public class ChatView extends VBox implements Refreshable {
     private final TextField searchField = new TextField();
     private final VBox searchResults = new VBox(6);
     private final TextArea input = new TextArea();
-    private final HBox buttons = new HBox(8);
-    private Button makeOfferButton;
-    /** What "Agree to Counter" on a countered offer does; null while the option is not offered. */
-    private Consumer<Offer> agreeToCounter;
+    /** The deal actions under Send; empty and hidden while there is nothing to do. */
+    private final HBox dealActions = new HBox(8);
+    /** The buyer's Make Offer; null while it is not offered. */
+    private Runnable makeOffer;
+    /** The buyer's Agree to Counter; null while it is not offered. */
+    private AgreeToCounter agreeToCounter;
+    /** The seller's answers to offers; null while they are not offered. */
+    private OfferAnswers offerAnswers;
 
     public ChatView(ChatService service, Conversation conversation) {
         super(12);
@@ -93,48 +107,122 @@ public class ChatView extends VBox implements Refreshable {
         return conversation;
     }
 
+    // ---------- Deal actions: what each portal plugs in ----------
+
+    /**
+     * What the buyer's Agree to Counter does with the countered offer they chose: Make Offer
+     * with the counter's terms filled in (UC5 step 1 and Special Requirement 4).
+     */
+    @FunctionalInterface
+    public interface AgreeToCounter {
+
+        /**
+         * Pre: the offer is one of this chat's offers and the seller has countered it.
+         * @param countered the buyer's offer that the seller countered
+         * @return true if a new offer was submitted; false if the buyer cancelled or it was refused
+         */
+        boolean agree(Offer countered);
+    }
+
+    /**
+     * What the seller can do with an open offer from inside the chat: the same actions as Manage
+     * Offers &amp; Requests 3.3-3.5 (UI consistency; assumptions register 71).
+     *
+     * <p>The chat calls these on the JavaFX thread, after the seller chose one offer in the
+     * answer dialog and that dialog closed. Each method returns true if the offer was changed,
+     * and false if the seller cancelled or the service refused. The chat reloads after every
+     * call, and on false opens the answer dialog again. An implementation:
+     * <ul>
+     *   <li>asks its usual confirmation or counter form, calls the seller's service with
+     *       {@code offer.getId()} (the object may be out of date), and shows the outcome;</li>
+     *   <li>catches {@code ServiceException}, shows it, and returns false;</li>
+     *   <li>does not change the screen: the seller stays in the chat.</li>
+     * </ul>
+     * Interactions added later come as {@code default} methods, so an implementation keeps
+     * compiling (open-closed principle, Lecture 18).
+     */
+    public interface OfferAnswers {
+
+        /**
+         * Pre: the offer was Pending when the dialog opened, is on this chat's listing, and the
+         * viewer is that listing's seller.
+         * Post: if true, the offer is Accepted (the service also declined the other open
+         * offers); if false, nothing changed.
+         * @param offer the offer the seller chose
+         * @return true if the offer was accepted
+         */
+        boolean accept(Offer offer);
+
+        /**
+         * Pre: the offer was open (Pending or Countered) when the dialog opened.
+         * Post: if true, the offer is Declined; if false, nothing changed.
+         * @param offer the offer the seller chose
+         * @return true if the offer was declined
+         */
+        boolean decline(Offer offer);
+
+        /**
+         * Pre: the offer was Pending and is a price offer or a borrow request, never a claim.
+         * Post: if true, the offer is Countered; if false, nothing changed.
+         * @param offer the offer the seller chose
+         * @return true if the offer was countered
+         */
+        boolean counter(Offer offer);
+    }
+
     /**
      * Adds the Make Offer option for the buyer (UC5 step 1: "the Make Offer option in the
      * listing's chat thread"), named after the listing type: Make Offer, Request Borrow or
      * Claim Item. The action runs Make Offer; afterwards the history is reloaded, so a new
-     * offer appears in it. Nothing is added when the viewer is the seller.
+     * offer appears in it. Nothing is shown when the viewer is the seller.
      */
     public ChatView setOnMakeOffer(Runnable makeOffer) {
-        buttons.getChildren().remove(makeOfferButton);
-        if (conversation.viewerIsBuyer()) {
-            makeOfferButton = new Button(OfferText.actionText(conversation.listing().getType()));
-            makeOfferButton.getStyleClass().add("btn-outline");
-            makeOfferButton.setOnAction(e -> {
-                makeOffer.run();
-                refresh();
-            });
-            buttons.getChildren().add(makeOfferButton);
-        }
+        this.makeOffer = makeOffer;
+        showActions();
         return this;
     }
 
     /**
-     * Adds an Agree to Counter button for the buyer on each of their offers that the seller
-     * countered (UC5 step 1: "choosing to agree to a seller's counter on one of their earlier
-     * offers"). The action runs Make Offer with the counter's terms filled in; afterwards the
-     * history is reloaded. Nothing is added when the viewer is the seller.
+     * Adds Agree to Counter for the buyer (UC5 step 1: "choosing to agree to a seller's counter
+     * on one of their earlier offers"). The button is shown while the seller has countered one
+     * of the buyer's offers in this chat, with how many: "Agree to Counter (1)". It opens the
+     * list of countered offers, each with the buyer's terms and the seller's counter, and Agree
+     * runs {@code agree}. Nothing is shown when the viewer is the seller.
      */
-    public ChatView setOnAgreeToCounter(Consumer<Offer> agree) {
-        agreeToCounter = agree;
-        showHistory();
+    public ChatView setOnAgreeToCounter(AgreeToCounter agree) {
+        this.agreeToCounter = agree;
+        showActions();
+        return this;
+    }
+
+    /**
+     * Gives the chat the seller's answers. While the chat has open offers, the seller sees
+     * Answer Offers (n), Answer Requests (n) or Answer Claim; it opens the list of open offers
+     * with Accept, Decline and Counter (no Counter for a claim), which call {@code answers}.
+     * Without answers, or when the viewer is the buyer, nothing is shown.
+     */
+    public ChatView setOnAnswerOffer(OfferAnswers answers) {
+        this.offerAnswers = answers;
+        showActions();
         return this;
     }
 
     /** Reloads the history, for example after an offer was made or the other party wrote. */
     @Override
     public final void refresh() {
+        reload();
+    }
+
+    /** Reloads the history and the deal actions; false if the chat could not be loaded (the problem was shown). */
+    private boolean reload() {
         try {
             conversation = service.reload(conversation);
         } catch (ServiceException e) {
             Dialogs.problem(e);
-            return;
+            return false;
         }
         showHistory();
+        return true;
     }
 
     // ---------- Layout ----------
@@ -181,17 +269,17 @@ public class ChatView extends VBox implements Refreshable {
         Button send = new Button("Send");
         send.getStyleClass().add("btn-primary");
         send.setOnAction(e -> send());
-        buttons.getChildren().add(send);
-        buttons.setAlignment(Pos.BOTTOM_LEFT);
 
-        HBox composer = new HBox(10, input, buttons);
-        composer.setAlignment(Pos.BOTTOM_LEFT);
-        return composer;
+        HBox writing = new HBox(10, input, send);
+        writing.setAlignment(Pos.BOTTOM_LEFT);
+        dealActions.setAlignment(Pos.CENTER_RIGHT);
+        return new VBox(8, writing, dealActions);
     }
 
     // ---------- History (UC6 step 2) ----------
 
     private void showHistory() {
+        showActions();
         history.getChildren().clear();
         rows.clear();
         highlighted = null;
@@ -230,15 +318,6 @@ public class ChatView extends VBox implements Refreshable {
 
         VBox card = new VBox(3, meta(entry), terms);
         OfferText.counter(offer).ifPresent(counter -> card.getChildren().add(text(counter, "chat-text")));
-        if (agreeToCounter != null && conversation.viewerIsBuyer() && offer.getStatus() == OfferStatus.COUNTERED) {
-            Button agree = new Button("Agree to Counter");
-            agree.getStyleClass().addAll("btn-outline", "btn-sm");
-            agree.setOnAction(e -> {
-                agreeToCounter.accept(offer);
-                refresh();
-            });
-            card.getChildren().add(agree);
-        }
         card.getStyleClass().add("chat-offer");
         card.setMaxWidth(BUBBLE_WIDTH);
         return row(card, Pos.CENTER);
@@ -264,6 +343,93 @@ public class ChatView extends VBox implements Refreshable {
         label.setMinHeight(Region.USE_PREF_SIZE); // wrap long text instead of cutting it short
         label.getStyleClass().add(styleClass);
         return label;
+    }
+
+    // ---------- Deal actions under Send (assumptions register 71) ----------
+
+    /** Shows the deal buttons that fit the chat as it is now, and hides the row when there are none. */
+    private void showActions() {
+        dealActions.getChildren().clear();
+        int waiting = conversation.offersToActOn().size();
+        if (conversation.viewerIsBuyer()) {
+            addBuyerActions(waiting);
+        } else {
+            addSellerActions(waiting);
+        }
+        boolean any = !dealActions.getChildren().isEmpty();
+        dealActions.setVisible(any);
+        dealActions.setManaged(any);
+    }
+
+    /** Make Offer, and Agree to Counter while the seller has countered ({@code waiting} offers). */
+    private void addBuyerActions(int waiting) {
+        if (makeOffer != null) {
+            dealActions.getChildren().add(actionButton(OfferText.actionText(conversation.listing().getType()), () -> {
+                makeOffer.run();
+                refresh();
+            }));
+        }
+        if (agreeToCounter != null && waiting > 0) {
+            dealActions.getChildren().add(actionButton(ChatText.agreeButton(waiting),
+                    () -> actOnOffers(choice -> agreeToCounter.agree(choice.offer()))));
+        }
+    }
+
+    /** Answer Offers, Answer Requests or Answer Claim while the chat has open offers ({@code waiting}). */
+    private void addSellerActions(int waiting) {
+        if (offerAnswers != null && waiting > 0) {
+            dealActions.getChildren().add(actionButton(ChatText.answerButton(conversation.listing().getType(), waiting),
+                    () -> actOnOffers(this::answer)));
+        }
+    }
+
+    private static Button actionButton(String text, Runnable action) {
+        Button button = new Button(text);
+        button.getStyleClass().add("btn-outline");
+        button.setOnAction(e -> action.run());
+        return button;
+    }
+
+    /** The seller's chosen answer, passed to the seller portal's {@link OfferAnswers}. */
+    private boolean answer(OfferChoiceDialog.Choice choice) {
+        return switch (choice.action()) {
+            case ACCEPT -> offerAnswers.accept(choice.offer());
+            case DECLINE -> offerAnswers.decline(choice.offer());
+            case COUNTER -> offerAnswers.counter(choice.offer());
+            case AGREE_TO_COUNTER -> throw new IllegalStateException("A seller cannot agree to a counter.");
+        };
+    }
+
+    /**
+     * Lists the offers the viewer can act on, runs the chosen action and reloads the chat. When
+     * an action is cancelled or refused (it returns false), the list opens again, until the
+     * viewer cancels it, an action succeeds, or no offer is left to act on.
+     */
+    private void actOnOffers(Function<OfferChoiceDialog.Choice, Boolean> act) {
+        while (true) {
+            List<Offer> offers = conversation.offersToActOn();
+            if (offers.isEmpty()) {
+                return;
+            }
+            Optional<OfferChoiceDialog.Choice> chosen = OfferChoiceDialog.show(conversation, offers);
+            if (chosen.isEmpty()) {
+                return; // cancelled
+            }
+            OfferChoiceDialog.Choice choice = chosen.get();
+            // Precondition of the action (Lecture 10): the dialog enables only what the offer allows
+            assert conversation.actionsFor(choice.offer()).contains(choice.action())
+                    : "the chosen offer allows " + choice.action();
+            boolean changed;
+            try {
+                changed = act.apply(choice);
+            } catch (ServiceException e) { // a safety net: the action should show its own problems
+                Dialogs.problem(e);
+                changed = false;
+            }
+            if (!reload() || changed) {
+                return;
+            }
+        }
     }
 
     // ---------- Writing (UC6 steps 3-6, A1) ----------

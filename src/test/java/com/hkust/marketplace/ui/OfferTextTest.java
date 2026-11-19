@@ -55,6 +55,25 @@ class OfferTextTest {
     }
 
     @Test
+    void terms_areWhatTheBuyerProposed_andTheCounter_withoutLabels() { // the chat's offer dialog lists them
+        PriceOffer price = new PriceOffer("L1", "bea", 160);
+        BorrowRequest request = new BorrowRequest("L1", "bea", START, END);
+        Claim claim = new Claim("L1", "bea");
+
+        assertEquals("HK$ 160", OfferText.terms(price));
+        assertEquals("02 Nov 2026 13:00:00 – 09 Nov 2026 13:00:00", OfferText.terms(request));
+        assertEquals("", OfferText.terms(claim)); // a claim has no terms
+        assertEquals(Optional.empty(), OfferText.counterTerms(price));
+
+        price.counter(170);
+        request.counter(START.plusDays(1), END.plusDays(1));
+
+        assertEquals(Optional.of("HK$ 170"), OfferText.counterTerms(price));
+        assertEquals(Optional.of("03 Nov 2026 13:00:00 – 10 Nov 2026 13:00:00"), OfferText.counterTerms(request));
+        assertEquals(Optional.empty(), OfferText.counterTerms(claim));
+    }
+
+    @Test
     void action_isNamedAfterTheListingType() {
         assertEquals("Make Offer", OfferText.actionText(ListingType.SELL));
         assertEquals("Request Borrow", OfferText.actionText(ListingType.LEND));

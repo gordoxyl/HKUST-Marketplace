@@ -6,6 +6,7 @@ import com.hkust.marketplace.models.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalDouble;
+import com.hkust.marketplace.data.DeletedAccount;
 
 /**
  * Control class for Manage All User Accounts (Task 3.3): view the user list, view one user,
@@ -247,6 +248,39 @@ public class AdminUserService {
         });
     }
 
+    // ==========================================
+    // Task 3.3: delete user (6.4)
+    // ==========================================
+
+    public void deleteUser(String username, String reason) {
+        Admin admin = AccessControl.requireAdmin();
+        String cleanReason = requireReason(reason, "A reason is required to delete an account.");
+
+        store.transaction(() -> {
+            User user = store.findUser(username);
+            if (user == null) {
+                throw new ServiceException("This account no longer exists.");
+            }
+            if (user instanceof Admin) {
+                throw new ServiceException("An admin account cannot be deleted.");
+            }
+
+            DeletedAccount deleted = store.deleteAccount(username);
+
+            store.addAuditLogEntry(new AuditLogEntry(admin.getUsername(), username,
+                    "Delete account", cleanReason, deleted.snapshot()));
+
+            for (Offer offer : deleted.declinedOffers()) {
+                Listing listing = store.getListingOf(offer);
+                String otherUser = user instanceof Buyer ? listing.getSellerUsername() : offer.getBuyerUsername();
+
+                if (store.findUser(otherUser) != null) {
+                    notifications.send(otherUser, NotificationCategory.OFFER_UPDATE,
+                            "An offer on '" + listing.getTitle() + "' was cancelled because an account was deleted.");
+                }
+            }
+        });
+    }
     // ==========================================
     // helpers
     // ==========================================

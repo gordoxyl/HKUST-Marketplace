@@ -313,4 +313,64 @@ class AdminUserServiceTest {
         assertTrue(support.store.findUser("bea").isActive());
         assertTrue(support.store.getAuditLog().isEmpty());
     }
+
+    // ---------- 6.4 Delete User (Item 3) ----------
+
+    @Test
+    void manageUsers_task33_deleteBuyer_keepsTheirReview_shownAsDeletedUser() {
+        SaleListing book = support.liveSale();
+        Offer deal = support.store.addOffer(new PriceOffer(book.getId(), "bea", 90));
+        deal.accept(support.store.now());
+        book.acceptDeal();
+        new DealRules(support.store).complete(deal);
+        Review review = support.store.addReview(new Review(deal.getId(), 4, "Good"));
+
+        service.deleteUser("bea", "Spam");
+
+        assertNull(support.store.findUser("bea"));
+        assertTrue(support.store.getAllReviews().contains(review));            // still stored
+        assertEquals("Deleted User", support.store.getReviewerName(review));   // shown as Deleted User
+        assertEquals(1, support.store.getRatingCount("sam"));                  // still counted
+        assertEquals(4.0, support.store.getAverageRating("sam").getAsDouble());
+        assertFalse(support.store.getAuditLog().get(0).getDataSnapshot().isBlank());
+    }
+
+    @Test
+    void manageUsers_task33_deleteBuyer_declinesOpenOffers_andNotifiesSellers() {
+        SaleListing book = support.liveSale();
+        Offer openOffer = support.store.addOffer(new PriceOffer(book.getId(), "bea", 90));
+
+        service.deleteUser("bea", "Spam");
+
+        assertEquals(OfferStatus.DECLINED, openOffer.getStatus());
+        List<Notification> toSam = notificationsOf("sam", NotificationCategory.OFFER_UPDATE);
+        assertEquals(1, toSam.size());
+        assertTrue(toSam.get(0).getContent().contains("cancelled because an account was deleted"));
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    void manageUsers_A1_reasonRequired_deleteWithoutReasonChangesNothing(String reason) {
+        ServiceException e = assertThrows(ServiceException.class, () -> service.deleteUser("bea", reason));
+
+        assertEquals("A reason is required to delete an account.", e.getMessage());
+        assertNotNull(support.store.findUser("bea")); // 帳號沒被刪除
+        assertTrue(support.store.getAuditLog().isEmpty());
+    }
+
+    @Test
+    void manageUsers_task33_adminCannotBeDeleted() {
+        ServiceException e = assertThrows(ServiceException.class, () -> service.deleteUser("ada", "Test"));
+
+        assertEquals("An admin account cannot be deleted.", e.getMessage());
+        assertNotNull(support.store.findUser("ada"));
+    }
+
+    @Test
+    void manageUsers_UC2_SR3_deleteUser_noSession_isDenied() {
+        support.logout();
+        assertThrows(AccessDeniedException.class, () -> service.deleteUser("bea", "Spam"));
+    }
+
 }

@@ -102,18 +102,21 @@ public class AdminReputationService {
 
             String buyerUsername = store.getBuyerUsername(review);
             String sellerUsername = store.getSellerUsername(review);
-            Offer deal = store.findOffer(review.getOfferId());
-            String itemTitle = store.getListingOf(deal).getTitle();
+            String reviewer = store.getReviewerName(review); // 已刪除買家會顯示 "Deleted User"
+            String itemTitle = store.getListingOf(store.findOffer(review.getOfferId())).getTitle();
 
             store.addAuditLogEntry(new AuditLogEntry(
                     admin.getUsername(), sellerUsername, "Hide review", cleanReason, null));
 
-            // The buyer has no listing, so each party gets its own wording
-            notifications.send(buyerUsername, NotificationCategory.ANNOUNCEMENT,
-                    "Your review of " + store.getFullName(sellerUsername) + " for '" + itemTitle
-                            + "' was hidden by an administrator. Reason: " + cleanReason);
+            // 只有買家還在才發通知
+            if (store.findUser(buyerUsername) != null) {
+                notifications.send(buyerUsername, NotificationCategory.ANNOUNCEMENT,
+                        "Your review of " + store.getFullName(sellerUsername) + " for '" + itemTitle
+                                + "' was hidden by an administrator. Reason: " + cleanReason);
+            }
+            // 賣家的通知使用 reviewer 變數
             notifications.send(sellerUsername, NotificationCategory.ANNOUNCEMENT,
-                    "A review of you by " + store.getFullName(buyerUsername) + " for '" + itemTitle
+                    "A review of you by " + reviewer + " for '" + itemTitle
                             + "' was hidden by an administrator. Reason: " + cleanReason);
         });
     }

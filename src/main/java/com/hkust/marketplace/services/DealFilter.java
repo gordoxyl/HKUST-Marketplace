@@ -1,31 +1,23 @@
 package com.hkust.marketplace.services;
 
 import com.hkust.marketplace.models.ListingType;
-import com.hkust.marketplace.models.OfferStatus;
 
 import java.time.LocalDateTime;
 
 /**
- * The filter options of the admin's All Deals Record view (Task 3.5). A null field means
- * "no filter on this"; all chosen filters must match. The date range applies to the deal's
- * offer date (the start date shown in the table), inclusive on both ends.
- *
- * @param status   one offer status, or null for all statuses
- * @param type     one listing type (SELL/LEND/GIVEAWAY), or null for all types
- * @param seller   text matched against the seller's username, case-insensitive; null or blank for all
- * @param buyer    text matched against the buyer's username, case-insensitive; null or blank for all
- * @param fromDate first offer date, inclusive, or null
- * @param toDate   last offer date, inclusive, or null
+ * The filter options of the All Deals Record (Task 3.5, step 2). A null field means "no
+ * filter on this"; all chosen filters must match. The date range applies to the Start Date
+ * shown in the table, inclusive on both ends. Seller and buyer match part of the username,
+ * ignoring case.
  */
-public record DealFilter(OfferStatus status, ListingType type, String seller, String buyer,
+public record DealFilter(DealState status, ListingType type, String seller, String buyer,
                          LocalDateTime fromDate, LocalDateTime toDate) {
 
-    /** No filter: every offer. */
     public static DealFilter none() {
         return new DealFilter(null, null, null, null, null, null);
     }
 
-    public DealFilter withStatus(OfferStatus value) {
+    public DealFilter withStatus(DealState value) {
         return new DealFilter(value, type, seller, buyer, fromDate, toDate);
     }
 

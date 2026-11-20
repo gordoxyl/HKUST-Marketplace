@@ -3,11 +3,11 @@ package com.hkust.marketplace.services;
 import java.time.LocalDateTime;
 
 /**
- * The filter options of the admin's Seller Ratings view (Task 3.8). A null field means
- * "no filter on this"; all chosen filters must match. The admin sees every review,
- * hidden ones included, so hiding and unhiding are both possible from the same list.
+ * The filter options of the admin's list of one seller's reviews (Task 3.8). A null field
+ * means "no filter on this"; all chosen filters must match. The admin sees every review,
+ * hidden ones included. Hiding is the only moderation action: there is no unhide.
  *
- * @param seller    exact seller username, case-insensitive, or null for all sellers
+ * @param seller    part of the seller's username, ignoring case, or null for all sellers
  * @param rating    exact star rating (1-5), or null for all scores
  * @param fromDate  first review date, inclusive, or null
  * @param toDate    last review date, inclusive, or null

@@ -1,19 +1,27 @@
 package com.hkust.marketplace.services;
 
 import com.hkust.marketplace.data.DataStore;
-import com.hkust.marketplace.models.Listing;
-import com.hkust.marketplace.models.Offer;
-import com.hkust.marketplace.ui.Formats;
+import com.hkust.marketplace.models.*;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * Control class for Task 3.5 All Deals Record: list with filters and CSV export.
- * Both methods start with the admin role check.
+ * Control class for Task 3.5 All Deals Record: the list with filters, VIEW DETAILS and CSV
+ * export. A deal is an accepted offer, in progress or completed; pending, countered and
+ * declined offers are not deals. Every method starts with the admin role check. This class
+ * does not use the ui layer.
  */
 public class AdminDealService {
+
+    private static final DateTimeFormatter CSV_DATE_TIME =
+            DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm:ss", Locale.ENGLISH);
+
+    private static final String CSV_HEADER =
+            "Item Title,Buyer,Seller,Deal Type,Start Date,Return/Complete Date,Status";
 
     private final DataStore store;
 
@@ -26,67 +34,122 @@ public class AdminDealService {
     }
 
     /**
-     * Lists all offers across the system for the admin (Task 3.5), filtered by any
-     * combination of status, type, seller, buyer and offer date range. A null filter
-     * field means "no filter on this". A null filter is treated as no filter.
+     * Lists the deals for the admin (Task 3.5 steps 2-3), newest start date first. Every chosen
+     * filter must match; a null filter field means "no filter".
      *
      * @param filter the filter options, or null for no filter
-     * @return matching offers, never null; empty if none match (A1)
+     * @return the matching deals; empty if none match (A1), never null
      */
-    public List<Offer> findDeals(DealFilter filter) {
+    public List<DealRecord> findDeals(DealFilter filter) {
         AccessControl.requireAdmin();
         DealFilter f = filter == null ? DealFilter.none() : filter;
+        String sellerText = normalise(f.seller());
+        String buyerText = normalise(f.buyer());
 
-        String sellerText = f.seller() == null ? "" : f.seller().trim().toLowerCase(Locale.ROOT);
-        String buyerText  = f.buyer()  == null ? "" : f.buyer().trim().toLowerCase(Locale.ROOT);
-
-        return store.getAllOffers().stream()
-                .filter(o -> f.status() == null || o.getStatus() == f.status())
-                .filter(o -> f.type() == null || store.getListingOf(o).getType() == f.type())
-                .filter(o -> sellerText.isEmpty()
-                        || store.getListingOf(o).getSellerUsername().toLowerCase(Locale.ROOT).contains(sellerText))
-                .filter(o -> buyerText.isEmpty()
-                        || o.getBuyerUsername().toLowerCase(Locale.ROOT).contains(buyerText))
-                .filter(o -> f.fromDate() == null || !o.getOfferDate().isBefore(f.fromDate()))
-                .filter(o -> f.toDate()   == null || !o.getOfferDate().isAfter(f.toDate()))
-                .toList();
+        return store.read(() -> store.getAllOffers().stream()
+                .filter(o -> o.getStatus() == OfferStatus.ACCEPTED)      // deals only
+                .map(this::recordOf)
+                .filter(r -> f.status() == null || r.state() == f.status())
+                .filter(r -> f.type() == null || r.dealType() == f.type())
+                .filter(r -> sellerText.isEmpty()
+                        || r.sellerUsername().toLowerCase(Locale.ROOT).contains(sellerText))
+                .filter(r -> buyerText.isEmpty()
+                        || r.buyerUsername().toLowerCase(Locale.ROOT).contains(buyerText))
+                .filter(r -> f.fromDate() == null || !r.startDate().isBefore(f.fromDate()))
+                .filter(r -> f.toDate() == null || !r.startDate().isAfter(f.toDate()))
+                .sorted(Comparator.comparing(DealRecord::startDate).reversed())
+                .toList());
     }
 
     /**
-     * Exports a list of offers as a CSV string (Task 3.5 step 4.2). Titles that contain a
-     * comma are wrapped in double quotes. No file I/O is performed; the caller saves or
-     * downloads the string.
+     * The details of one deal for VIEW DETAILS (Task 3.5 step 4.1).
      *
-     * <p>Headers: Deal ID, Item Title, Buyer, Seller, Type, Start Date, Complete Date, Status.
-     *
-     * @param deals the offers to export, typically the result of {@link #findDeals}
-     * @return the CSV string including the header row
+     * @throws ServiceException if the offer does not exist or is not a deal (not accepted)
      */
-    public String exportCsv(List<Offer> deals) {
+    public DealDetails getDealDetails(String offerId) {
         AccessControl.requireAdmin();
-        StringBuilder sb = new StringBuilder(
-                "Deal ID,Item Title,Buyer,Seller,Type,Start Date,Complete Date,Status");
-        for (Offer offer : deals) {
-            Listing listing = store.getListingOf(offer);
-            sb.append('\n');
-            sb.append(offer.getId()).append(',');
-            sb.append(escapeCsvField(listing.getTitle())).append(',');
-            sb.append(offer.getBuyerUsername()).append(',');
-            sb.append(listing.getSellerUsername()).append(',');
-            sb.append(listing.getType().getDisplayName()).append(',');
-            sb.append(Formats.dateTime(offer.getOfferDate())).append(',');
-            sb.append(Formats.dateTime(offer.getCompletedDate())).append(',');
-            sb.append(offer.getStatus().getDisplayName());
-        }
-        return sb.toString();
+        return store.read(() -> {
+            Offer offer = store.findOffer(offerId);
+            if (offer == null || offer.getStatus() != OfferStatus.ACCEPTED) {
+                throw new ServiceException("This deal no longer exists.");
+            }
+            DealRecord record = recordOf(offer);
+            Listing listing = record.listing();
+            User buyer = store.findUser(offer.getBuyerUsername());   // null if the account was deleted
+            User seller = store.findUser(listing.getSellerUsername());
+            Review review = store.findReviewForOffer(offer.getId());
+
+            Double amount = offer instanceof PriceOffer p ? p.getOfferedPrice() : null;
+            LocalDateTime borrowStart = offer instanceof BorrowRequest b ? b.getProposedStartDate() : null;
+            LocalDateTime borrowEnd = offer instanceof BorrowRequest b ? b.getProposedEndDate() : null;
+
+            return new DealDetails(offer, listing,
+                    offer.getBuyerUsername(), store.getFullName(offer.getBuyerUsername()),
+                    buyer instanceof Buyer bu ? bu.getResidenceHall() : null,
+                    listing.getSellerUsername(), store.getFullName(listing.getSellerUsername()),
+                    seller instanceof Seller s ? s.getBio() : null,
+                    listing.getType(), amount, borrowStart, borrowEnd,
+                    record.startDate(), record.completedDate(), record.state(),
+                    review != null, review != null && review.isHidden());
+        });
     }
 
-    /** Wraps a field in double quotes if it contains a comma, double quote or newline. */
-    private static String escapeCsvField(String value) {
+    /**
+     * Exports deals as CSV text (Task 3.5 step 4.2), normally the currently filtered list. Every
+     * text field is escaped. No file is written; the screen saves the returned string.
+     */
+    public String exportCsv(List<DealRecord> deals) {
+        AccessControl.requireAdmin();
+        StringBuilder csv = new StringBuilder(CSV_HEADER);
+        for (DealRecord d : deals) {
+            csv.append('\n')
+                    .append(escapeCsv(d.listing().getTitle())).append(',')
+                    .append(escapeCsv(d.buyerUsername())).append(',')
+                    .append(escapeCsv(d.sellerUsername())).append(',')
+                    .append(escapeCsv(typeName(d))).append(',')
+                    .append(escapeCsv(formatDate(d.startDate()))).append(',')
+                    .append(escapeCsv(formatDate(d.completedDate()))).append(',')
+                    .append(escapeCsv(d.state().getDisplayName()));
+        }
+        return csv.toString();
+    }
+
+    // ---------- helpers ----------
+
+    private DealRecord recordOf(Offer offer) {
+        Listing listing = store.getListingOf(offer);
+        LocalDateTime start = offer instanceof BorrowRequest r
+                ? r.getProposedStartDate()      // the accepted request holds the agreed start
+                : offer.getAcceptedDate();
+        DealState state = !offer.isCompleted() ? DealState.IN_PROGRESS
+                : offer instanceof BorrowRequest ? DealState.RETURNED
+                : DealState.COMPLETED;
+        return new DealRecord(offer, listing, offer.getBuyerUsername(), listing.getSellerUsername(),
+                listing.getType(), start, offer.getCompletedDate(), state);
+    }
+
+    private static String normalise(String text) {
+        return text == null ? "" : text.strip().toLowerCase(Locale.ROOT);
+    }
+
+    private static String typeName(DealRecord d) {
+        return switch (d.dealType()) {
+            case SELL -> "Sale";
+            case LEND -> "Loan";
+            case GIVEAWAY -> "Giveaway";
+        };
+    }
+
+    private static String formatDate(LocalDateTime time) {
+        return time == null ? "" : time.format(CSV_DATE_TIME);
+    }
+
+    /** Quotes the field if it holds a comma, a double quote or a line break; doubles any quote. */
+    private static String escapeCsv(String value) {
         if (value == null) {
             return "";
         }
-        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+        if (value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")) {
             return "\"" + value.replace("\"", "\"\"") + "\"";
         }
         return value;

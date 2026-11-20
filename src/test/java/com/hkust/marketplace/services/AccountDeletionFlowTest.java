@@ -175,7 +175,7 @@ class AccountDeletionFlowTest {
 
         assertEquals(List.of(review), profile.reviews());
         assertEquals(1, profile.ratingCount());
-        assertEquals(4.0, profile.averageRating().getAsDouble());
+        assertEquals(4.0, profile.averageRating().orElseThrow());
         assertEquals("Deleted User", store.getReviewerName(review));
     }
 }

@@ -25,6 +25,9 @@ import java.util.OptionalDouble;
  */
 public class ReviewList extends VBox {
 
+    // The average is passed on as DataStore.getAverageRating returns it: empty means
+    // "No ratings yet" (View Seller Stats A2), so callers never unwrap or wrap it.
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public ReviewList(OptionalDouble averageRating, int ratingCount, List<Review> reviews) {
         super(8);
         Label heading = new Label(ReviewText.ratingHeading(averageRating, ratingCount));

@@ -175,7 +175,7 @@ class AccountDeletionTest {
         assertEquals(1, shown.size());
         assertEquals("Smooth deal", shown.get(0).getComment());
         assertEquals(1, store.getRatingCount("sam"));                   // and still counted in Sam's rating
-        assertEquals(5.0, store.getAverageRating("sam").getAsDouble());
+        assertEquals(5.0, store.getAverageRating("sam").orElseThrow());
         assertEquals("Deleted User", store.getReviewerName(shown.get(0)));
         assertEquals("bea", store.getBuyerUsername(shown.get(0)));      // the deal record still names its buyer
         assertFalse(deleted.snapshot().contains("REVIEWS"), "kept, so not in the snapshot of deleted data");

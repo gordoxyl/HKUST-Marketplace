@@ -44,7 +44,7 @@ the client (TA) answered differently: `docs/client-answers.md` wins over the spe
 | Listing Review (3.2) | `Listing.approve()/reject()`, `ListingActionRecord`, `ui/ListingCard` (admin view) | service; dashboard currently does it inline |
 | Manage All Listings (3.7) | `Listing.remove()`, setters, `store.addListing`, `DealRules.declineOpenOffers`, `PhotoService` | service + edit/add forms (placeholders now) |
 | Users (3.3) | `User.setActive`, **`store.deleteAccount`**, `AuditLogEntry`, `store.addAuditLogEntry` | service; "Delete" currently only deactivates |
-| Seller Ratings (3.8) | `getReviewsForSellerIncludingHidden`, `Review.setHidden`, rating/stat queries | service + screen |
+| Seller Ratings (3.8) | `getReviewsForSellerIncludingHidden`, `Review.setHidden`, rating/stat queries, `getReviewerName` (writer's name, "Deleted User" for a deleted buyer) | service + screen |
 | All Deals Record (3.5) | `store.getAllOffers`, `store.getListingOf`, `ui/OfferText` | filters, export; table shows dummy rows now. Start Date (client answer #4): a loan's agreed borrow start (`BorrowRequest.getProposedStartDate()` of the accepted request), otherwise `getAcceptedDate()` |
 
 `controllers/admin/AdminDashboardController` implements `ContentHost` (`show(title, node)`), has
@@ -104,35 +104,37 @@ void dataStoreCalls(DataStore store, String username, String seller, String list
     store.getAverageRating(seller); store.getRatingCount(seller);              // hidden excluded automatically
     store.getCompletedDealCount(seller); store.getOffersReceivedCount(seller); store.getTotalViews(seller);
     store.getSellerUsername(review); store.getBuyerUsername(review);
+    store.getReviewerName(review);                // the writer's name on screens: "Deleted User" once deleted (answer #6)
     // reports
     store.getAllReports(); store.getReportsForListing(listingId);
 }
 ```
 
-### `store.deleteAccount(username)` → `DeletedAccount` (Delete User, 6.4.4)
-One atomic step that makes **all** the data changes of 6.4.4:
-- **Deletes** the account, every chat thread the user took part in (UC6 SR2), the reviews the user wrote,
-  the user's notifications.
+### `store.deleteAccount(username)` → `DeletedAccount` (Delete User, 6.4.4 with client answer #6)
+One atomic step that makes **all** the data changes of 6.4.4, as the client's answer #6 (16 Nov,
+`docs/client-answers.md`) changed them. **Done in the shared core on 20 Nov**:
+- **Deletes** the account, every chat thread the user took part in (UC6 SR2), and the user's notifications.
 - **Cancels:** declines the user's own open offers and the open offers on the user's listings; sets the
   user's listings to Removed (except Sold, Given, already Removed).
-- **Keeps** listings and offers (accepted and completed deals too) as the archived transaction history.
-  They still name the username, so it is **retired**: `addUser` / registration refuse it forever
+- **Keeps** listings and offers (accepted and completed deals too) as the archived transaction history, and
+  the reviews about the user. Answer #6 also keeps **the reviews the user wrote** and **the reports filed by
+  the user or on the user's listings**. A kept review is still shown and still counts in the seller's
+  average and count; name its writer with `store.getReviewerName(review)`, which gives "Deleted User"
+  (`DataStore.DELETED_USER`) once the buyer is deleted, and the full name otherwise.
+  Everything kept still names the username, so it is **retired**: `addUser` / registration refuse it forever
   (`store.isRetiredUsername`). `store.getFullName(deleted)` returns the username.
 - Deals accepted but not completed stay untouched (a borrowed item is still auto-returned; a reserved item
   can still be marked complete). Whether to forbid deleting a user with deals in progress is **your**
   use-case decision.
 - Throws `IllegalArgumentException` if there is no such account. Does **not** check roles, validate the
   reason, write the Audit Log, or notify anyone: that is your service.
-- **Client answer of 16 Nov (`docs/client-answers.md` #6), not yet in the code:** the reviews a deleted buyer
-  wrote must be **kept** and shown as written by "Deleted User". Gordon changes `deleteAccount` (shared core)
-  so it no longer deletes them; build Delete User against the method as it is, and your tests will only need
-  the review assertions updated. Reports filed by or against the user are kept, as they already are.
 - Reports have no resolved or dismissed status (answer #7): the admin handles a report by acting on the
   listing, with Remove (`AdminListingService.removeListing`).
 
-`DeletedAccount` record: `user()`, `chatThreads()`, `reviews()`, `notifications()`, `declinedOffers()`,
-`removedListings()`, `snapshot()` (plain text of everything above as it was before, without the password
-hash; use it as the Audit Log data snapshot, Special Requirement 4).
+`DeletedAccount` record: `user()`, `chatThreads()`, `notifications()`, `declinedOffers()`,
+`removedListings()`, `snapshot()` (plain text of what was deleted and cancelled, as it was before, without
+the password hash; use it as the Audit Log data snapshot, Special Requirement 4). The kept reviews are not
+in it, so the record has no `reviews()` any more.
 
 ```java
 public void deleteUser(String username, String reason) {

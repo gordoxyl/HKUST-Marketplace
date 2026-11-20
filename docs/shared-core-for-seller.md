@@ -44,7 +44,7 @@ the client (TA) answered differently: `docs/client-answers.md` wins over the spe
 | My Listings (2.4) | `ui/ListingCard` already used; `Listing` state machine; `DealRules.declineOpenOffers` | edit/delete service (current buttons are placeholders / inline) |
 | Manage Offers & Requests (2.5) | `DealRules.accept`, offer model methods, `ui/OfferText` | service (accept / decline / counter) + screen |
 | Seller Stats (2.8) | `store.getTotalViews / getOffersReceivedCount / getCompletedDealCount / getAverageRating / getRatingCount` | screen still shows demo numbers; charts |
-| Reviews (2.9) | `store.getReviewsForSeller`, `Review.reply`, `Review.flag` | service + screen |
+| Reviews (2.9) | `store.getReviewsForSeller`, `store.getReviewerName`, `Review.reply`, `Review.flag` | service + screen |
 
 `controllers/seller/SellerDashboardController` implements `ContentHost` (`show(title, node)`), has
 `showGreeting()`, and already uses the shared board, profile, chats and listing card.
@@ -102,8 +102,13 @@ void dataStoreCalls(DataStore store, String username, String listingId, String o
     store.getRatingCount(username);
     store.getTotalViews(username); store.getOffersReceivedCount(username); store.getCompletedDealCount(username);
     store.getBuyerUsername(review);            // who wrote a review
+    store.getReviewerName(review);             // the writer's name to show: "Deleted User" once deleted
 }
 ```
+**Reviews by a deleted buyer (client answer #6, in the shared core since 20 Nov):** they stay in
+`getReviewsForSeller` and still count in the rating and stats. Show a review's writer with
+`store.getReviewerName(review)`, which gives "Deleted User" for them (not `"@" + getBuyerUsername`). A reply
+notification to a deleted buyer needs no special case: `NotificationService.send` skips a deleted account.
 For the stats charts (View Seller Stats steps 4-5): per-listing views = `listing.getViewCount()`, per-listing
 offers = `store.getOffersForListing(id).size()`, completed deals by type = `getOffersForSeller` filtered by
 `Offer::isCompleted`, grouped by `store.getListingOf(offer).getType()`.

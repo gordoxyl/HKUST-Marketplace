@@ -57,7 +57,7 @@ class AccountDeletionTest {
     // ---------- What is deleted ----------
 
     @Test
-    void deletingABuyer_deletesTheAccount_theirChats_theirReviews_andTheirBoard() {
+    void deletingABuyer_deletesTheAccount_theirChats_andTheirBoard() {
         Offer purchase = beaBuysSamsBook();
         SaleListing pen = Fixtures.live(Fixtures.sale(store, "sam", 10));
         store.addOffer(new PriceOffer(pen.getId(), "ben", 8)); // Ben's chat with Sam is not Bea's
@@ -67,15 +67,11 @@ class AccountDeletionTest {
         assertNull(store.findUser("bea"));
         assertTrue(store.getThreadsForBuyer("bea").isEmpty());                 // UC6 Special Requirement 2
         assertEquals(1, store.getThreadsForSeller("sam").size());              // only Ben's is left
-        assertTrue(store.getAllReviews().isEmpty());                           // 6.4.4: reviews written by the user
-        assertEquals(0, store.getRatingCount("sam"));                          // so Sam's rating is recalculated
-        assertTrue(store.getAverageRating("sam").isEmpty());
         assertTrue(store.getNotificationsFor("bea").isEmpty());
 
         assertSame(bea, deleted.user());
         assertEquals(1, deleted.chatThreads().size());
         assertEquals(2, deleted.chatThreads().get(0).getMessages().size());
-        assertEquals(1, deleted.reviews().size());
         assertEquals(1, deleted.notifications().size());
         assertTrue(deleted.declinedOffers().isEmpty());
         assertTrue(deleted.removedListings().isEmpty());
@@ -158,6 +154,8 @@ class AccountDeletionTest {
         assertEquals(1, store.getThreadsForSeller("sue").size());
     }
 
+    // ---------- What is kept (client answer 6, 16 Nov 2026) ----------
+
     @Test
     void reviewsAboutADeletedSeller_areKept() {
         beaBuysSamsBook();
@@ -165,6 +163,62 @@ class AccountDeletionTest {
         store.deleteAccount("sam");
 
         assertEquals(1, store.getReviewsForSeller("sam").size());
+    }
+
+    @Test
+    void reviewsTheBuyerWrote_areKept_stillCount_andNameTheirWriterDeletedUser() {
+        beaBuysSamsBook(); // Bea gave Sam 5 stars
+
+        DeletedAccount deleted = store.deleteAccount("bea");
+
+        List<Review> shown = store.getReviewsForSeller("sam");          // still shown to every user
+        assertEquals(1, shown.size());
+        assertEquals("Smooth deal", shown.get(0).getComment());
+        assertEquals(1, store.getRatingCount("sam"));                   // and still counted in Sam's rating
+        assertEquals(5.0, store.getAverageRating("sam").getAsDouble());
+        assertEquals("Deleted User", store.getReviewerName(shown.get(0)));
+        assertEquals("bea", store.getBuyerUsername(shown.get(0)));      // the deal record still names its buyer
+        assertFalse(deleted.snapshot().contains("REVIEWS"), "kept, so not in the snapshot of deleted data");
+    }
+
+    @Test
+    void reviewerName_isDeletedUser_onlyForAWriterWhoseAccountWasDeleted() {
+        // One review for each state of the writer's account: deleted, active, deactivated
+        Review byBea = reviewOfSam("bea");
+        Review byBen = reviewOfSam("ben");
+        Buyer dee = Fixtures.buyer(store, "dee");
+        Review byDee = reviewOfSam("dee");
+        dee.setActive(false);
+
+        store.deleteAccount("bea");
+
+        assertEquals("Deleted User", store.getReviewerName(byBea));
+        assertEquals("Buyer ben", store.getReviewerName(byBen));
+        assertEquals("Buyer dee", store.getReviewerName(byDee)); // a deactivated account still exists
+    }
+
+    @Test
+    void reportsFiledByADeletedBuyer_andOnADeletedSellersListing_areKept() {
+        SaleListing pen = Fixtures.live(Fixtures.sale(store, "sam", 10));
+        store.addReport(new Report(pen.getId(), "bea", ReportReason.SCAM_OR_FRAUD, "Asked me to pay first."));
+        store.addReport(new Report(pen.getId(), "ben", ReportReason.MISLEADING_DESCRIPTION, "The pen is broken."));
+
+        store.deleteAccount("bea"); // she filed one of the reports
+        store.deleteAccount("sam"); // the reported listing is his
+
+        assertEquals(2, store.getReportsForListing(pen.getId()).size());
+        assertEquals(ListingStatus.REMOVED, pen.getStatus()); // kept as a record, so the reports still point to it
+    }
+
+    /** A completed purchase from Sam by this buyer, and the buyer's review of it. */
+    private Review reviewOfSam(String buyerUsername) {
+        SaleListing item = Fixtures.live(Fixtures.sale(store, "sam", 20));
+        Offer purchase = store.addOffer(new PriceOffer(item.getId(), buyerUsername, 20));
+        purchase.accept(store.now());
+        item.acceptDeal();
+        purchase.complete(store.now());
+        item.completeDeal();
+        return store.addReview(new Review(purchase.getId(), 4, "Fine"));
     }
 
     // ---------- The username is retired ----------
@@ -215,9 +269,7 @@ class AccountDeletionTest {
         assertTrue(snapshot.contains("CHAT THREADS DELETED: 2"), snapshot); // the book's and the lamp's
         assertTrue(snapshot.contains("@bea: Is it still available?"), snapshot);
         assertTrue(snapshot.contains("@sam: Yes.\n        Meet at the Library?"), snapshot); // a second line stays in its record
-        assertTrue(snapshot.contains("REVIEWS WRITTEN BY THE USER, DELETED: 1"), snapshot);
-        assertTrue(snapshot.contains("seller @sam | 5 stars"), snapshot);
-        assertTrue(snapshot.contains("comment: Smooth deal | seller's reply: none"), snapshot);
+        assertFalse(snapshot.contains("Smooth deal"), snapshot); // her review is kept, so it is not in the snapshot
         assertTrue(snapshot.contains("NOTIFICATIONS DELETED: 1"), snapshot);
         assertTrue(snapshot.contains("Offer Update | unread | Sam accepted your price offer."), snapshot);
         assertTrue(snapshot.contains("OPEN OFFERS DECLINED: 1"), snapshot);
@@ -266,6 +318,23 @@ class AccountDeletionTest {
         assertEquals(1, restarted.getOffersByBuyer("alice").size()); // her accepted offer is kept as a record
         assertEquals(Optional.of(deleted.snapshot()), restarted.readAuditSnapshotFile(entry.getLogReference()));
         assertEquals(deleted.snapshot(), restarted.getAuditLog().get(0).getDataSnapshot());
+    }
+
+    @Test
+    void reviewOfADeletedBuyer_isKeptAfterARestart_andStillNamesDeletedUser(@TempDir Path folder) {
+        Path file = folder.resolve("marketplace.dat");
+        DataStore saved = new DataStore(clock, new EncryptedJsonStorage(file));
+        saved.loadOrSeed();
+        Review bobs = saved.getAllReviews().stream()
+                .filter(r -> saved.getBuyerUsername(r).equals("bob")).findFirst().orElseThrow(); // in the demo data
+
+        saved.deleteAccount("bob");
+
+        DataStore restarted = new DataStore(clock, new EncryptedJsonStorage(file));
+        restarted.loadOrSeed();
+        Review kept = restarted.findReviewForOffer(bobs.getOfferId());
+        assertEquals(bobs.getComment(), kept.getComment());
+        assertEquals("Deleted User", restarted.getReviewerName(kept)); // the retired username is saved too
     }
 
     @Test

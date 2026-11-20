@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -159,5 +160,22 @@ class AccountDeletionFlowTest {
         assertThrows(ServiceException.class, () -> chat.openForOffer(beaOffer.getId()));
         assertThrows(ServiceException.class, () -> chat.openForListing(book.getId()));
         assertNull(store.findThread("bea", book.getId()));
+    }
+
+    @Test
+    void reviewByADeletedBuyer_stillShowsOnTheSellersProfile_andCountsInTheRating() {
+        SaleListing lamp = Fixtures.live(Fixtures.sale(store, "sam", 40));
+        Offer deal = Fixtures.moveDealTo(rules, store.addOffer(new PriceOffer(lamp.getId(), "bea", 40)), "COMPLETED");
+        SessionManager.login(bea);
+        Review review = new ReviewService(store).submit(deal.getId(), 4, "Works well"); // UC10
+        store.deleteAccount("bea"); // client answer 6: the review is kept
+
+        SessionManager.login(ben);
+        SellerProfile profile = new BrowseService(store).getSellerProfile("sam"); // UC8 A3
+
+        assertEquals(List.of(review), profile.reviews());
+        assertEquals(1, profile.ratingCount());
+        assertEquals(4.0, profile.averageRating().getAsDouble());
+        assertEquals("Deleted User", store.getReviewerName(review));
     }
 }

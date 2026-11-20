@@ -17,9 +17,17 @@ import java.util.OptionalDouble;
  * }</pre>
  * Pass only the reviews that may be shown: {@code DataStore.getReviewsForSeller} already
  * leaves out the ones the admin hid. The wording is in the tested {@link ReviewText}.
+ *
+ * <p>It names no writer, on purpose: UC8 step 7 and A3 list only the rating, comment, date
+ * and reply (team decision, 20 Nov 2026). The seller's and admin's review screens, whose
+ * steps include the buyer, name the writer with {@code DataStore.getReviewerName}, which
+ * gives "Deleted User" for a deleted buyer (client answer 6).
  */
 public class ReviewList extends VBox {
 
+    // The average is passed on as DataStore.getAverageRating returns it: empty means
+    // "No ratings yet" (View Seller Stats A2), so callers never unwrap or wrap it.
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public ReviewList(OptionalDouble averageRating, int ratingCount, List<Review> reviews) {
         super(8);
         Label heading = new Label(ReviewText.ratingHeading(averageRating, ratingCount));

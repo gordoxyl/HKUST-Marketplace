@@ -6,7 +6,6 @@ import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.Message;
 import com.hkust.marketplace.models.Notification;
 import com.hkust.marketplace.models.Offer;
-import com.hkust.marketplace.models.Review;
 import com.hkust.marketplace.models.Seller;
 import com.hkust.marketplace.models.User;
 
@@ -28,13 +27,15 @@ final class AccountSnapshot {
         // Utility class
     }
 
-    /** Describes the account and everything {@link DataStore#deleteAccount} is about to delete or cancel. */
-    static String describe(DataStore store, User user, List<ChatThread> threads, List<Review> reviews,
+    /**
+     * Describes the account and everything {@link DataStore#deleteAccount} is about to delete or
+     * cancel. The reviews the user wrote are not described: they are kept (client answer 6).
+     */
+    static String describe(DataStore store, User user, List<ChatThread> threads,
                            List<Notification> notifications, List<Offer> openOffers, List<Listing> listings) {
         StringBuilder text = new StringBuilder();
         describeAccount(text, user);
         describeThreads(text, store, threads);
-        describeReviews(text, store, reviews);
         describeNotifications(text, notifications);
         describeOpenOffers(text, store, openOffers);
         describeListings(text, listings);
@@ -70,18 +71,6 @@ final class AccountSnapshot {
                 text.append("    ").append(date(message.getSentAt())).append(" @").append(message.getSenderUsername())
                         .append(": ").append(indented(message.getContent())).append('\n');
             }
-        }
-    }
-
-    private static void describeReviews(StringBuilder text, DataStore store, List<Review> reviews) {
-        section(text, "REVIEWS WRITTEN BY THE USER, DELETED", reviews.size());
-        for (Review review : reviews) {
-            text.append(review.getId()).append(" | deal ").append(review.getOfferId())
-                    .append(" | seller @").append(store.getSellerUsername(review))
-                    .append(" | ").append(review.getRating()).append(" stars")
-                    .append(" | ").append(date(review.getReviewDate()))
-                    .append(" | comment: ").append(indented(orNone(review.getComment())))
-                    .append(" | seller's reply: ").append(indented(orNone(review.getSellerReply()))).append('\n');
         }
     }
 

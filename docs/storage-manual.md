@@ -392,7 +392,7 @@ Abbreviations: **R** = read (`read`/`select`, never saves); **W** = write (a tra
 | `usernameExists`, `isRetiredUsername` | R | Registration uniqueness, including retired usernames |
 | `getAllUsers`, `getUsersByRole(UserRole)` | R | |
 | `getFullName(String)` | R | Falls back to the username for a deleted account |
-| `deleteAccount(String)` | W | One atomic step, returning a `DeletedAccount`. It builds the text snapshot first. It then declines the user's open offers and the open offers on their listings, removes their removable listings, and deletes their chat threads, the reviews they wrote and their notifications. Finally it removes the user, retires the username and marks the object inactive, so a session still holding it is refused. Accepted but uncompleted deals stay as they are. The caller writes the Audit Log entry and sends notifications. **Pending change:** the TA answered on 2026-11-16 that a deleted buyer's reviews must be kept and shown as "Deleted User". The code does not do this yet |
+| `deleteAccount(String)` | W | One atomic step, returning a `DeletedAccount`. It builds the text snapshot first. It then declines the user's open offers and the open offers on their listings, removes their removable listings, and deletes their chat threads and their notifications. The reviews they wrote and the reports stay (TA answer of 2026-11-16, #6). Finally it removes the user, retires the username and marks the object inactive, so a session still holding it is refused. Accepted but uncompleted deals stay as they are. The caller writes the Audit Log entry and sends notifications |
 
 **Listings and photos**
 
@@ -426,6 +426,7 @@ Abbreviations: **R** = read (`read`/`select`, never saves); **W** = write (a tra
 | `getReviewsForSellerIncludingHidden` | R | Admin moderation only |
 | `getAverageRating`, `getRatingCount` | R | Shown reviews only |
 | `getSellerUsername(Review)`, `getBuyerUsername(Review)` | R | Through the reviewed offer |
+| `getReviewerName(Review)` | R | `DELETED_USER` ("Deleted User") if the writer's account was deleted (the username is retired), otherwise the writer's full name |
 | `getTotalViews`, `getOffersReceivedCount`, `getCompletedDealCount` | R | Derived seller statistics (class diagram `/` attributes) |
 | `addReport(Report)` | W | `false` for a duplicate |
 | `hasReported`, `getReportsForListing`, `getAllReports` | R | |

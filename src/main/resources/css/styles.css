@@ -19,6 +19,7 @@
     -card-bg: #ffffff;
     -text-primary: #1a1a2e;
     -text-secondary: #5a5a7a;
+    -text-hint: #9aa0b0;
     -success: #2e7d32;
     -warning: #ed6c02;
     -danger: #c62828;
@@ -161,6 +162,25 @@
     -fx-font-weight: bold;
     -fx-text-fill: #1a1a2e;
 }
+/* Secondary text, such as the message on an empty list */
+.text-muted {
+    -fx-text-fill: -text-secondary;
+}
+/* A small note under a form field (ui/ProfileView), and a notification's time */
+.field-hint, .notif-time {
+    -fx-text-fill: -text-hint;
+    -fx-font-size: 11px;
+}
+/* A note in a form dialog (controllers/buyer/OfferDialogs) */
+.dialog-hint {
+    -fx-text-fill: -text-secondary;
+    -fx-font-size: 12px;
+}
+/* A value that is shown but cannot be changed (UC3 Special Requirement 1) */
+.fixed-value {
+    -fx-font-weight: bold;
+    -fx-text-fill: -text-primary;
+}
 
 /* ---------- Status badges ---------- */
 .badge {
@@ -291,6 +311,25 @@
 .notif-read {
     -fx-border-color: #d0d7e2;
     -fx-opacity: 0.75;
+}
+.notif-text {
+    -fx-text-fill: -text-primary;
+    -fx-font-size: 13px;
+}
+
+/* ---------- Placeholder screen (the skeleton's Favourites) ---------- */
+.placeholder-icon {
+    -fx-font-size: 48px;
+    -fx-text-fill: -hkust-gold;
+}
+.placeholder-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -hkust-blue;
+}
+.placeholder-text {
+    -fx-text-fill: -text-secondary;
+    -fx-text-alignment: center;
 }
 
 /* ---------- Reviews (ui/ReviewList; UC8) ---------- */

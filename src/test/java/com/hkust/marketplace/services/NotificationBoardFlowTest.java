@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration test of UC4 View Notifications across roles, on the data the shared
- * NotificationBoard shows (thread test of the basic flow and A1, Lecture 14): events in one
+ * NotificationBoard shows (thread test of the basic flow and A1, Lecture 13): events in one
  * portal put notifications on other users' boards, each user sees only their own, newest
  * first, and marking one as read changes only that one.
  */

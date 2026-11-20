@@ -37,7 +37,6 @@ public class SceneManager {
                 throw new IOException("FXML resource not found on classpath: " + FXML_BASE + fxmlName);
             }
 
-            System.out.println("[SceneManager] Loading: " + resource);
             FXMLLoader loader = new FXMLLoader(resource);
             Parent root = loader.load();
 
@@ -53,7 +52,6 @@ public class SceneManager {
                 // Keep stylesheets when swapping root
                 scene.setRoot(root);
             }
-            System.out.println("[SceneManager] Switched to: " + fxmlName);
         } catch (Exception e) {
             e.printStackTrace();
             Throwable cause = e.getCause() != null ? e.getCause() : e;

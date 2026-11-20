@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for what the shared listing card shows (C6; UC8 step 2 and Special Requirement 1,
- * Tasks 1.3, 2.4 and 3.2). State-based testing (Lecture 14): each listing is first moved to
+ * Tasks 1.3, 2.4 and 3.2). State-based testing (Lecture 13): each listing is first moved to
  * the status under test through the state machine, then the card's text is checked for each
  * kind of viewer.
  */

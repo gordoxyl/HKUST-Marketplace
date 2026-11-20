@@ -39,7 +39,7 @@ There is no DBMS and no SQL. Persistence is an **in-process object store with sn
 - **Concurrency:** a single `ReentrantLock` serializes every access. In effect, every transaction runs serially.
 - **Durability:** when the *outermost* transaction completes normally, the whole store is serialized into one JSON document. The document is encrypted with AES-256-GCM and written to one file, replacing the previous one atomically. An unchanged document is not rewritten.
 - **Side files:** blobs (listing photos) and per-event documents (audit-log snapshots of deleted accounts) go to separate encrypted files beside the main file.
-- **Decoupling:** `DataStore` depends only on the `Storage` interface. Its Javadoc presents it as the bridge that encapsulates the implementation environment (Lecture 16). `EncryptedJsonStorage` is the only implementation the app uses. Tests use no storage at all (memory only), or a temporary folder.
+- **Decoupling:** `DataStore` depends only on the `Storage` interface. Its Javadoc presents it as the bridge that encapsulates the implementation environment (Lecture 15). `EncryptedJsonStorage` is the only implementation the app uses. Tests use no storage at all (memory only), or a temporary folder.
 
 ```mermaid
 flowchart LR
@@ -392,7 +392,7 @@ Abbreviations: **R** = read (`read`/`select`, never saves); **W** = write (a tra
 | `usernameExists`, `isRetiredUsername` | R | Registration uniqueness, including retired usernames |
 | `getAllUsers`, `getUsersByRole(UserRole)` | R | |
 | `getFullName(String)` | R | Falls back to the username for a deleted account |
-| `deleteAccount(String)` | W | One atomic step, returning a `DeletedAccount`. It builds the text snapshot first. It then declines the user's open offers and the open offers on their listings, removes their removable listings, and deletes their chat threads, the reviews they wrote and their notifications. Finally it removes the user, retires the username and marks the object inactive, so a session still holding it is refused. Accepted but uncompleted deals stay as they are. The caller writes the Audit Log entry and sends notifications. **Pending change:** the TA answered on 2026-11-16 that a deleted buyer's reviews must be kept and shown as "Deleted User". The code does not do this yet |
+| `deleteAccount(String)` | W | One atomic step, returning a `DeletedAccount`. It builds the text snapshot first. It then declines the user's open offers and the open offers on their listings, removes their removable listings, and deletes their chat threads and their notifications. The reviews they wrote and the reports stay (TA answer of 2026-11-16, #6). Finally it removes the user, retires the username and marks the object inactive, so a session still holding it is refused. Accepted but uncompleted deals stay as they are. The caller writes the Audit Log entry and sends notifications |
 
 **Listings and photos**
 
@@ -426,6 +426,7 @@ Abbreviations: **R** = read (`read`/`select`, never saves); **W** = write (a tra
 | `getReviewsForSellerIncludingHidden` | R | Admin moderation only |
 | `getAverageRating`, `getRatingCount` | R | Shown reviews only |
 | `getSellerUsername(Review)`, `getBuyerUsername(Review)` | R | Through the reviewed offer |
+| `getReviewerName(Review)` | R | `DELETED_USER` ("Deleted User") if the writer's account was deleted (the username is retired), otherwise the writer's full name |
 | `getTotalViews`, `getOffersReceivedCount`, `getCompletedDealCount` | R | Derived seller statistics (class diagram `/` attributes) |
 | `addReport(Report)` | W | `false` for a duplicate |
 | `hasReported`, `getReportsForListing`, `getAllReports` | R | |

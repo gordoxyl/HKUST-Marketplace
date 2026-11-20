@@ -224,8 +224,8 @@ class BorrowingDeadlineServiceTest {
         assertTrue(store.isAvailable(calculator)); // it can be borrowed again
         List<Notification> beaBoard = boardOf(bea, NotificationCategory.DEAL_COMPLETED);
         List<Notification> samBoard = boardOf(sam, NotificationCategory.DEAL_COMPLETED);
-        assertEquals("'Calculator' was returned automatically because the borrowing period ended.",
-                beaBoard.get(0).getContent());
+        assertEquals("'Calculator' was returned automatically because the borrowing period ended. "
+                + "You can rate the seller from My Deals.", beaBoard.get(0).getContent()); // client answer #3
         assertEquals("'Calculator', borrowed by Buyer bea, was returned automatically because the borrowing period ended.",
                 samBoard.get(0).getContent());
 

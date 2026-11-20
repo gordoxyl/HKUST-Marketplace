@@ -1,5 +1,7 @@
 package com.hkust.marketplace.services;
 
+import java.util.function.IntPredicate;
+
 /**
  * Validation rules for account details, shared by buyers, sellers and admins.
  * Follows UC1 Register as Buyer (alternative flows A1-A4 and Special Requirements 2-3);
@@ -53,35 +55,45 @@ public final class AccountValidator {
         if (password.length() < MIN_PASSWORD_LENGTH) {
             return "Password must be at least " + MIN_PASSWORD_LENGTH + " characters.";
         }
-        boolean hasUpper = false;
-        boolean hasLower = false;
-        boolean hasDigit = false;
-        boolean hasSpecial = false;
-        for (char c : password.toCharArray()) {
-            if (c >= 'A' && c <= 'Z') {
-                hasUpper = true;
-            } else if (c >= 'a' && c <= 'z') {
-                hasLower = true;
-            } else if (c >= '0' && c <= '9') {
-                hasDigit = true;
-            } else if (c != ' ') {
-                // Any other printable ASCII character is a symbol such as ! @ # $ %
-                hasSpecial = true;
-            }
-        }
-        if (!hasUpper) {
+        // The kinds of character, in the order the rules are listed
+        if (!contains(password, AccountValidator::isUppercase)) {
             return "Password must contain at least one uppercase letter.";
         }
-        if (!hasLower) {
+        if (!contains(password, AccountValidator::isLowercase)) {
             return "Password must contain at least one lowercase letter.";
         }
-        if (!hasDigit) {
+        if (!contains(password, AccountValidator::isDigit)) {
             return "Password must contain at least one digit.";
         }
-        if (!hasSpecial) {
+        if (!contains(password, AccountValidator::isSymbol)) {
             return "Password must contain at least one special character (such as ! @ # $ %).";
         }
         return null;
+    }
+
+    /** True if at least one character of the text passes the test. */
+    private static boolean contains(String text, IntPredicate test) {
+        return text.chars().anyMatch(test);
+    }
+
+    private static boolean isUppercase(int c) {
+        return c >= 'A' && c <= 'Z';
+    }
+
+    private static boolean isLowercase(int c) {
+        return c >= 'a' && c <= 'z';
+    }
+
+    private static boolean isDigit(int c) {
+        return c >= '0' && c <= '9';
+    }
+
+    /**
+     * Any other printable ASCII character except the space is a symbol, such as ! @ # $ %.
+     * Only called after {@link #isPrintableAscii} has passed.
+     */
+    private static boolean isSymbol(int c) {
+        return c != ' ' && !isUppercase(c) && !isLowercase(c) && !isDigit(c);
     }
 
     /** UC1 A4: the confirmation password must match the password. */

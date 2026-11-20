@@ -17,7 +17,7 @@ import java.util.function.Supplier;
  * action button on a listing's detail screen, the Make Offer option in its chat, or agreeing
  * to a seller's counter.
  *
- * <p>This is the use case's boundary (Lecture 16): it shows the forms and messages in the
+ * <p>This is the use case's boundary (Lecture 15): it shows the forms and messages in the
  * order of the flow of events and passes what the buyer entered to {@link OfferService},
  * which makes every decision. The alternative flows end here as the use case says:
  * <ul>

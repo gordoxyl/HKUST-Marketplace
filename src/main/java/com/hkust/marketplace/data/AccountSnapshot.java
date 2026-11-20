@@ -6,7 +6,6 @@ import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.Message;
 import com.hkust.marketplace.models.Notification;
 import com.hkust.marketplace.models.Offer;
-import com.hkust.marketplace.models.Review;
 import com.hkust.marketplace.models.Seller;
 import com.hkust.marketplace.models.User;
 
@@ -28,10 +27,23 @@ final class AccountSnapshot {
         // Utility class
     }
 
-    /** Describes the account and everything {@link DataStore#deleteAccount} is about to delete or cancel. */
-    static String describe(DataStore store, User user, List<ChatThread> threads, List<Review> reviews,
+    /**
+     * Describes the account and everything {@link DataStore#deleteAccount} is about to delete or
+     * cancel. The reviews the user wrote are not described: they are kept (client answer 6).
+     */
+    static String describe(DataStore store, User user, List<ChatThread> threads,
                            List<Notification> notifications, List<Offer> openOffers, List<Listing> listings) {
         StringBuilder text = new StringBuilder();
+        describeAccount(text, user);
+        describeThreads(text, store, threads);
+        describeNotifications(text, notifications);
+        describeOpenOffers(text, store, openOffers);
+        describeListings(text, listings);
+        return text.toString();
+    }
+
+    /** The account itself, without the password hash. */
+    private static void describeAccount(StringBuilder text, User user) {
         text.append("DELETED ACCOUNT\n");
         text.append("Username: ").append(user.getUsername()).append('\n');
         text.append("Full name: ").append(user.getFullName()).append('\n');
@@ -45,7 +57,10 @@ final class AccountSnapshot {
             text.append("Bio: ").append(orNone(seller.getBio())).append('\n');
             text.append("Preferred meet-up locations: ").append(seller.getPreferredMeetupLocations()).append('\n');
         }
+    }
 
+    /** The chat threads, each with its messages. */
+    private static void describeThreads(StringBuilder text, DataStore store, List<ChatThread> threads) {
         section(text, "CHAT THREADS DELETED", threads.size());
         for (ChatThread thread : threads) {
             text.append(thread.getId()).append(" | ").append(listing(store.findListing(thread.getListingId())))
@@ -57,17 +72,9 @@ final class AccountSnapshot {
                         .append(": ").append(indented(message.getContent())).append('\n');
             }
         }
+    }
 
-        section(text, "REVIEWS WRITTEN BY THE USER, DELETED", reviews.size());
-        for (Review review : reviews) {
-            text.append(review.getId()).append(" | deal ").append(review.getOfferId())
-                    .append(" | seller @").append(store.getSellerUsername(review))
-                    .append(" | ").append(review.getRating()).append(" stars")
-                    .append(" | ").append(date(review.getReviewDate()))
-                    .append(" | comment: ").append(indented(orNone(review.getComment())))
-                    .append(" | seller's reply: ").append(indented(orNone(review.getSellerReply()))).append('\n');
-        }
-
+    private static void describeNotifications(StringBuilder text, List<Notification> notifications) {
         section(text, "NOTIFICATIONS DELETED", notifications.size());
         for (Notification notification : notifications) {
             text.append(notification.getId()).append(" | ").append(date(notification.getTimestamp()))
@@ -75,7 +82,10 @@ final class AccountSnapshot {
                     .append(" | ").append(notification.isRead() ? "read" : "unread")
                     .append(" | ").append(indented(notification.getContent())).append('\n');
         }
+    }
 
+    /** The open offers, with the status they had before they were declined. */
+    private static void describeOpenOffers(StringBuilder text, DataStore store, List<Offer> openOffers) {
         section(text, "OPEN OFFERS DECLINED", openOffers.size());
         for (Offer offer : openOffers) {
             text.append(offer.getId()).append(" | ").append(offer.getKindName())
@@ -84,12 +94,14 @@ final class AccountSnapshot {
                     .append(" | made ").append(date(offer.getOfferDate()))
                     .append(" | was ").append(offer.getStatus().getDisplayName()).append('\n');
         }
+    }
 
+    /** The listings, with the status they had before they were removed. */
+    private static void describeListings(StringBuilder text, List<Listing> listings) {
         section(text, "LISTINGS REMOVED", listings.size());
         for (Listing listing : listings) {
             text.append(listing(listing)).append(" | was ").append(listing.getStatus().getDisplayName()).append('\n');
         }
-        return text.toString();
     }
 
     private static void section(StringBuilder text, String title, int count) {

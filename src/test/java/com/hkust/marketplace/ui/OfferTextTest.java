@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests for how offers, borrow requests and claims are worded on every screen. State-based
- * (Lecture 14): each offer is moved through its states and the wording is checked in each.
+ * (Lecture 13): each offer is moved through its states and the wording is checked in each.
  */
 class OfferTextTest {
 
@@ -52,6 +52,25 @@ class OfferTextTest {
 
         assertEquals("Claim", OfferText.summary(claim));
         assertEquals(Optional.empty(), OfferText.counter(claim));
+    }
+
+    @Test
+    void terms_areWhatTheBuyerProposed_andTheCounter_withoutLabels() { // the chat's offer dialog lists them
+        PriceOffer price = new PriceOffer("L1", "bea", 160);
+        BorrowRequest request = new BorrowRequest("L1", "bea", START, END);
+        Claim claim = new Claim("L1", "bea");
+
+        assertEquals("HK$ 160", OfferText.terms(price));
+        assertEquals("02 Nov 2026 13:00:00 – 09 Nov 2026 13:00:00", OfferText.terms(request));
+        assertEquals("", OfferText.terms(claim)); // a claim has no terms
+        assertEquals(Optional.empty(), OfferText.counterTerms(price));
+
+        price.counter(170);
+        request.counter(START.plusDays(1), END.plusDays(1));
+
+        assertEquals(Optional.of("HK$ 170"), OfferText.counterTerms(price));
+        assertEquals(Optional.of("03 Nov 2026 13:00:00 – 10 Nov 2026 13:00:00"), OfferText.counterTerms(request));
+        assertEquals(Optional.empty(), OfferText.counterTerms(claim));
     }
 
     @Test

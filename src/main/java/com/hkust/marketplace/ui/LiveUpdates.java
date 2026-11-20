@@ -16,6 +16,9 @@ import java.util.function.BooleanSupplier;
  * The app calls {@link #dataChanged()} on the JavaFX thread. A dashboard that is no longer on
  * screen (the user logged out) is told nothing and forgotten.
  *
+ * <p>This is the Observer pattern (Lecture 17) in its simplest form: the timer is the subject
+ * and the dashboard on show is its one observer, so registering a new one replaces the old.
+ *
  * <p>This class has no JavaFX code, so its rules are unit-tested.
  */
 public final class LiveUpdates {

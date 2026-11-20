@@ -1,7 +1,9 @@
 package com.hkust.marketplace.services;
 
 import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.Offer;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -52,5 +54,27 @@ public record Conversation(Listing listing, String buyerUsername, String buyerNa
     /** The newest message or offer, or empty if nothing has been sent yet. */
     public Optional<ChatEntry> lastEntry() {
         return entries.isEmpty() ? Optional.empty() : Optional.of(entries.get(entries.size() - 1));
+    }
+
+    /**
+     * The offers in this chat that the viewer can act on now, newest first: for the seller the
+     * open ones (Pending, or Countered and waiting for the buyer), for the buyer the ones the
+     * seller countered. The deal actions beside Send are built from this (assumptions register 71).
+     * @return the offers; empty if there are none
+     */
+    public List<Offer> offersToActOn() {
+        List<Offer> offers = new ArrayList<>();
+        for (int i = entries.size() - 1; i >= 0; i--) {
+            Offer offer = entries.get(i).offer();
+            if (offer != null && !actionsFor(offer).isEmpty()) {
+                offers.add(offer);
+            }
+        }
+        return List.copyOf(offers);
+    }
+
+    /** What the viewer can do with one of this chat's offers now; see {@link OfferAction#allowedFor}. */
+    public List<OfferAction> actionsFor(Offer offer) {
+        return OfferAction.allowedFor(offer, viewerIsBuyer());
     }
 }

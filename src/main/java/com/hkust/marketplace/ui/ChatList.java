@@ -70,7 +70,7 @@ public class ChatList extends ScrollPane implements Refreshable {
             Label empty = new Label("You have no chats yet. A chat starts when a buyer writes to a seller "
                     + "or makes an offer on a listing.");
             empty.setWrapText(true);
-            empty.setStyle("-fx-text-fill: #5a5a7a;");
+            empty.getStyleClass().add("text-muted");
             list.getChildren().add(empty);
             return;
         }

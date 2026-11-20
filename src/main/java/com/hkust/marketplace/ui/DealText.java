@@ -73,14 +73,27 @@ public final class DealText {
                 + " now? This ends the borrowing and cannot be undone.";
     }
 
-    /** What the buyer is told after returning an item (UC7 A2). */
-    public static String returned(Deal deal) {
-        return "'" + deal.listing().getTitle() + "' was returned. " + deal.sellerName() + " has been notified.";
-    }
-
     /** The prompt after a deal is marked complete (UC7 step 9). */
     public static String ratePrompt(Deal deal) {
         return "The deal for '" + deal.listing().getTitle() + "' is complete, and " + deal.sellerName()
                 + " has been notified. Would you like to rate and review the seller now?";
+    }
+
+    /**
+     * What the buyer is told after returning an item (UC7 A2), with the rate-seller prompt
+     * that also follows a return (client answer #3).
+     */
+    public static String returnedRatePrompt(Deal deal) {
+        return "'" + deal.listing().getTitle() + "' was returned, and " + deal.sellerName()
+                + " has been notified. Would you like to rate and review the seller now?";
+    }
+
+    /**
+     * The rate-seller prompt after the timer returned a borrowed item while the buyer was using
+     * the app (UC12; client answer #3).
+     */
+    public static String autoReturnRatePrompt(Deal deal) {
+        return "'" + deal.listing().getTitle() + "' was returned automatically because the borrowing period "
+                + "ended. Would you like to rate and review " + deal.sellerName() + " now?";
     }
 }

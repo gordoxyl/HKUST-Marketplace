@@ -50,6 +50,13 @@ public class DataStore {
     /** Where the app keeps its saved data, relative to the folder the app is started from. */
     public static final Path DATA_FOLDER = Path.of("marketplace-data");
 
+    /**
+     * How screens name the writer of a review whose account was deleted. The review is kept
+     * and its writer is shown as "Deleted User" (client answer 6, 16 Nov 2026); see
+     * {@link #getReviewerName}.
+     */
+    public static final String DELETED_USER = "Deleted User";
+
     private final ReentrantLock lock = new ReentrantLock();
     private final Storage storage;
     private String loadProblem;
@@ -90,7 +97,12 @@ public class DataStore {
         this.storage = storage;
     }
 
-    /** The app's store: the saved data, or the demo data from {@link SeedData} on the first run. */
+    /**
+     * The app's store: the saved data, or the demo data from {@link SeedData} on the first run.
+     * This is the Singleton pattern (Lecture 18) with lazy creation, adapted for testing: the
+     * app uses only this one instance, but the constructors stay public so that each test can
+     * make a store of its own.
+     */
     public static DataStore getInstance() {
         return AppStore.INSTANCE;
     }
@@ -242,19 +254,21 @@ public class DataStore {
 
     /**
      * Permanently deletes an account, as one atomic step, for the admin's Delete User (Manage
-     * All User Accounts and Reputation 6.4.4). It makes every change to the data that the use
-     * case lists, so nothing is left waiting on an account that no longer exists:
+     * All User Accounts and Reputation 6.4.4, as changed by the client's answer 6 of 16 Nov
+     * 2026: the reviews the user wrote are kept). It makes every change to the data that the
+     * use case lists, so nothing is left waiting on an account that no longer exists:
      * <ul>
      *   <li><b>Deleted:</b> the account; every chat thread the user took part in, with its
-     *       messages (UC6 Special Requirement 2); the reviews the user wrote about sellers;
-     *       the notifications on the user's board.</li>
+     *       messages (UC6 Special Requirement 2); the notifications on the user's board.</li>
      *   <li><b>Cancelled:</b> the user's own open offers and the open offers on the user's
      *       listings are declined; the user's listings become Removed, except Sold, Given and
      *       already Removed ones.</li>
      *   <li><b>Kept, as the archived transaction history:</b> the user's listings and offers,
-     *       accepted and completed deals included, and the reviews about the user. They still
-     *       name the user by username, so the username is retired: it can never be registered
-     *       again ({@link #usernameExists}).</li>
+     *       accepted and completed deals included; the reviews about the user; the reviews the
+     *       user wrote, which still count in the seller's rating and name their writer as
+     *       {@value #DELETED_USER} ({@link #getReviewerName}); the reports the user filed and
+     *       those filed on the user's listings. They still name the user by username, so the
+     *       username is retired: it can never be registered again ({@link #usernameExists}).</li>
      * </ul>
      * A deal that was accepted but not completed stays as it is; deciding what happens to it
      * belongs to the admin's use case.
@@ -276,8 +290,6 @@ public class DataStore {
             String name = user.getUsername();
 
             List<ChatThread> userThreads = threads.values().stream().filter(t -> t.isParticipant(name)).toList();
-            List<Review> written = reviews.values().stream()
-                    .filter(r -> getBuyerUsername(r).equalsIgnoreCase(name)).toList();
             List<Notification> board = notifications.stream()
                     .filter(n -> n.getRecipientUsername().equalsIgnoreCase(name)).toList();
             List<Offer> openOffers = offers.values().stream()
@@ -287,17 +299,16 @@ public class DataStore {
                     .filter(l -> l.getSellerUsername().equalsIgnoreCase(name) && l.canBeRemoved()).toList();
 
             // Written before anything changes, so it shows the data as it was
-            String snapshot = AccountSnapshot.describe(this, user, userThreads, written, board, openOffers, removable);
+            String snapshot = AccountSnapshot.describe(this, user, userThreads, board, openOffers, removable);
 
             openOffers.forEach(Offer::decline);
             removable.forEach(Listing::remove);
             userThreads.forEach(t -> threads.remove(t.getId()));
-            written.forEach(r -> reviews.remove(r.getId()));
             notifications.removeAll(board);
             users.remove(name);
-            retiredUsernames.add(name);
+            retiredUsernames.add(name); // from now on, the reviews the user wrote name "Deleted User"
             user.setActive(false); // a session still holding this account is refused from now on
-            return new DeletedAccount(user, userThreads, written, board, openOffers, removable, snapshot);
+            return new DeletedAccount(user, userThreads, board, openOffers, removable, snapshot);
         });
     }
 
@@ -602,6 +613,19 @@ public class DataStore {
     /** The buyer who wrote the review. */
     public String getBuyerUsername(Review review) {
         return read(() -> offers.get(review.getOfferId()).getBuyerUsername());
+    }
+
+    /**
+     * The name a screen shows as the writer of a review: {@value #DELETED_USER} if the buyer's
+     * account was deleted (the review is kept; client answer 6), otherwise the buyer's full
+     * name, as for an active or a deactivated account. Every screen that names a review's
+     * writer uses this, so the buyer's, seller's and admin's screens name writers the same way.
+     */
+    public String getReviewerName(Review review) {
+        return read(() -> {
+            String buyer = getBuyerUsername(review);
+            return isRetiredUsername(buyer) ? DELETED_USER : getFullName(buyer);
+        });
     }
 
     // ========== Seller statistics ==========

@@ -207,7 +207,8 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `addReview`, `addReport`, `addUser`: refuse a second review of a deal, a second report by the same buyer, and a taken username
 - A deleted listing is not removed from the store: the seller's delete is `listing.withdraw()` and the admin's removal is `listing.remove()`, both giving status Removed.
 - `getTotalViews(seller)`, `getOffersReceivedCount(seller)`, `getCompletedDealCount(seller)`: the seller's statistics (the derived attributes in the class diagram), for Seller Stats and the admin's Seller Ratings. With `getAverageRating` and `getRatingCount`, that is all five.
-- `deleteAccount(username)`: the data step of the admin's Delete User, all at once. It deletes the account, its chat threads, the reviews it wrote and its notifications; declines its open offers and those on its listings; and sets its listings to Removed. Deals stay as records, and the username can never be registered again. It returns a `DeletedAccount` with what was affected and a text `snapshot()` for the Audit Log entry. Notifying the affected users and writing the Audit Log entry are the admin use case's job. The client has since decided that the reviews a deleted buyer wrote are kept, shown as "Deleted User"; that change to `deleteAccount` is still to do ([client answer #6](docs/client-answers.md)).
+- `deleteAccount(username)`: the data step of the admin's Delete User, all at once. It deletes the account, its chat threads and its notifications; declines its open offers and those on its listings; and sets its listings to Removed. Deals, reports and the reviews the account wrote stay as records ([client answer #6](docs/client-answers.md)), and the username can never be registered again. It returns a `DeletedAccount` with what was affected and a text `snapshot()` for the Audit Log entry. Notifying the affected users and writing the Audit Log entry are the admin use case's job.
+- `getReviewerName(review)`: the name a screen shows for a review's writer: "Deleted User" once that buyer's account is deleted, otherwise the buyer's full name. A kept review still counts in the seller's rating.
 - `addPhoto(bytes)` and `readPhoto(id)`: listing photos, each kept encrypted in a file of its own. Use `PhotoService` and `PhotoFrame` (below) instead of calling these directly.
 - `read(() -> ...)`: several reads as one consistent step, without saving.
 
@@ -231,7 +232,7 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `ProfileView` (UC3): the profile screen all three portals show. Sellers also get bio and meet-up locations; buyers see their residence hall, which can't be changed.
 - `ListingCard`: the listing card all three portals show (Browse, My Listings, Listing Review, Manage All Listings). `new ListingCard(listing, UserRole.BUYER)` (or `SELLER`, `ADMIN`), then `addActions(buttons...)` for the screen's own buttons and `setOnOpen(...)` for a click on the card; put several in `ListingCard.grid()`. Buyers see the availability status and unavailable listings greyed out (UC8); sellers and the admin see the status. What each line says comes from the tested `ListingSummary`.
 - `PhotoFrame`: shows one stored photo in a frame of a fixed size, or "No photo": `new PhotoFrame(photoId, 240, 180)`. The listing card uses it for the thumbnail; use it for the detail screen's photos too.
-- `ChatView` and `ChatList` (UC6): the chat screen and the Chats screen, the same for buyers and sellers. Open a chat with `show(ChatText.title(chat), new ChatView(chatService, chat))`. The view shows messages and offers with sender and time, sends on Enter, and searches the history (a result jumps to its message and highlights it). The buyer portal adds the formal offer with `chatView.setOnMakeOffer(...)`.
+- `ChatView` and `ChatList` (UC6): the chat screen and the Chats screen, the same for buyers and sellers. Open a chat with `show(ChatText.title(chat), new ChatView(chatService, chat))`. The view shows messages and offers with sender and time, sends on Enter, and searches the history (a result jumps to its message and highlights it). The deal actions are buttons in one row under Send, the same in both portals (the offer cards only show history): the buyer portal adds Make Offer with `chatView.setOnMakeOffer(...)` and Agree to Counter with `setOnAgreeToCounter(...)`; the seller portal adds Answer Offers with `setOnAnswerOffer(...)` (contract in `docs/shared-core-for-seller.md`). Which offers allow which action is decided by `services/OfferAction`.
 - `SubScreen`: a screen opened from another one, with a Back button above it: `show(title, new SubScreen("Back to listings", back, content))`. Back shows the earlier screen as it was.
 - `ReviewList` and `ReviewText`: a seller's average rating and reviews (stars, date, comment, the seller's reply), as shown on the listing detail screen and the seller's profile. Pass the reviews from `getReviewsForSeller`, which already leaves out hidden ones.
 - `ListingSummary` also words a detail screen: `fields()` (every field of the listing as name and value), `descriptionText()` and `actionText()`.
@@ -240,7 +241,7 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `LiveUpdates` and `Refreshable`: when the timer changes data, the open dashboard reloads its screen. A dashboard registers once in `initialize()` with `LiveUpdates.setOnDataChanged(() -> contentPane.getScene() != null, this::refresh…)`; screens that can reload implement `Refreshable` (the notification board, chats, Browse, My Deals do). The seller's My Listings can use it to show a returned item Live again.
 - `ContentHost`: implemented by each dashboard as `show(title, content)`. Shared components get the dashboard as a `ContentHost`, so they can open another screen with its data, such as a chat from the Chats screen.
 
-**How a service method is shaped.** One control class per actor and use case (Lecture 16), each method in this order:
+**How a service method is shaped.** One control class per actor and use case (Lecture 15), each method in this order:
 ```java
 public void acceptOffer(String offerId) {
     Seller seller = AccessControl.requireSeller();                  // 1. role check
@@ -265,7 +266,7 @@ The screen calls the service and shows any `ServiceException` message to the use
 
 ## How We Build and Test
 
-We use **sandwich integration** (COMP 3111 Lecture 15). The bottom layer (models and `DataStore`) and the top layer (the portal screens from the skeleton) already exist, and we meet in the middle:
+We use **sandwich integration** (COMP 3111 Lecture 14). The bottom layer (models and `DataStore`) and the top layer (the portal screens from the skeleton) already exist, and we meet in the middle:
 - **The shared middle** (`DealRules`, `NotificationService`, the state machines and the conventions above) is built first, bottom-up, and tested with JUnit tests acting as drivers. It holds the critical subsystems: the deal lifecycle, concurrency and the borrowing-deadline timer.
 - **Each portal** (buyer, seller, admin) is then built in parallel by its owner, one use case at a time: control class plus tests, then the screen.
 

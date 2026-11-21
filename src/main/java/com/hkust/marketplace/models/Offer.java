@@ -7,7 +7,6 @@ import java.util.Objects;
  * A buyer's action on a listing (Offer in the domain class diagram), called a "deal" in the
  * use cases. Every offer is exactly one of {@link PriceOffer}, {@link BorrowRequest} or
  * {@link Claim} ({complete, disjoint}).
- *
  * An offer belongs to the chat thread between its buyer and its listing (UC5 step 7).
  * The status changes only through the methods below, which enforce:
  * <ul>

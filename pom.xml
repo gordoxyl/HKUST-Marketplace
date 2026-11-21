@@ -20,7 +20,7 @@
         <jackson.version>2.18.2</jackson.version>
         <jacoco.version>0.8.12</jacoco.version>
         <!-- Screens and app start-up: no logic of their own, so not part of the coverage rule (see jacoco below) -->
-        <jacoco.ui.excludes>com/hkust/marketplace/controllers/**,com/hkust/marketplace/MarketplaceApp.class,com/hkust/marketplace/utils/SceneManager.class,com/hkust/marketplace/utils/DevLogin.class,com/hkust/marketplace/ui/Dialogs.class,com/hkust/marketplace/ui/NotificationBoard.class,com/hkust/marketplace/ui/ProfileView.class,com/hkust/marketplace/ui/ListingCard.class,com/hkust/marketplace/ui/ChatView.class,com/hkust/marketplace/ui/ChatList.class,com/hkust/marketplace/ui/OfferChoiceDialog.class,com/hkust/marketplace/ui/PhotoFrame.class,com/hkust/marketplace/ui/SubScreen.class,com/hkust/marketplace/ui/ReviewList.class</jacoco.ui.excludes>
+        <jacoco.ui.excludes>com/hkust/marketplace/controllers/**,com/hkust/marketplace/MarketplaceApp.class,com/hkust/marketplace/utils/SceneManager.class,com/hkust/marketplace/utils/DevLogin.class,com/hkust/marketplace/ui/Dialogs.class,com/hkust/marketplace/ui/NotificationBoard.class,com/hkust/marketplace/ui/ProfileView.class,com/hkust/marketplace/ui/ListingCard.class,com/hkust/marketplace/ui/ChatView.class,com/hkust/marketplace/ui/ChatList.class,com/hkust/marketplace/ui/OfferChoiceDialog.class,com/hkust/marketplace/ui/PhotoFrame.class,com/hkust/marketplace/ui/SubScreen.class,com/hkust/marketplace/ui/ReviewList.class,com/hkust/marketplace/ui/Choices.class</jacoco.ui.excludes>
     </properties>
 
     <dependencies>

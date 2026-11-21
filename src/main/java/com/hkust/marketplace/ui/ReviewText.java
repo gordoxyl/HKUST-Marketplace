@@ -1,10 +1,10 @@
 package com.hkust.marketplace.ui;
 
 import com.hkust.marketplace.models.Review;
+import com.hkust.marketplace.models.RatingSummary;
 import com.hkust.marketplace.services.ReviewForm;
 
 import java.util.Optional;
-import java.util.OptionalDouble;
 
 /**
  * How a seller's rating and reviews read on every screen that shows them: the listing detail
@@ -19,8 +19,8 @@ public final class ReviewText {
     }
 
     /** The heading above a seller's reviews: "Seller rating: 4.5 / 5 (2 ratings)" or "Seller rating: No ratings yet". */
-    public static String ratingHeading(OptionalDouble average, int count) {
-        return "Seller rating: " + Formats.averageRating(average, count);
+    public static String ratingHeading(RatingSummary rating) {
+        return "Seller rating: " + Formats.averageRating(rating);
     }
 
     /** A review's rating and date: "★★★★☆ · 09 Nov 2026". */

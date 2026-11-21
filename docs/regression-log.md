@@ -133,6 +133,21 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 - **Cause:** IntelliJ runs Maven through `mvnw.cmd`, a Windows batch file. Stop sends Ctrl+C, and Windows then asks the batch file whether to stop, waiting for an answer.
 - **Workarounds:** type `Y` and press Enter in the Run console; or click Stop a second time, which forces the stop; or set IntelliJ → Settings → Build, Execution, Deployment → Build Tools → Maven → **Maven home path: Bundled (Maven 3)** so no batch file is involved. In normal use, close the app window instead and Maven finishes by itself. Closing the run tab also forces the stop, so it is still a valid "forced stop" for storage test 12.
 
+### T3: Concurrency tests left their threads running when they failed
+
+- **Area:** tests (shared core and Buyer; Gordon's).
+- **Found:** 2026-11-21, while fixing IntelliJ's "ExecutorService used without try-with-resources" warning in `DealHistoryServiceTest`.
+- **What happened:** five of the six critical-case tests (`DataStoreTest`, `BorrowingDeadlineServiceTest`, `DealRulesTest`, `OfferServiceTest`, `ReviewServiceTest`) wrote their own thread pool and stopped it only after every assertion passed, so a failing test left its threads running in the test JVM.
+- **Cause:** the same start-together pattern was written by hand six times; `ExecutorService` can be closed with try-with-resources only from Java 19, and the project targets Java 17.
+- **Prevention:** `testsupport/SameMoment` owns the pool and is `AutoCloseable`; every concurrency test uses it with try-with-resources. `SameMomentTest.close_stopsATaskThatIsStillRunning_soNoThreadIsLeftBehind` checks that a running task is stopped.
+
+### T4: The build compiled against JDK 21's library for a Java 17 target
+
+- **Area:** tooling (`pom.xml`; whole team).
+- **Found:** 2026-11-21, from the same warning, and from the line every build printed: `[WARNING] system modules path not set in conjunction with -source 17`.
+- **What happened:** `maven.compiler.source/target 17` made `javac` check the code against the JDK it ran on (21). An API added after Java 17 (such as `ExecutorService.close()`) would compile and then fail on a Java 17 machine, and IntelliJ suggested such APIs.
+- **Prevention:** `maven.compiler.release 17`: the build now compiles against Java 17's own library and rejects anything newer. Everything compiled unchanged, so nothing newer than Java 17 was in use.
+
 ---
 
 ### Template for a new entry

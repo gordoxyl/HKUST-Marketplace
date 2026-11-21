@@ -2,19 +2,17 @@ package com.hkust.marketplace.data;
 
 import com.hkust.marketplace.models.*;
 import com.hkust.marketplace.testsupport.Fixtures;
+import com.hkust.marketplace.testsupport.SameMoment;
 import com.hkust.marketplace.testsupport.TestClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.Callable;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -229,14 +227,17 @@ class DataStoreTest {
     @Test
     void averageRating_leavesOutHiddenReviews() {
         assertTrue(store.getAverageRating("sam").isEmpty());
+        assertEquals(RatingSummary.NONE, store.getRating("sam"));
 
         Review five = completedDealReview("bea", 5);
         completedDealReview("ben", 2);
         assertEquals(3.5, store.getAverageRating("sam").getAsDouble());
+        assertEquals(new RatingSummary(2, 3.5), store.getRating("sam")); // the same figures, as one value
 
         five.setHidden(true);
         assertEquals(2.0, store.getAverageRating("sam").getAsDouble());
         assertEquals(1, store.getRatingCount("sam"));
+        assertEquals(new RatingSummary(1, 2), store.getRating("sam"));
         assertEquals(1, store.getReviewsForSeller("sam").size());
         assertEquals(2, store.getReviewsForSellerIncludingHidden("sam").size()); // still stored
     }
@@ -383,30 +384,22 @@ class DataStoreTest {
         }
 
         // The UC5 pattern: check availability and record the claim as one atomic step
-        CountDownLatch start = new CountDownLatch(1);
-        ExecutorService pool = Executors.newFixedThreadPool(buyers);
-        List<Future<Boolean>> results = new ArrayList<>();
+        List<Callable<Boolean>> claims = new ArrayList<>();
         for (int i = 0; i < buyers; i++) {
             String buyer = "racer" + i;
-            results.add(pool.submit(() -> {
-                start.await();
-                return store.transaction(() -> {
-                    if (!store.isAvailable(lamp)) {
-                        return false;
-                    }
-                    store.addOffer(new Claim(lamp.getId(), buyer));
-                    return true;
-                });
+            claims.add(() -> store.transaction(() -> {
+                if (!store.isAvailable(lamp)) {
+                    return false;
+                }
+                store.addOffer(new Claim(lamp.getId(), buyer));
+                return true;
             }));
         }
-        start.countDown();
-        int successes = 0;
-        for (Future<Boolean> result : results) {
-            if (result.get(10, TimeUnit.SECONDS)) {
-                successes++;
-            }
+        List<Boolean> claimed;
+        try (SameMoment moment = new SameMoment(buyers)) {
+            claimed = moment.run(claims);
         }
-        pool.shutdown();
+        int successes = Collections.frequency(claimed, true);
 
         assertEquals(1, successes);
         assertEquals(1, store.getOffersForListing(lamp.getId()).size());

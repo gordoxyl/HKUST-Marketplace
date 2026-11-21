@@ -595,14 +595,24 @@ public class DataStore {
         return select(reviews.values(), r -> sellerUsername.equalsIgnoreCase(getSellerUsername(r)));
     }
 
+    /**
+     * The seller's rating as users see it, the derived attributes /ratingCount and
+     * /averageRating as one value: the count and the average of the shown ratings (hidden ones
+     * are not counted). Show it with {@code Formats.averageRating(rating)}.
+     */
+    public RatingSummary getRating(String sellerUsername) {
+        return RatingSummary.of(getReviewsForSeller(sellerUsername));
+    }
+
     /** The average of the seller's shown ratings (hidden ones are not counted), or empty if there are none. */
     public OptionalDouble getAverageRating(String sellerUsername) {
-        return getReviewsForSeller(sellerUsername).stream().mapToInt(Review::getRating).average();
+        RatingSummary rating = getRating(sellerUsername);
+        return rating.isEmpty() ? OptionalDouble.empty() : OptionalDouble.of(rating.average());
     }
 
     /** The number of the seller's shown ratings (hidden ones are not counted). */
     public int getRatingCount(String sellerUsername) {
-        return getReviewsForSeller(sellerUsername).size();
+        return getRating(sellerUsername).count();
     }
 
     /** The seller who was reviewed: the seller of the reviewed deal's listing. */

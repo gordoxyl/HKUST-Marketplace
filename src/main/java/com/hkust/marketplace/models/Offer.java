@@ -7,7 +7,6 @@ import java.util.Objects;
  * A buyer's action on a listing (Offer in the domain class diagram), called a "deal" in the
  * use cases. Every offer is exactly one of {@link PriceOffer}, {@link BorrowRequest} or
  * {@link Claim} ({complete, disjoint}).
- *
  * An offer belongs to the chat thread between its buyer and its listing (UC5 step 7).
  * The status changes only through the methods below, which enforce:
  * <ul>
@@ -68,7 +67,7 @@ public abstract class Offer {
 
     /** The seller accepts this offer. */
     public void accept(LocalDateTime when) {
-        requireStatus(OfferStatus.PENDING, "accepted");
+        requirePending("accepted");
         status = OfferStatus.ACCEPTED;
         acceptedDate = Objects.requireNonNull(when, "when");
     }
@@ -83,7 +82,7 @@ public abstract class Offer {
 
     /** Used by the subclasses' counter methods, after they check the counter terms. */
     protected void markCountered() {
-        requireStatus(OfferStatus.PENDING, "countered");
+        requirePending("countered");
         status = OfferStatus.COUNTERED;
     }
 
@@ -110,10 +109,10 @@ public abstract class Offer {
         return isOpen() || (status == OfferStatus.ACCEPTED && !isCompleted());
     }
 
-    private void requireStatus(OfferStatus required, String action) {
-        if (status != required) {
-            throw new IllegalStateException("Only a " + required.getDisplayName().toLowerCase()
-                    + " offer can be " + action + ".");
+    /** Accept and counter both start from Pending (Offer state machine); decline and complete check their own states. */
+    private void requirePending(String action) {
+        if (status != OfferStatus.PENDING) {
+            throw new IllegalStateException("Only a pending offer can be " + action + ".");
         }
     }
 }

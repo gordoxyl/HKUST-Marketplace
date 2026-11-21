@@ -424,7 +424,8 @@ Abbreviations: **R** = read (`read`/`select`, never saves); **W** = write (a tra
 | `findReviewForOffer`, `getAllReviews` | R | |
 | `getReviewsForSeller` | R | Excludes reviews the admin hid (R5). Use it for every screen except the admin's moderation |
 | `getReviewsForSellerIncludingHidden` | R | Admin moderation only |
-| `getAverageRating`, `getRatingCount` | R | Shown reviews only |
+| `getRating` | R | A `RatingSummary`: the count and average of the shown ratings as one value (no average without ratings) |
+| `getAverageRating`, `getRatingCount` | R | Shown reviews only; the same figures as `getRating` |
 | `getSellerUsername(Review)`, `getBuyerUsername(Review)` | R | Through the reviewed offer |
 | `getReviewerName(Review)` | R | `DELETED_USER` ("Deleted User") if the writer's account was deleted (the username is retired), otherwise the writer's full name |
 | `getTotalViews`, `getOffersReceivedCount`, `getCompletedDealCount` | R | Derived seller statistics (class diagram `/` attributes) |

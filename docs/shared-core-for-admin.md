@@ -101,7 +101,8 @@ void dataStoreCalls(DataStore store, String username, String seller, String list
     // ratings (Seller Ratings tab: average, total reviews, completed deals)
     store.getAllReviews(); store.getReviewsForSellerIncludingHidden(seller);   // admin moderation ONLY
     store.getReviewsForSeller(seller);            // what everyone else sees: hidden excluded
-    store.getAverageRating(seller); store.getRatingCount(seller);              // hidden excluded automatically
+    store.getRating(seller);                      // RatingSummary: count + average as one value, hidden excluded
+    store.getAverageRating(seller); store.getRatingCount(seller);              // the same figures one by one
     store.getCompletedDealCount(seller); store.getOffersReceivedCount(seller); store.getTotalViews(seller);
     store.getSellerUsername(review); store.getBuyerUsername(review);
     store.getReviewerName(review);                // the writer's name on screens: "Deleted User" once deleted (answer #6)
@@ -193,7 +194,7 @@ The average rating is recalculated automatically.
   `TextInputs.required(text)` → `Optional<String>` for the same check inside a service.
 - `Formats`: `date`, `dateTime` (to the minute), `borrowTime` and `period` (to the second: use them for borrow
   periods and due dates), `price`, `duration`, `stars(int)`,
-  `averageRating(OptionalDouble, count)`, `preview(text, max)`, `NONE`.
+  `averageRating(RatingSummary)` ("4.5 / 5 (2 ratings)" or "No ratings yet"; give it `store.getRating(seller)`), `datePickerConverter()` (date pickers show "21 Nov 2026"), `preview(text, max)`, `NONE`.
 - `OfferText`: `summary(offer)`, `counter(offer)`, `status(offer)` ("Completed" once completed),
   `badgeStyle(offer)`, `kind(offer)`: for the All Deals table.
 - `ListingCard`: `new ListingCard(listing, UserRole.ADMIN).addActions(approveBtn, rejectBtn)` shows seller

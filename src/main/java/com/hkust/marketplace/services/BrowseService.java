@@ -4,6 +4,7 @@ import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.models.Buyer;
 import com.hkust.marketplace.models.GiveawayListing;
 import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.RatingSummary;
 import com.hkust.marketplace.models.Review;
 import com.hkust.marketplace.models.SaleListing;
 import com.hkust.marketplace.models.Seller;
@@ -56,32 +57,52 @@ public class BrowseService {
      */
     public List<Listing> search(BrowseQuery query) {
         AccessControl.requireBuyer();
-        OptionalDouble min = amount(query.minPrice());
-        OptionalDouble max = amount(query.maxPrice());
-        if (min.isPresent() && max.isPresent() && min.getAsDouble() > max.getAsDouble()) {
-            throw new ServiceException(INVALID_PRICE_RANGE);
-        }
+        PriceRange range = PriceRange.of(query); // A2 is reported before anything is searched
         String keyword = query.keyword().toLowerCase(Locale.ROOT);
         return store.getLiveListings().stream()
                 .filter(listing -> containsKeyword(listing, keyword))
                 .filter(listing -> query.category() == null || listing.getCategory() == query.category())
                 .filter(listing -> query.type() == null || listing.getType() == query.type())
                 .filter(listing -> query.condition() == null || listing.getCondition() == query.condition())
-                .filter(listing -> !query.hasPriceRange() || isPricedWithin(listing, min, max))
+                .filter(listing -> !query.hasPriceRange() || isPricedWithin(listing, range))
                 .sorted(order(query.sort()))
                 .toList();
     }
 
-    /** The typed amount, or empty if nothing was typed. */
-    private static OptionalDouble amount(String typed) {
+    /**
+     * The price range of a search, both ends included (UC8 step 3). An end that was not typed is
+     * open: a missing minimum is HK$0, because no price is lower, and a missing maximum has no limit.
+     */
+    private record PriceRange(double min, double max) {
+
+        /**
+         * The range the buyer typed.
+         * @throws ServiceException if an amount is not one of HK$0 or more, or the minimum is above the maximum (A2)
+         */
+        static PriceRange of(BrowseQuery query) {
+            double min = amount(query.minPrice(), 0);
+            double max = amount(query.maxPrice(), Double.POSITIVE_INFINITY);
+            if (min > max) {
+                throw new ServiceException(INVALID_PRICE_RANGE);
+            }
+            return new PriceRange(min, max);
+        }
+
+        boolean contains(double price) {
+            return price >= min && price <= max;
+        }
+    }
+
+    /** The typed amount, or the given value if nothing was typed. */
+    private static double amount(String typed, double notTyped) {
         if (typed.isEmpty()) {
-            return OptionalDouble.empty();
+            return notTyped;
         }
         OptionalDouble amount = Amounts.parse(typed);
         if (amount.isEmpty()) {
             throw new ServiceException(INVALID_PRICE_RANGE); // negative, or not a number
         }
-        return amount;
+        return amount.getAsDouble();
     }
 
     private static boolean containsKeyword(Listing listing, String keyword) {
@@ -100,11 +121,10 @@ public class BrowseService {
         return listing instanceof GiveawayListing ? OptionalDouble.of(0) : OptionalDouble.empty();
     }
 
-    private static boolean isPricedWithin(Listing listing, OptionalDouble min, OptionalDouble max) {
+    /** The listing has a price within the range; a lend listing has none (Special Requirement 4). */
+    private static boolean isPricedWithin(Listing listing, PriceRange range) {
         OptionalDouble price = priceOf(listing);
-        return price.isPresent()
-                && (min.isEmpty() || price.getAsDouble() >= min.getAsDouble())
-                && (max.isEmpty() || price.getAsDouble() <= max.getAsDouble());
+        return price.isPresent() && range.contains(price.getAsDouble());
     }
 
     /** Listings with the same price, and the unpriced ones, are ordered newest first. */
@@ -192,7 +212,7 @@ public class BrowseService {
         List<Review> newestFirst = store.getReviewsForSeller(username).stream()
                 .sorted(Comparator.comparing(Review::getReviewDate, Comparator.reverseOrder()))
                 .toList();
-        return new SellerProfile(username, store.getFullName(username), bio,
-                store.getAverageRating(username), store.getRatingCount(username), newestFirst);
+        // The rating is counted from the very reviews shown, so the two always agree
+        return new SellerProfile(username, store.getFullName(username), bio, RatingSummary.of(newestFirst), newestFirst);
     }
 }

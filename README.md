@@ -205,6 +205,7 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `getLiveListings()`, `isLive(listing)`, `isAvailable(listing)`: the glossary's "live" and "available" listings
 - `addOffer(offer)`: checks the offer type matches the listing type and creates the chat thread
 - `getReviewsForSeller(seller)`, `getAverageRating(seller)`: leave out reviews the admin hid, because hidden reviews are shown to no one (UC10 SR4). Only the admin's moderation screen uses `getReviewsForSellerIncludingHidden(seller)`
+- `getRating(seller)`: the seller's rating as one `RatingSummary` (count and average, which always agree: no average without ratings). Show it with `Formats.averageRating(rating)`.
 - `addReview`, `addReport`, `addUser`: refuse a second review of a deal, a second report by the same buyer, and a taken username
 - A deleted listing is not removed from the store: the seller's delete is `listing.withdraw()` and the admin's removal is `listing.remove()`, both giving status Removed.
 - `getTotalViews(seller)`, `getOffersReceivedCount(seller)`, `getCompletedDealCount(seller)`: the seller's statistics (the derived attributes in the class diagram), for Seller Stats and the admin's Seller Ratings. With `getAverageRating` and `getRatingCount`, that is all five.

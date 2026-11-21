@@ -98,6 +98,7 @@ void dataStoreCalls(DataStore store, String username, String listingId, String o
     store.getOffersForListing(listingId); store.findOffer(offerId); store.getListingOf(offer);
     store.getFullName(username);               // falls back to the username if the account was deleted
     store.getReviewsForSeller(username);       // hidden reviews already excluded: use this, nothing else
+    store.getRating(username);                 // RatingSummary: count + average as one value, hidden excluded
     store.getAverageRating(username);          // OptionalDouble, hidden excluded
     store.getRatingCount(username);
     store.getTotalViews(username); store.getOffersReceivedCount(username); store.getCompletedDealCount(username);
@@ -251,7 +252,7 @@ Already wired. `AccountValidator` has the username / full name / password rules 
   `askReason(title, question)` → `Optional<String>`.
 - `Formats`: `date`, `dateTime` (to the minute), `borrowTime` and `period(start, end)` (to the second: use them for
   borrow periods and due dates), `price(double)`, `duration(Duration)`, `stars(int)`,
-  `averageRating(OptionalDouble, count)` ("No ratings yet" when none), `preview(text, max)`, `NONE`.
+  `averageRating(RatingSummary)` ("No ratings yet" when none; give it `store.getRating(username)`), `datePickerConverter()` (date pickers show "21 Nov 2026", like every other date), `preview(text, max)`, `NONE`.
 - `OfferText`: `summary(offer)` ("Price offer: HK$ 160"), `counter(offer)`, `status(offer)`,
   `badgeStyle(offer)`, `kind(offer)`. Use it on the offers screen.
 - `ListingCard`: `new ListingCard(listing, UserRole.SELLER).addActions(editBtn, deleteBtn)`; `ListingCard.grid()`.

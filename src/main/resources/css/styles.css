@@ -309,13 +309,13 @@
     -fx-background-color: white;
     -fx-background-radius: 10;
     -fx-padding: 14 18;
-    -fx-border-color: #e8f0f8;
+    /* An unread notification: a gold edge on the left (UC4) */
     -fx-border-width: 0 0 0 4;
-    -fx-border-color: #A68137;
+    -fx-border-color: -hkust-gold;
 }
 /* A notification already marked as read (UC4): grey edge, faded */
 .notif-read {
-    -fx-border-color: #d0d7e2;
+    -fx-border-color: -border;
     -fx-opacity: 0.75;
 }
 .notif-text {

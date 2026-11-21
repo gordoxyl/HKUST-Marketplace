@@ -2,6 +2,7 @@ package com.hkust.marketplace.ui;
 
 import com.hkust.marketplace.models.BorrowRequest;
 import com.hkust.marketplace.models.LendListing;
+import com.hkust.marketplace.models.RatingSummary;
 import com.hkust.marketplace.models.Review;
 import com.hkust.marketplace.models.SaleListing;
 import javafx.util.StringConverter;
@@ -14,7 +15,6 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.util.Locale;
-import java.util.OptionalDouble;
 
 /**
  * One way to show dates, prices, ratings and periods on every screen, so all three portals
@@ -151,10 +151,11 @@ public final class Formats {
      * A seller's average rating: "4.5 / 5 (2 ratings)", or "No ratings yet" when there are none
      * (View Seller Stats A2).
      */
-    public static String averageRating(OptionalDouble average, int count) {
-        if (average.isEmpty() || count == 0) {
+    public static String averageRating(RatingSummary rating) {
+        if (rating.isEmpty()) {
             return "No ratings yet";
         }
-        return String.format(Locale.ENGLISH, "%.1f / 5 (%d rating%s)", average.getAsDouble(), count, count == 1 ? "" : "s");
+        int count = rating.count();
+        return String.format(Locale.ENGLISH, "%.1f / 5 (%d rating%s)", rating.average(), count, count == 1 ? "" : "s");
     }
 }

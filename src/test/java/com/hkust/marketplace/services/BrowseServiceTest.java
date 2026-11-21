@@ -99,10 +99,10 @@ class BrowseServiceTest {
         return new BrowseQuery("", null, null, null, "", "", sort);
     }
 
-    /** Sells a new listing of the seller to the buyer and has the buyer review it, one day later. */
-    private Review review(String seller, String buyer, int rating, String comment) {
+    /** Sells a new listing of Sam's to the buyer and has the buyer review Sam, one day later. */
+    private Review reviewOfSam(String buyer, int rating, String comment) {
         clock.advance(Duration.ofDays(1));
-        SaleListing sold = Fixtures.live(Fixtures.sale(store, seller, 10));
+        SaleListing sold = Fixtures.live(Fixtures.sale(store, "sam", 10));
         Offer deal = store.addOffer(new PriceOffer(sold.getId(), buyer, 10));
         deal.accept(store.now());
         sold.acceptDeal();
@@ -289,7 +289,7 @@ class BrowseServiceTest {
 
     @Test
     void openingAListing_addsOneViewPerOpening_andReturnsWhatTheDetailScreenShows() {
-        review("sam", "ben", 4, "Good");
+        reviewOfSam("ben", 4, "Good");
 
         ListingDetail detail = browse.openListing(book.getId());
 
@@ -297,7 +297,7 @@ class BrowseServiceTest {
         assertEquals(1, book.getViewCount());
         assertTrue(detail.available());
         assertEquals("Seller sam", detail.seller().fullName());
-        assertEquals(4.0, detail.seller().averageRating().orElseThrow());
+        assertEquals(4.0, detail.seller().rating().average());
         assertEquals(1, detail.seller().reviews().size());
 
         browse.openListing(book.getId());
@@ -369,17 +369,17 @@ class BrowseServiceTest {
     @Test
     void sellerProfile_showsNameBioAverageRating_andReviewsNewestFirstWithTheReply() {
         sam.setBio("Final year student");
-        Review first = review("sam", "ben", 5, "Smooth deal");
+        Review first = reviewOfSam("ben", 5, "Smooth deal");
         first.reply("Thank you!");
-        Review second = review("sam", "bea", 2, null);
+        Review second = reviewOfSam("bea", 2, null);
 
         SellerProfile profile = browse.getSellerProfile(" SAM ");
 
         assertEquals("sam", profile.username());
         assertEquals("Seller sam", profile.fullName());
         assertEquals("Final year student", profile.bio());
-        assertEquals(3.5, profile.averageRating().orElseThrow());
-        assertEquals(2, profile.ratingCount());
+        assertEquals(3.5, profile.rating().average());
+        assertEquals(2, profile.rating().count());
         assertEquals(List.of(second, first), profile.reviews()); // newest first
         assertEquals("Thank you!", profile.reviews().get(1).getSellerReply());
         assertNull(profile.reviews().get(0).getComment());
@@ -389,23 +389,23 @@ class BrowseServiceTest {
     void sellerWithNoReviews_hasNoAverageRating() {
         SellerProfile profile = browse.getSellerProfile("sue");
 
-        assertTrue(profile.averageRating().isEmpty());
-        assertEquals(0, profile.ratingCount());
+        assertTrue(profile.rating().isEmpty());
+        assertEquals(0, profile.rating().count());
         assertTrue(profile.reviews().isEmpty());
         assertNull(profile.bio());
     }
 
     @Test
     void reviewHiddenByTheAdmin_isNeitherShownNorCounted() {
-        Review kept = review("sam", "ben", 5, "Great");
-        Review hidden = review("sam", "bea", 1, "Rude words");
+        Review kept = reviewOfSam("ben", 5, "Great");
+        Review hidden = reviewOfSam("bea", 1, "Rude words");
         store.transaction(() -> hidden.setHidden(true));
 
         SellerProfile profile = browse.getSellerProfile("sam");
 
         assertEquals(List.of(kept), profile.reviews());
-        assertEquals(5.0, profile.averageRating().orElseThrow());
-        assertEquals(1, profile.ratingCount());
+        assertEquals(5.0, profile.rating().average());
+        assertEquals(1, profile.rating().count());
         assertEquals(List.of(kept), browse.openListing(book.getId()).seller().reviews()); // the same on the detail screen
     }
 
@@ -424,7 +424,7 @@ class BrowseServiceTest {
 
     @Test
     void sellerWhoseAccountWasDeleted_isShownByUsername_withTheReviewsThatWereKept() {
-        Review kept = review("sam", "ben", 4, "Good");
+        Review kept = reviewOfSam("ben", 4, "Good");
         Offer deal = store.addOffer(new PriceOffer(book.getId(), "bea", 150));
         deal.accept(store.now());
         book.acceptDeal();

@@ -1,5 +1,6 @@
 package com.hkust.marketplace.ui;
 
+import com.hkust.marketplace.models.RatingSummary;
 import javafx.util.StringConverter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -10,7 +11,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.OptionalDouble;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -116,10 +116,9 @@ class FormatsTest {
 
     @Test
     void averageRating_saysNoRatingsYet_whenThereAreNone() {
-        assertEquals("No ratings yet", Formats.averageRating(OptionalDouble.empty(), 0));
-        assertEquals("No ratings yet", Formats.averageRating(OptionalDouble.of(4), 0)); // inconsistent input: count wins
-        assertEquals("5.0 / 5 (1 rating)", Formats.averageRating(OptionalDouble.of(5), 1));
-        assertEquals("3.5 / 5 (2 ratings)", Formats.averageRating(OptionalDouble.of(3.5), 2));
+        assertEquals("No ratings yet", Formats.averageRating(RatingSummary.NONE)); // an average without ratings cannot be made: RatingSummaryTest count wins
+        assertEquals("5.0 / 5 (1 rating)", Formats.averageRating(new RatingSummary(1, 5)));
+        assertEquals("3.5 / 5 (2 ratings)", Formats.averageRating(new RatingSummary(2, 3.5)));
     }
 
     // ---------- Date pickers show and read dates as lists and tables show them ----------

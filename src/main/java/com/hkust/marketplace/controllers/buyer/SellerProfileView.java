@@ -29,7 +29,7 @@ public class SellerProfileView extends ScrollPane {
         about.getStyleClass().add("card");
         about.setPadding(new Insets(14, 16, 14, 16));
 
-        VBox reviews = new VBox(new ReviewList(seller.averageRating(), seller.ratingCount(), seller.reviews()));
+        VBox reviews = new VBox(new ReviewList(seller.rating(), seller.reviews()));
         reviews.getStyleClass().add("card");
         reviews.setPadding(new Insets(14, 16, 14, 16));
 

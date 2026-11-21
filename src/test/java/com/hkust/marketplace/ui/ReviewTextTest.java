@@ -1,12 +1,12 @@
 package com.hkust.marketplace.ui;
 
 import com.hkust.marketplace.models.Review;
+import com.hkust.marketplace.models.RatingSummary;
 import com.hkust.marketplace.services.ReviewForm;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.OptionalDouble;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -24,8 +24,8 @@ class ReviewTextTest {
 
     @Test
     void ratingHeading_showsTheAverage_orSaysThereAreNoRatings() {
-        assertEquals("Seller rating: 4.5 / 5 (2 ratings)", ReviewText.ratingHeading(OptionalDouble.of(4.5), 2));
-        assertEquals("Seller rating: No ratings yet", ReviewText.ratingHeading(OptionalDouble.empty(), 0));
+        assertEquals("Seller rating: 4.5 / 5 (2 ratings)", ReviewText.ratingHeading(new RatingSummary(2, 4.5)));
+        assertEquals("Seller rating: No ratings yet", ReviewText.ratingHeading(RatingSummary.NONE));
     }
 
     @Test

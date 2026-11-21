@@ -170,7 +170,7 @@ public class ListingDetailView extends ScrollPane implements Refreshable {
         HBox name = new HBox(4, label, sellerName);
         name.setAlignment(Pos.CENTER_LEFT);
         return card(new VBox(10, name,
-                new ReviewList(seller.averageRating(), seller.ratingCount(), seller.reviews())));
+                new ReviewList(seller.rating(), seller.reviews())));
     }
 
     private static VBox card(Node content) {

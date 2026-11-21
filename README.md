@@ -153,7 +153,8 @@ All passwords meet the password rules: at least 8 characters, with at least one 
 - **Make Offer (UC5, done):** price offer, borrow request with start and end date and time, one-click claim; from the listing detail, from the chat, or by agreeing to a seller's counter
 - **My Deals (UC7, done):** current and completed deals with status, terms, counter and due date; mark a purchase or claim complete; return a borrowed item before its due date; agree to a counter; reopen the listing or the chat
 - **Borrowing deadlines (UC12, done):** while the app runs, a timer reminds buyers 24 hours before an item is due (halfway for periods under 48 hours) and returns items automatically at their due date; the open screen updates by itself
-- Deal History, Favourites (placeholder), Chats, Notifications, Profile
+- **Deal History (UC11, done):** every completed deal with its item title, seller, deal date, deal type (Bought / Borrowed / Received) and outcome (Completed / Returned / Auto-returned), newest first; filter by a date range and a category and search by the seller's name; it updates by itself when the timer returns an item
+- Favourites (placeholder), Chats, Notifications, Profile
 
 ### Seller Portal
 - Registration, Login, Create Listing, My Listings
@@ -220,13 +221,14 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `OfferService` (buyer, UC5): `start(listingId)` or `startFromCounter(offerId)` gives the `OfferForm` to show, then `submitPriceOffer(listingId, typedPrice)`, `submitBorrowRequest(listingId, start, end)` or `submitClaim(listingId)`. The final availability check and the recording are one transaction. A listing that is no longer available throws `ListingUnavailableException`; the seller gets an Offer Received notification.
 - `BorrowingDeadlineService` and `BorrowingDeadlineTimer` (UC12): the app starts the timer in `MarketplaceApp`; every 0.5 s it sends due-date reminders and returns items whose due date has come, through `DealRules.returnItem`. Nothing to call from a screen.
 - `MyDealsService` (buyer, UC7): `getMyDeals()` gives each `Deal` with what can be done with it (`canBeMarkedComplete`, `canBeReturned`, `hasCounter`, `canBeReviewed`, `dueDate`); `markComplete(offerId)` and `returnItem(offerId)` check ownership, type, state and the due date, then use `DealRules`.
+- `DealHistoryService` (buyer, UC11): `find(HistoryQuery)` gives the buyer's completed deals as `HistoryEntry` rows (deal, listing, seller's name, `dealDate()`), newest deal date first, filtered by a date range (both ends included), a category and part of the seller's name. A start after the end throws an `InvalidDateRangeException` (a `ServiceException`; A2), which the screen shows in red under the dates instead of in a dialog. It only reads.
 - `Amounts`: `parse(typedText)` reads a typed amount of money (digits with at most two decimals) and `plain(amount)` writes one for an input box. Use it wherever a price is typed.
 - `PhotoService`: `importPhoto(file)` copies a PNG, JPEG, GIF or BMP image into the app's encrypted storage and returns the photo's id for `listing.setPhotos(...)`. For sellers and the admin. Import when the listing is submitted, so a cancelled form stores nothing.
 - `AuthService`: registration and login (UC1, UC2).
 - `ProfileService`: UC3 Manage Profile. `updateProfile(name, newPassword, confirm)` for everyone, and `updateSellerProfile(..., bio, locations)` for sellers. A blank new password keeps the current one; the username and residence hall can't change.
 
 **Shared UI kit (`ui/`): use it on every screen, so the three portals look and behave the same.**
-- `Formats`: dates (`09 Nov 2026 14:05`), prices (`HK$ 180`), stars (`★★★★☆`), average ratings (`4.5 / 5 (2 ratings)` or `No ratings yet`), durations, and borrow times to the second (`borrowTime`, `period`: `14 Nov 2026 14:06:44`), because a loan can be as short as 5 seconds.
+- `Formats`: dates (`09 Nov 2026 14:05`), prices (`HK$ 180`), stars (`★★★★☆`), average ratings (`4.5 / 5 (2 ratings)` or `No ratings yet`), durations, and borrow times to the second (`borrowTime`, `period`: `14 Nov 2026 14:06:44`), because a loan can be as short as 5 seconds. A date picker shows and reads its date in the same form (`21 Nov 2026`) with `picker.setConverter(Formats.datePickerConverter())`, as Deal History and the borrow-request form do.
 - `Dialogs`: `confirm` (ask before every destructive action), `info`, `error`, `problem(ServiceException)`, and `askReason` (asks again until a reason is typed). `TextInputs.dateTime(date, typedTime)` joins a date picker's date and a typed time (`14:30` or `14:30:05`).
 - `NotificationBoard` (UC4): the notification board all three portals show, with newest first, an unread count, and Mark as read. Open it with `show("Notifications", new NotificationBoard(new NotificationService()))`.
 - `ProfileView` (UC3): the profile screen all three portals show. Sellers also get bio and meet-up locations; buyers see their residence hall, which can't be changed.
@@ -238,6 +240,8 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `ListingSummary` also words a detail screen: `fields()` (every field of the listing as name and value), `descriptionText()` and `actionText()`.
 - `OfferText`: how an offer reads everywhere: `summary(offer)` (`Price offer: HK$ 160`), `counter(offer)`, `status(offer)`, the status badge's style, `actionText(type)` (Make Offer / Request Borrow / Claim Item) and `submitted(offer, title)` for the confirmation. Use it in My Deals, the seller's offers and the admin's deal records.
 - `DealText`: the wording of My Deals: seller and type, the dates a deal went through, the due date, and the confirmation questions.
+- `HistoryText`: the wording of Deal History: the deal type from the buyer's side (Bought / Borrowed / Received) and the line above the table (`1 deal`, or the no-deals message).
+- `Choices`: filter boxes that start with "All …": `Choices.withAll("All categories", Category.values())`, and `Choices.chosen(box, Category.values())` for the chosen value or null. Used by Browse and Deal History.
 - `LiveUpdates` and `Refreshable`: when the timer changes data, the open dashboard reloads its screen. A dashboard registers once in `initialize()` with `LiveUpdates.setOnDataChanged(() -> contentPane.getScene() != null, this::refresh…)`; screens that can reload implement `Refreshable` (the notification board, chats, Browse, My Deals do). The seller's My Listings can use it to show a returned item Live again.
 - `ContentHost`: implemented by each dashboard as `show(title, content)`. Shared components get the dashboard as a `ContentHost`, so they can open another screen with its data, such as a chat from the Chats screen.
 

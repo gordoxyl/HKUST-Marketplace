@@ -65,6 +65,7 @@ Log in as `alice` unless a step says otherwise.
 | AT-UC5-11 | SR5 earlier offers stay | Continue from AT-UC5-10. | Both offers (HK$ 200 and HK$ 210) are listed as Pending. | |
 | AT-UC5-12 | SR4 agreeing to a counter | Needs the seller's Offers & Requests (Task 2.5): as `charlie`, counter Alice's HK$ 200 offer with HK$ 230. As `alice`, open the chat, press **Agree to Counter (1)** under Send, choose the offer ("HK$ 200 → HK$ 230") and press Agree, then Submit. | The form starts with `230`. A new Pending offer of HK$ 230 appears; the first offer stays "Countered". | |
 | AT-UC5-13 | Saved data | After any of the scenarios above, close the app and start it again. | The offers are still in the chats, and the lamp is still "Claim Pending". | |
+| AT-UC5-14 | A3, dates in the borrow form | Open the calculator, press Request Borrow. (a) Look at the dates. (b) Type the start date as `25 Nov 2026`, without pressing Enter, and press Submit. (c) In a new request, type the start date as `11/25/2026` and press Submit. | (a) The dates read like every other date in the app, such as "21 Nov 2026". (b) The request starts on 25 Nov 2026: a typed date counts even without Enter. (c) "Please enter both the start and the end of the borrow period, each with a date and a time." The form comes back with the start date empty and the hint "such as 21 Nov 2026". | |
 
 
 ## Chat deal actions (UC5, UC6 and Manage Offers & Requests; assumptions register 71)
@@ -150,3 +151,26 @@ Rate Seller button; it is covered by `ReviewServiceTest`.
 | AT-UC10-09 | Automatic return while away (client answer #3) | As in AT-UC12-06, keep the app closed past the due date, then log in as `alice`. | No pop-up. The notification ends "You can rate the seller from My Deals.", and the deal has a Rate Seller button. | |
 | AT-UC10-10 | SR1 once per deal; two loans give two reviews (client answer #8) *(needs Task 2.5)* | Borrow the calculator, have `diana` accept, return it and review it; then borrow it again and return it. | The second loan has its own Rate Seller button and review; each deal is reviewed once. | |
 | AT-UC10-11 | SR3, no change after submitting | After submitting a review, look for a way to change or delete it. | There is none; the deal has no Rate Seller button any more. | |
+
+## UC11 View Deal History (Task 1.9)
+
+The client's answers fix two columns (`docs/client-answers.md`): the Deal Date is the completion date (#4), and an
+automatic return may be shown as Auto-returned (#1). A borrowed item is dated on its return day, and an automatic return
+on its due date. Filters combine: a deal is shown only if it matches every filter that is set (step 4). Scenarios 02-12
+use the practice data: `alice` already has the USB-C Hub (Diana Ng, bought yesterday) and the Umbrella (Charlie Lee,
+returned automatically two days ago).
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-UC11-01 | Basic flow, steps 1-2 | After a reset, as `bob`, open Deal History. | One row: Organic Chemistry Textbook · Charlie Lee · the date 18 days before the reset · Bought · Completed. The line above the table says "1 deal". | |
+| AT-UC11-02 | Step 2, SR2-SR4 | After `scripts\practice-data.cmd`, as `alice`, open Deal History. | Two rows, newest first: USB-C Hub · Diana Ng · yesterday · Bought · Completed; Umbrella · Charlie Lee · two days ago · Borrowed · Auto-returned. | |
+| AT-UC11-03 | SR1, a deal enters at once | On My Deals, mark the Desk Fan and then the Free Notebooks complete, and return the Camera Tripod. Open Deal History. | Three new rows at the top, dated today, newest first: Camera Tripod (Borrowed, Returned), Free Notebooks (Received, Completed), Desk Fan (Bought, Completed). | |
+| AT-UC11-04 | SR1, the timer while the screen is open | Close the app, reload the practice data and start the app. Within 5 minutes, as `alice`, open Deal History and wait without clicking until the HDMI Cable is due. | Within a second of its due time the HDMI Cable appears at the top: Charlie Lee · today · Borrowed · Auto-returned. | |
+| AT-UC11-05 | Step 4, date range | Choose yesterday's date as both From and To. | Only the USB-C Hub (a one-day range includes its day). | |
+| AT-UC11-06 | Step 4, category | Press Reset, then choose Others. | Only the Umbrella. Choosing All categories shows every row again. | |
+| AT-UC11-07 | Step 4, seller | Type `DIANA` in the seller box and press Enter. | Only Diana Ng's deals: upper and lower case don't matter. | |
+| AT-UC11-08 | Step 4, filters combine | Keep `DIANA` and choose Others. | No rows, and "No deals match. A deal appears here once it is completed." | |
+| AT-UC11-09 | A1 | Press Reset, type `zzz` in the seller box and press Enter. | "No deals match. A deal appears here once it is completed." and an empty table. | |
+| AT-UC11-10 | A2 | Choose a From date that is after the To date. Then move To to a date after From. | "The date range is invalid. Choose a start date on or before the end date." appears in red under the dates, with no pop-up, and the rows shown before stay. It goes away as soon as the range is valid, and the rows update. | |
+| AT-UC11-11 | Step 5, Reset | Set every filter, then press Reset. | Every filter is cleared and every completed deal is shown. | |
+| AT-UC11-12 | Step 2 order kept | Click the Deal Date column heading. | Nothing is re-sorted: the rows stay newest deal date first. | |

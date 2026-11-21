@@ -176,6 +176,12 @@
     -fx-text-fill: -text-secondary;
     -fx-font-size: 12px;
 }
+/* A problem with what was chosen, shown next to it instead of in a dialog
+   (controllers/buyer/DealHistoryView: UC11 A2); the same red as the login screens' message */
+.field-error {
+    -fx-text-fill: -danger;
+    -fx-font-size: 13px;
+}
 /* A value that is shown but cannot be changed (UC3 Special Requirement 1) */
 .fixed-value {
     -fx-font-weight: bold;

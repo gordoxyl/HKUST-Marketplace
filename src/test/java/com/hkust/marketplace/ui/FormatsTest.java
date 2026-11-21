@@ -1,16 +1,25 @@
 package com.hkust.marketplace.ui;
 
+import javafx.util.StringConverter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.OptionalDouble;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Tests for the shared display formats (boundary values from Lecture 13). */
+/**
+ * Tests for the shared display formats (boundary values from Lecture 13). The date picker's
+ * dates are also split into equivalence partitions of what can be typed: a date in the shown form
+ * (in any case, with spaces around, with one- or two-digit days), and text that is no such date
+ * (nothing, another form, a day that does not exist, no year).
+ */
 class FormatsTest {
 
     private static final LocalDateTime TIME = LocalDateTime.of(2026, 11, 9, 14, 5);
@@ -111,5 +120,44 @@ class FormatsTest {
         assertEquals("No ratings yet", Formats.averageRating(OptionalDouble.of(4), 0)); // inconsistent input: count wins
         assertEquals("5.0 / 5 (1 rating)", Formats.averageRating(OptionalDouble.of(5), 1));
         assertEquals("3.5 / 5 (2 ratings)", Formats.averageRating(OptionalDouble.of(3.5), 2));
+    }
+
+    // ---------- Date pickers show and read dates as lists and tables show them ----------
+
+    @Test
+    void datePicker_showsADateAsTheTablesDo() {
+        StringConverter<LocalDate> dates = Formats.datePickerConverter();
+
+        assertEquals("21 Nov 2026", dates.toString(LocalDate.of(2026, 11, 21)));
+        assertEquals(Formats.date(TIME), dates.toString(TIME.toLocalDate())); // one form for both
+        assertEquals("01 Dec 2026", dates.toString(LocalDate.of(2026, 12, 1)));
+        assertEquals("", dates.toString(null));
+    }
+
+    @ParameterizedTest(name = "[{0}] is read as {1}")
+    @CsvSource({
+            "21 Nov 2026,      2026-11-21",  // as shown
+            "'  21 Nov 2026 ', 2026-11-21",  // spaces around
+            "21 nov 2026,      2026-11-21",  // another case
+            "01 Dec 2026,      2026-12-01",  // a day with two digits
+            "1 Dec 2026,       2026-12-01",  // and with one
+            "29 Feb 2028,      2028-02-29"}) // a leap day
+    void datePicker_readsADateTypedInTheSameForm(String typed, LocalDate date) {
+        assertEquals(date, Formats.datePickerConverter().fromString(typed));
+    }
+
+    @ParameterizedTest(name = "[{0}] is no date")
+    @NullSource
+    @ValueSource(strings = {"", "   ", "11/21/2026", "2026-11-21", "31 Feb 2026", "29 Feb 2027", "21 Nov"})
+    void datePicker_readsNoDate_fromTextThatIsNotSuchADate(String typed) {
+        assertNull(Formats.datePickerConverter().fromString(typed));
+    }
+
+    @Test
+    void datePicker_readsBackEveryDateItShows() {
+        StringConverter<LocalDate> dates = Formats.datePickerConverter();
+        for (LocalDate day = LocalDate.of(2026, 1, 1); day.getYear() == 2026; day = day.plusDays(1)) {
+            assertEquals(day, dates.fromString(dates.toString(day)));
+        }
     }
 }

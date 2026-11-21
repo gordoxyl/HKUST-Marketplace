@@ -4,6 +4,7 @@ import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.data.EncryptedJsonStorage;
 import com.hkust.marketplace.models.*;
 import com.hkust.marketplace.testsupport.Fixtures;
+import com.hkust.marketplace.testsupport.SameMoment;
 import com.hkust.marketplace.testsupport.TestClock;
 import com.hkust.marketplace.utils.SessionManager;
 import org.junit.jupiter.api.AfterEach;
@@ -18,13 +19,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Callable;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -438,29 +435,19 @@ class OfferServiceTest {
     void claimsSubmittedAtTheSameMoment_onlyTheFirstSucceeds() throws Exception {
         // The giveaway is the critical case (Lecture 14: regression-test critical subsystems)
         int attempts = 8;
-        ExecutorService pool = Executors.newFixedThreadPool(attempts);
-        CountDownLatch go = new CountDownLatch(1);
-        List<Future<Boolean>> results = new ArrayList<>();
-        for (int i = 0; i < attempts; i++) {
-            results.add(pool.submit(() -> {
-                go.await();
-                try {
-                    offers.submitClaim(lamp.getId());
-                    return true;
-                } catch (ListingUnavailableException e) {
-                    return false;
-                }
-            }));
-        }
-
-        go.countDown();
-        int succeeded = 0;
-        for (Future<Boolean> result : results) {
-            if (result.get(10, TimeUnit.SECONDS)) {
-                succeeded++;
+        Callable<Boolean> claim = () -> {
+            try {
+                offers.submitClaim(lamp.getId());
+                return true;
+            } catch (ListingUnavailableException e) {
+                return false;
             }
+        };
+        List<Boolean> claimed;
+        try (SameMoment moment = new SameMoment(attempts)) {
+            claimed = moment.run(Collections.nCopies(attempts, claim));
         }
-        pool.shutdown();
+        int succeeded = Collections.frequency(claimed, true);
 
         assertEquals(1, succeeded);
         assertEquals(1, store.getOffersForListing(lamp.getId()).size());

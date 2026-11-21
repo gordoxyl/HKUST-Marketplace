@@ -6,6 +6,7 @@ import com.hkust.marketplace.data.Storage;
 import com.hkust.marketplace.data.StoreSnapshot;
 import com.hkust.marketplace.models.*;
 import com.hkust.marketplace.testsupport.Fixtures;
+import com.hkust.marketplace.testsupport.SameMoment;
 import com.hkust.marketplace.testsupport.TestClock;
 import com.hkust.marketplace.utils.SessionManager;
 import org.junit.jupiter.api.AfterEach;
@@ -19,14 +20,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Callable;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -435,22 +432,12 @@ class BorrowingDeadlineServiceTest {
         BorrowRequest request = borrowed(Duration.ofHours(2));
         clock.advance(Duration.ofHours(2));
         int threads = 8;
-        ExecutorService pool = Executors.newFixedThreadPool(threads);
-        CountDownLatch go = new CountDownLatch(1);
-        List<Future<DeadlineReport>> runs = new ArrayList<>();
-        for (int i = 0; i < threads; i++) {
-            runs.add(pool.submit(() -> {
-                go.await();
-                return deadlines.process();
-            }));
+        List<Callable<DeadlineReport>> timerRuns = Collections.nCopies(threads, deadlines::process);
+        List<DeadlineReport> runs;
+        try (SameMoment moment = new SameMoment(threads)) {
+            runs = moment.run(timerRuns);
         }
-
-        go.countDown();
-        int returns = 0;
-        for (Future<DeadlineReport> run : runs) {
-            returns += run.get(10, TimeUnit.SECONDS).returned().size();
-        }
-        pool.shutdown();
+        int returns = runs.stream().mapToInt(run -> run.returned().size()).sum();
 
         assertEquals(1, returns);
         assertEquals(1, boardOf(bea, NotificationCategory.DEAL_COMPLETED).size());

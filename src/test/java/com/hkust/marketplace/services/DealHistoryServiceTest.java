@@ -4,6 +4,7 @@ import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.data.EncryptedJsonStorage;
 import com.hkust.marketplace.models.*;
 import com.hkust.marketplace.testsupport.Fixtures;
+import com.hkust.marketplace.testsupport.SameMoment;
 import com.hkust.marketplace.testsupport.TestClock;
 import com.hkust.marketplace.utils.SessionManager;
 import org.junit.jupiter.api.AfterEach;
@@ -22,11 +23,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -101,18 +98,20 @@ class DealHistoryServiceTest {
         return store.addOffer(new PriceOffer(listing.getId(), buyer, 90));
     }
 
-    private Offer claim(String buyer, String seller) {
-        return store.addOffer(new Claim(Fixtures.live(Fixtures.giveaway(store, seller)).getId(), buyer));
+    /** Bea's claim on a new giveaway of the seller's. */
+    private Offer beasClaim(String seller) {
+        return store.addOffer(new Claim(Fixtures.live(Fixtures.giveaway(store, seller)).getId(), "bea"));
     }
 
-    /** A borrow request for the week that starts an hour before the moment. */
-    private BorrowRequest loanAround(String buyer, String seller, LocalDateTime moment) {
-        LendListing listing = Fixtures.live(Fixtures.lend(store, seller, Duration.ofDays(7)));
-        return borrow(listing, buyer, moment.minusHours(1), moment.plusDays(6));
+    /** Bea's borrow request on a new lend listing of Sam's, for the week that starts an hour before the moment. */
+    private BorrowRequest beasLoanAround(LocalDateTime moment) {
+        LendListing listing = Fixtures.live(Fixtures.lend(store, "sam", Duration.ofDays(7)));
+        return beaBorrows(listing, moment.minusHours(1), moment.plusDays(6));
     }
 
-    private BorrowRequest borrow(LendListing listing, String buyer, LocalDateTime start, LocalDateTime end) {
-        return (BorrowRequest) store.addOffer(new BorrowRequest(listing.getId(), buyer, start, end));
+    /** Bea's borrow request on the listing, for the period. */
+    private BorrowRequest beaBorrows(LendListing listing, LocalDateTime start, LocalDateTime end) {
+        return (BorrowRequest) store.addOffer(new BorrowRequest(listing.getId(), "bea", start, end));
     }
 
     /** The seller accepts the deal an hour before the moment, and it is marked complete at the moment (UC7). */
@@ -171,7 +170,7 @@ class DealHistoryServiceTest {
 
     @Test
     void anItemTheBuyerReturned_isInTheHistory_datedOnTheDayItWasReturned() { // UC7 A2, then UC11 SR2
-        BorrowRequest loan = loanAround("bea", "sam", DEAL_DAY);
+        BorrowRequest loan = beasLoanAround(DEAL_DAY);
         clock.set(DEAL_DAY.minusHours(1));
         rules.accept(loan);
         clock.set(DEAL_DAY);
@@ -188,7 +187,7 @@ class DealHistoryServiceTest {
     void anItemTheTimerReturnedLate_isDatedOnItsDueDate_notWhenTheTimerRan() { // UC12 step 3, then UC11 SR2 and SR4
         LendListing calculator = Fixtures.live(Fixtures.lend(store, "sam", Duration.ofDays(7)));
         LocalDateTime due = NOW.plusMinutes(10);
-        BorrowRequest loan = borrow(calculator, "bea", NOW.plusMinutes(5), due);
+        BorrowRequest loan = beaBorrows(calculator, NOW.plusMinutes(5), due);
         rules.accept(loan);
         clock.set(due.plusHours(1)); // the app was closed when the item fell due
 
@@ -205,7 +204,7 @@ class DealHistoryServiceTest {
         Offer first = completedAt(purchase("bea", "sam", Category.TEXTBOOKS), DEAL_DAY);
         assertEquals(List.of(first), deals(all()));
 
-        Offer second = completedAt(claim("bea", "sue"), DEAL_DAY.plusDays(1));
+        Offer second = completedAt(beasClaim("sue"), DEAL_DAY.plusDays(1));
 
         assertEquals(List.of(second, first), deals(all()));
     }
@@ -214,9 +213,9 @@ class DealHistoryServiceTest {
     void borrowingTheSameItemTwice_givesTwoRows() { // two deals, as two reviews in client answer #8
         LendListing calculator = Fixtures.live(Fixtures.lend(store, "sam", Duration.ofDays(7)));
         BorrowRequest firstLoan = returnedAt(
-                borrow(calculator, "bea", DEAL_DAY.minusHours(1), DEAL_DAY.plusDays(6)), DEAL_DAY);
+                beaBorrows(calculator, DEAL_DAY.minusHours(1), DEAL_DAY.plusDays(6)), DEAL_DAY);
         BorrowRequest secondLoan = returnedAt(
-                borrow(calculator, "bea", DEAL_DAY.plusDays(3).minusHours(1), DEAL_DAY.plusDays(9)), DEAL_DAY.plusDays(3));
+                beaBorrows(calculator, DEAL_DAY.plusDays(3).minusHours(1), DEAL_DAY.plusDays(9)), DEAL_DAY.plusDays(3));
 
         assertEquals(List.of(secondLoan, firstLoan), deals(all()));
     }
@@ -230,8 +229,8 @@ class DealHistoryServiceTest {
     void aDealThatIsNotCompleted_isNotInTheHistory(String kind, String state) {
         Offer deal = switch (kind) {
             case "PRICE" -> purchase("bea", "sam", Category.TEXTBOOKS);
-            case "LOAN" -> loanAround("bea", "sam", NOW.plusHours(2));
-            default -> claim("bea", "sam");
+            case "LOAN" -> beasLoanAround(NOW.plusHours(2));
+            default -> beasClaim("sam");
         };
 
         Fixtures.moveDealTo(rules, deal, state);
@@ -242,9 +241,9 @@ class DealHistoryServiceTest {
     @Test
     void eachEventThatCompletesADeal_putsItInTheHistory() {
         Offer bought = completedAt(purchase("bea", "sam", Category.TEXTBOOKS), DEAL_DAY);
-        Offer received = completedAt(claim("bea", "sam"), DEAL_DAY.plusHours(1));
-        BorrowRequest returned = returnedAt(loanAround("bea", "sam", DEAL_DAY.plusHours(2)), DEAL_DAY.plusHours(2));
-        BorrowRequest autoReturned = loanAround("bea", "sam", DEAL_DAY.plusHours(3));
+        Offer received = completedAt(beasClaim("sam"), DEAL_DAY.plusHours(1));
+        BorrowRequest returned = returnedAt(beasLoanAround(DEAL_DAY.plusHours(2)), DEAL_DAY.plusHours(2));
+        BorrowRequest autoReturned = beasLoanAround(DEAL_DAY.plusHours(3));
         clock.set(DEAL_DAY.plusHours(3));
         rules.accept(autoReturned);
         rules.returnItem(autoReturned, true); // the timer's event: completed on its due date
@@ -261,7 +260,7 @@ class DealHistoryServiceTest {
 
     @Test
     void aCompletedDeal_staysInTheHistory_whateverHappensToItsListingLater() {
-        BorrowRequest loan = returnedAt(loanAround("bea", "sam", DEAL_DAY), DEAL_DAY);
+        BorrowRequest loan = returnedAt(beasLoanAround(DEAL_DAY), DEAL_DAY);
         Listing calculator = store.getListingOf(loan);
         assertEquals(ListingStatus.LIVE, calculator.getStatus()); // lent out, returned, Live again
         calculator.remove();                                       // then the admin takes it down (Task 3.7)
@@ -463,32 +462,24 @@ class DealHistoryServiceTest {
         LocalDateTime due = NOW.plusMinutes(10);
         for (int i = 0; i < loans; i++) {
             LendListing listing = Fixtures.live(Fixtures.lend(store, "sam", Duration.ofDays(7)));
-            rules.accept(borrow(listing, "bea", NOW.plusMinutes(5), due));
+            rules.accept(beaBorrows(listing, NOW.plusMinutes(5), due));
         }
         clock.set(due); // all of them fall due at the same moment
 
-        ExecutorService pool = Executors.newFixedThreadPool(2);
-        CountDownLatch go = new CountDownLatch(1);
-        try {
-            Future<?> timer = pool.submit(() -> {
-                go.await();
-                return new BorrowingDeadlineService(store).process(); // UC12, in one store transaction
-            });
-            Future<List<Integer>> reader = pool.submit(() -> {
-                go.await();
+        try (SameMoment moment = new SameMoment(2)) {
+            Future<DeadlineReport> timer = moment.submit(() -> new BorrowingDeadlineService(store).process()); // UC12, one transaction
+            Future<List<Integer>> reader = moment.submit(() -> {
                 List<Integer> sizes = new ArrayList<>();
                 for (int read = 0; read < 200; read++) {
                     sizes.add(history.find(HistoryQuery.ALL).size());
                 }
                 return sizes;
             });
-            go.countDown();
-            timer.get(10, TimeUnit.SECONDS);
-            List<Integer> sizes = reader.get(10, TimeUnit.SECONDS);
+            moment.go();
+            SameMoment.resultOf(timer);
+            List<Integer> sizes = SameMoment.resultOf(reader);
 
             assertTrue(sizes.stream().allMatch(size -> size == 0 || size == loans), sizes.toString());
-        } finally {
-            pool.shutdownNow();
         }
         assertEquals(loans, all().size());
     }

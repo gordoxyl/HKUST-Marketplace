@@ -52,7 +52,6 @@ class MyDealsServiceTest {
     private DealRules rules;
     private Seller sam;
     private Buyer bea;
-    private Buyer ben;
 
     @BeforeEach
     void setUp() {
@@ -62,7 +61,7 @@ class MyDealsServiceTest {
         rules = new DealRules(store);
         sam = Fixtures.seller(store, "sam");
         bea = Fixtures.buyer(store, "bea");
-        ben = Fixtures.buyer(store, "ben");
+        Fixtures.buyer(store, "ben"); // another buyer: the tests give him deals by username
         SessionManager.login(bea);
     }
 
@@ -77,8 +76,8 @@ class MyDealsServiceTest {
         return store.addOffer(new PriceOffer(Fixtures.live(Fixtures.sale(store, "sam", 100)).getId(), buyer, 90));
     }
 
-    private Offer claim(String buyer) {
-        return store.addOffer(new Claim(Fixtures.live(Fixtures.giveaway(store, "sam")).getId(), buyer));
+    private Offer beasClaim() {
+        return store.addOffer(new Claim(Fixtures.live(Fixtures.giveaway(store, "sam")).getId(), "bea"));
     }
 
     /** A borrow request for the week that starts in an hour. */
@@ -129,7 +128,7 @@ class MyDealsServiceTest {
 
     @Test
     void markingAClaimComplete_makesTheListingGiven() {
-        Offer claim = accepted(claim("bea"));
+        Offer claim = accepted(beasClaim());
 
         deals.markComplete(claim.getId());
 
@@ -222,7 +221,7 @@ class MyDealsServiceTest {
         clock.advance(Duration.ofMinutes(1));
         Offer countered = moveTo(priceOffer("bea"), "COUNTERED");   // 12:03
         clock.advance(Duration.ofMinutes(1));
-        Offer secondDone = moveTo(claim("bea"), "COMPLETED");       // completed 12:04
+        Offer secondDone = moveTo(beasClaim(), "COMPLETED");        // completed 12:04
         clock.advance(Duration.ofMinutes(1));
         Offer accepted = accepted(borrowRequest("bea"));            // 12:05
         priceOffer("ben");                                          // someone else's deal
@@ -352,7 +351,7 @@ class MyDealsServiceTest {
 
     @Test
     void purchaseOrClaim_isMarkedComplete_notReturned() {
-        for (Offer deal : List.of(accepted(priceOffer("bea")), accepted(claim("bea")))) {
+        for (Offer deal : List.of(accepted(priceOffer("bea")), accepted(beasClaim()))) {
             ServiceException refused = assertThrows(ServiceException.class, () -> deals.returnItem(deal.getId()));
 
             assertEquals("Only a borrowed item can be returned. Mark this deal complete instead.", refused.getMessage());

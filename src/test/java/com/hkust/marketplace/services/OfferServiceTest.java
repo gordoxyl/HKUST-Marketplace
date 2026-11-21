@@ -231,13 +231,13 @@ class OfferServiceTest {
         assertNothingRecorded();
     }
 
-    /** Submits the offer type that fits the listing, with valid terms. */
-    private Offer submitFor(Listing listing) {
-        return switch (listing.getType()) {
+    /** Tries the offer type that fits the listing, with valid terms; the caller expects it to be refused. */
+    private void submitFor(Listing listing) {
+        switch (listing.getType()) {
             case SELL -> offers.submitPriceOffer(listing.getId(), "10");
             case LEND -> offers.submitBorrowRequest(listing.getId(), NOW.plusHours(1), NOW.plusHours(2));
             case GIVEAWAY -> offers.submitClaim(listing.getId());
-        };
+        }
     }
 
     @Test

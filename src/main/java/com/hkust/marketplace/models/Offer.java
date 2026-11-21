@@ -68,7 +68,7 @@ public abstract class Offer {
 
     /** The seller accepts this offer. */
     public void accept(LocalDateTime when) {
-        requireStatus(OfferStatus.PENDING, "accepted");
+        requirePending("accepted");
         status = OfferStatus.ACCEPTED;
         acceptedDate = Objects.requireNonNull(when, "when");
     }
@@ -83,7 +83,7 @@ public abstract class Offer {
 
     /** Used by the subclasses' counter methods, after they check the counter terms. */
     protected void markCountered() {
-        requireStatus(OfferStatus.PENDING, "countered");
+        requirePending("countered");
         status = OfferStatus.COUNTERED;
     }
 
@@ -110,10 +110,10 @@ public abstract class Offer {
         return isOpen() || (status == OfferStatus.ACCEPTED && !isCompleted());
     }
 
-    private void requireStatus(OfferStatus required, String action) {
-        if (status != required) {
-            throw new IllegalStateException("Only a " + required.getDisplayName().toLowerCase()
-                    + " offer can be " + action + ".");
+    /** Accept and counter both start from Pending (Offer state machine); decline and complete check their own states. */
+    private void requirePending(String action) {
+        if (status != OfferStatus.PENDING) {
+            throw new IllegalStateException("Only a pending offer can be " + action + ".");
         }
     }
 }

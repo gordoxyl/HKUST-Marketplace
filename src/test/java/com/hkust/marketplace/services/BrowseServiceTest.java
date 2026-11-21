@@ -37,7 +37,6 @@ class BrowseServiceTest {
     private DataStore store;
     private BrowseService browse;
     private Seller sam;
-    private Seller sue;
     private Buyer bea;
     private Buyer ben;
     private Listing book;
@@ -53,7 +52,7 @@ class BrowseServiceTest {
         store = Fixtures.store(clock);
         browse = new BrowseService(store);
         sam = Fixtures.seller(store, "sam");
-        sue = Fixtures.seller(store, "sue");
+        Fixtures.seller(store, "sue"); // only her account is needed: the tests name her by username
         bea = Fixtures.buyer(store, "bea");
         ben = Fixtures.buyer(store, "ben");
 

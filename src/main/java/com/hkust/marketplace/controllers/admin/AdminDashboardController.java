@@ -39,6 +39,13 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.TextArea;
 import java.util.stream.Collectors;
 
+//showAllListings
+import com.hkust.marketplace.services.ListingDetails;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalTime;
+
+
 public class AdminDashboardController implements ContentHost {
     @FXML private StackPane contentPane;
     @FXML private Label pageTitle;
@@ -48,6 +55,7 @@ public class AdminDashboardController implements ContentHost {
     private Button currentActiveBtn;
     private final AdminListingService listingService = new AdminListingService();
     private final AdminUserService userService = new AdminUserService();
+    private Runnable listingsReload = () -> { };
 
     @FXML
     public void initialize() {
@@ -168,46 +176,240 @@ public class AdminDashboardController implements ContentHost {
         VBox root = new VBox(12);
         root.setPadding(new Insets(4));
 
-        Button addBtn = new Button("+ Add Listing (on behalf of seller)");
-        addBtn.getStyleClass().add("btn-primary");
-        addBtn.setOnAction(e -> new Alert(Alert.AlertType.INFORMATION,
-                "Admin can create a listing on behalf of a seller here.\nSame form fields as Seller Create Listing.\n(UI placeholder)").showAndWait());
-        root.getChildren().add(addBtn);
+        // ----- filter bar (spec step 2) -----
+        ComboBox<String> statusBox = new ComboBox<>();
+        statusBox.getItems().add("All statuses");
+        for (ListingStatus s : ListingStatus.values()) statusBox.getItems().add(s.getDisplayName());
+        statusBox.getItems().add("Reported");
+        statusBox.getSelectionModel().selectFirst();
 
-        FlowPane grid = ListingCard.grid(); // shared listing card
-        for (Listing l : DataStore.getInstance().getAllListings()) {
-            ListingCard card = new ListingCard(l, UserRole.ADMIN);
+        ComboBox<Object> categoryBox = new ComboBox<>();
+        categoryBox.getItems().add("All categories");
+        categoryBox.getItems().addAll((Object[]) Category.values());
+        categoryBox.getSelectionModel().selectFirst();
 
-            Button edit = new Button("Edit");
-            edit.getStyleClass().addAll("btn-outline", "btn-sm");
-            edit.setOnAction(e -> new Alert(Alert.AlertType.INFORMATION, "Edit listing dialog (demo).").showAndWait());
+        ComboBox<Object> typeBox = new ComboBox<>();
+        typeBox.getItems().add("All types");
+        typeBox.getItems().addAll((Object[]) ListingType.values());
+        typeBox.getSelectionModel().selectFirst();
 
-            Button remove = new Button("Remove");
-            remove.getStyleClass().addAll("btn-danger", "btn-sm");
-            remove.setOnAction(e -> {
-                ListingStatus s = l.getStatus();
-                if (s == ListingStatus.SOLD || s == ListingStatus.GIVEN || s == ListingStatus.REMOVED) {
-                    new Alert(Alert.AlertType.WARNING, "A " + s.getDisplayName().toLowerCase()
-                            + " listing cannot be removed.").showAndWait();
-                    return;
+        TextField sellerField = new TextField();
+        sellerField.setPromptText("Seller...");
+        DatePicker from = new DatePicker();
+        from.setPromptText("From");
+        DatePicker to = new DatePicker();
+        to.setPromptText("To");
+
+        Button apply = new Button("Apply filters");
+        apply.getStyleClass().addAll("btn-primary", "btn-sm");
+        Button add = new Button("+ Add Listing");
+        add.getStyleClass().addAll("btn-gold", "btn-sm");
+
+        HBox filterBar = new HBox(10, statusBox, categoryBox, typeBox, sellerField, from, to, apply, add);
+        filterBar.setAlignment(Pos.CENTER_LEFT);
+
+        FlowPane results = ListingCard.grid();
+        VBox resultArea = new VBox(10);
+        root.getChildren().addAll(filterBar, resultArea);
+
+        listingsReload = () -> {
+            resultArea.getChildren().clear();
+            results.getChildren().clear();
+
+            ListingFilter filter = ListingFilter.none();
+            String status = statusBox.getValue();
+            if ("Reported".equals(status)) {
+                filter = filter.withReportedOnly(true);               // not a status: its own flag
+            } else {
+                for (ListingStatus s : ListingStatus.values()) {
+                    if (s.getDisplayName().equals(status)) filter = filter.withStatus(s);
                 }
-                Alert conf = new Alert(Alert.AlertType.CONFIRMATION, "Permanently remove this listing?");
-                conf.showAndWait().ifPresent(r -> {
-                    if (r == ButtonType.OK) {
-                        // A removed listing keeps its record with status Removed (Manage Marketplace Listings 5.5.4)
-                        DataStore.getInstance().transaction(l::remove);
-                        showAllListings();
-                    }
-                });
-            });
+            }
+            if (categoryBox.getValue() instanceof Category c) filter = filter.withCategory(c);
+            if (typeBox.getValue() instanceof ListingType t) filter = filter.withType(t);
+            filter = filter.withSeller(sellerField.getText());
+            // If your ListingFilter uses LocalDate, pass from.getValue() and to.getValue() directly
+            filter = filter.withDateRange(from.getValue(), to.getValue());
 
-            card.addActions(edit, remove);
-            grid.getChildren().add(card);
-        }
-        root.getChildren().add(grid);
+            List<Listing> found;
+            try {
+                found = listingService.findListings(filter);
+            } catch (ServiceException ex) {                           // "The date range is invalid."
+                Dialogs.problem(ex);
+                return;
+            }
+            if (found.isEmpty()) {
+                Label none = new Label("No listings found.");         // spec A2
+                none.getStyleClass().add("text-muted");
+                resultArea.getChildren().add(none);
+                return;
+            }
+            for (Listing l : found) {
+                results.getChildren().add(createManageCard(l));
+            }
+            resultArea.getChildren().add(results);
+        };
+
+        apply.setOnAction(e -> listingsReload.run());
+        add.setOnAction(e -> {
+            if (showListingForm(null)) listingsReload.run();
+        });
+        listingsReload.run();
+
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
         contentPane.getChildren().add(scroll);
+    }
+
+    private ListingCard createManageCard(Listing l) {
+        ListingCard card = new ListingCard(l, UserRole.ADMIN);
+
+        Button view = new Button("View");
+        view.getStyleClass().addAll("btn-outline", "btn-sm");
+        view.setOnAction(e -> {
+            try {
+                ListingDetails d = listingService.getListingDetails(l.getId());   // spec 5.1
+                StringBuilder sb = new StringBuilder();
+                sb.append("Title: ").append(d.listing().getTitle()).append('\n')
+                        .append("Seller: ").append(d.sellerFullName()).append(" (@").append(d.listing().getSellerUsername()).append(")\n")
+                        .append("Type: ").append(d.listing().getType()).append(" · ").append(d.listing().getPriceDisplay()).append('\n')
+                        .append("Category: ").append(d.listing().getCategory()).append(" · ").append(d.listing().getCondition()).append('\n')
+                        .append("Meet-up: ").append(d.listing().getMeetupLocation()).append('\n')
+                        .append("Status: ").append(d.listing().getStatus()).append('\n')
+                        .append("Posted: ").append(Formats.dateTime(d.listing().getPostedDate())).append('\n')
+                        .append("Description: ").append(d.listing().getDescription() == null ? Formats.NONE : d.listing().getDescription()).append("\n\n");
+                if (d.reports().isEmpty()) {
+                    sb.append("No reports.");
+                } else {
+                    sb.append("Reports (").append(d.reports().size()).append("):\n");
+                    for (Report r : d.reports()) {
+                        sb.append("• ").append(r.getReason()).append(" by @").append(r.getBuyerUsername())
+                                .append(": ").append(r.getDetails()).append('\n');
+                    }
+                }
+                Dialogs.info("Listing details", sb.toString());
+            } catch (ServiceException ex) {
+                Dialogs.problem(ex);
+                listingsReload.run();
+            }
+        });
+
+        Button edit = new Button("Edit");
+        edit.getStyleClass().addAll("btn-outline", "btn-sm");
+        edit.setOnAction(e -> {
+            if (showListingForm(l)) listingsReload.run();
+        });
+
+        Button remove = new Button("Remove");
+        remove.getStyleClass().addAll("btn-danger", "btn-sm");
+        remove.setOnAction(e -> {
+            if (!Dialogs.confirm("Remove listing", "Remove '" + l.getTitle()
+                    + "'? Open offers will be declined and the buyers notified.")) {
+                return;
+            }
+            Optional<String> reason = Dialogs.askReason("Remove listing",
+                    "Why is '" + l.getTitle() + "' removed?");
+            if (reason.isEmpty()) return;                              // cancelled (A3)
+            try {
+                listingService.removeListing(l.getId(), reason.get());
+                Dialogs.info("Listing removed", "The seller and affected buyers have been notified.");
+            } catch (ServiceException ex) {
+                Dialogs.problem(ex);                                   // e.g. already sold/given/removed
+            }
+            listingsReload.run();
+        });
+
+        card.addActions(view, edit, remove);
+        return card;
+    }
+
+    /**
+     * One form for Edit (existing != null) and Add (existing == null).
+     * Only reads input and calls the service. Returns true if something was saved.
+     */
+    private boolean showListingForm(Listing existing) {
+        boolean adding = existing == null;
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle(adding ? "Add listing" : "Edit listing");
+        dialog.setHeaderText(adding ? "Add a listing on behalf of a seller (it goes Live at once)"
+                : "Editing '" + existing.getTitle() + "' (the status does not change)");
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        TextField sellerField = new TextField();
+        sellerField.setPromptText("Seller username");
+        ComboBox<ListingType> typeBox = new ComboBox<>(FXCollections.observableArrayList(ListingType.values()));
+        ComboBox<ItemCondition> conditionBox = new ComboBox<>(FXCollections.observableArrayList(ItemCondition.values()));
+        TextField titleField = new TextField(adding ? "" : existing.getTitle());
+        TextArea descArea = new TextArea(adding || existing.getDescription() == null ? "" : existing.getDescription());
+        descArea.setPrefRowCount(3);
+        ComboBox<Category> categoryBox = new ComboBox<>(FXCollections.observableArrayList(Category.values()));
+        ComboBox<MeetupLocation> locationBox = new ComboBox<>(FXCollections.observableArrayList(MeetupLocation.values()));
+        TextField priceField = new TextField();
+        priceField.setPromptText("Price (HK$)");
+        TextField durationField = new TextField();
+        durationField.setPromptText("Lending duration");
+        ComboBox<String> unitBox = new ComboBox<>(FXCollections.observableArrayList("seconds", "minutes", "hours", "days"));
+        unitBox.getSelectionModel().select("days");
+
+        if (!adding) {
+            categoryBox.setValue(existing.getCategory());
+            locationBox.setValue(existing.getMeetupLocation());
+            if (existing instanceof SaleListing s) priceField.setText(String.valueOf(s.getPrice()));
+        }
+
+        VBox form = new VBox(8);
+        if (adding) {
+            form.getChildren().addAll(new Label("Seller username *"), sellerField,
+                    new Label("Listing type *"), typeBox,
+                    new Label("Condition *"), conditionBox);
+        }
+        form.getChildren().addAll(new Label("Title *"), titleField, new Label("Description"), descArea,
+                new Label("Category *"), categoryBox, new Label("Meet-up location *"), locationBox);
+        boolean showPrice = adding || existing instanceof SaleListing;
+        boolean showDuration = adding || existing instanceof LendListing;
+        if (showPrice) form.getChildren().addAll(new Label("Price (Sell only)"), priceField);
+        if (showDuration) form.getChildren().addAll(new Label("Lending duration (Lend only)"),
+                new HBox(8, durationField, unitBox));
+        dialog.getDialogPane().setContent(form);
+
+        Optional<ButtonType> answer = dialog.showAndWait();
+        if (answer.isEmpty() || answer.get() != ButtonType.OK) return false;   // cancel (A3)
+
+        // Parsing only; every rule is checked in the service
+        Double price = null;
+        Duration duration = null;
+        try {
+            if (!priceField.getText().isBlank()) price = Double.parseDouble(priceField.getText().strip());
+            if (!durationField.getText().isBlank()) {
+                long n = Long.parseLong(durationField.getText().strip());
+                duration = switch (unitBox.getValue()) {
+                    case "seconds" -> Duration.ofSeconds(n);
+                    case "minutes" -> Duration.ofMinutes(n);
+                    case "hours" -> Duration.ofHours(n);
+                    default -> Duration.ofDays(n);
+                };
+            }
+        } catch (NumberFormatException ex) {
+            Dialogs.error("Not possible", "The price and the duration must be numbers.");
+            return false;
+        }
+
+        try {
+            if (adding) {
+                listingService.addListing(sellerField.getText(), typeBox.getValue(), titleField.getText(),
+                        descArea.getText(), categoryBox.getValue(), conditionBox.getValue(),
+                        locationBox.getValue(), price, duration, null);
+                Dialogs.info("Listing added", "The listing is Live and the seller has been notified.");
+            } else {
+                listingService.editListing(existing.getId(), titleField.getText(), descArea.getText(),
+                        categoryBox.getValue(), locationBox.getValue(), price, duration, null);
+                Dialogs.info("Listing updated", "The seller has been notified.");
+            }
+            return true;
+        } catch (ServiceException ex) {
+            Dialogs.problem(ex);                                       // A1 / A4 messages come from the service
+            return false;
+        }
     }
 
     @FXML

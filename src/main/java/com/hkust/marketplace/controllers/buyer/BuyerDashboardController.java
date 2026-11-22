@@ -30,8 +30,6 @@ import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -59,7 +57,7 @@ public class BuyerDashboardController implements ContentHost {
     @FXML private StackPane contentPane;
     @FXML private Label pageTitle;
     @FXML private Label welcomeLabel;
-    @FXML private Button btnBrowse, btnDeals, btnHistory, btnFavourites, btnChats, btnNotifications, btnProfile;
+    @FXML private Button btnBrowse, btnDeals, btnHistory, btnChats, btnNotifications, btnProfile;
 
     private Button currentActiveBtn;
 
@@ -322,25 +320,7 @@ public class BuyerDashboardController implements ContentHost {
         show("Deal History", new DealHistoryView(dealHistoryService));
     }
 
-    // ========== Screens that are still the skeleton's demo ==========
-
-    @FXML
-    private void showFavourites() {
-        setActive(btnFavourites, "Favourites & Following");
-        contentPane.getChildren().clear();
-        VBox root = new VBox(16);
-        root.setPadding(new Insets(4));
-        root.setAlignment(Pos.CENTER);
-        Label icon = new Label("♥");
-        icon.getStyleClass().add("placeholder-icon");
-        Label title = new Label("Favourites, Bookmarks & Following");
-        title.getStyleClass().add("placeholder-title");
-        Label desc = new Label("Save listings you like and follow favourite sellers.\nThis section is a UI placeholder for students to implement.");
-        desc.getStyleClass().add("placeholder-text");
-        desc.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
-        root.getChildren().addAll(icon, title, desc);
-        contentPane.getChildren().add(root);
-    }
+    // ========== Shared screens: chats (UC6), notifications (UC4), profile (UC3) ==========
 
     @FXML
     private void showChats() {

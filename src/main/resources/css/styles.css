@@ -323,21 +323,6 @@
     -fx-font-size: 13px;
 }
 
-/* ---------- Placeholder screen (the skeleton's Favourites) ---------- */
-.placeholder-icon {
-    -fx-font-size: 48px;
-    -fx-text-fill: -hkust-gold;
-}
-.placeholder-title {
-    -fx-font-size: 18px;
-    -fx-font-weight: bold;
-    -fx-text-fill: -hkust-blue;
-}
-.placeholder-text {
-    -fx-text-fill: -text-secondary;
-    -fx-text-alignment: center;
-}
-
 /* ---------- Reviews (ui/ReviewList; UC8) ---------- */
 .review-stars {
     -fx-text-fill: #A68137;

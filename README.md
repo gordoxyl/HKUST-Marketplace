@@ -156,7 +156,7 @@ All passwords meet the password rules: at least 8 characters, with at least one 
 - **Review Seller (UC10, done):** once a deal is completed or a borrowed item returned (by the buyer or the timer), rate the seller from 1 to 5 stars with a written review, once per deal, from the prompt that follows or the deal's Rate Seller button on My Deals; the seller is notified
 - **Borrowing deadlines (UC12, done):** while the app runs, a timer reminds buyers 24 hours before an item is due (halfway for periods under 48 hours) and returns items automatically at their due date; the open screen updates by itself
 - **Deal History (UC11, done):** every completed deal with its item title, seller, deal date, deal type (Bought / Borrowed / Received) and outcome (Completed / Returned / Auto-returned), newest first; filter by a date range and a category and search by the seller's name; it updates by itself when the timer returns an item
-- Favourites (placeholder), Chats, Notifications, Profile
+- Chats, Notifications, Profile
 
 ### Seller Portal
 - Registration, Login, Create Listing, My Listings

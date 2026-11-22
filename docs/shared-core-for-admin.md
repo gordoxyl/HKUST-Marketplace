@@ -3,7 +3,8 @@
 Audience: the AI agent (or developer) building the **Admin portal**. Everything below already exists,
 is tested, and is meant to be **called, not rewritten**. Package root: `com.hkust.marketplace`.
 Written 2026-11-10 by the shared-core owner (Gordon, Buyer role); updated 2026-11-17 for the client's
-answers. If something here does not match the code, the code and its Javadoc win; then tell Gordon.
+answers, and 2026-11-22 for the buyers' reports (UC9). If something here does not match the code, the
+code and its Javadoc win; then tell Gordon.
 
 Read first: `README.md` section "Shared Core", `docs/state-machines.md`, `docs/regression-log.md`.
 The use-case spec `Diagrams and Use-Case Specifications.pdf` is authoritative for behaviour, except where
@@ -106,7 +107,7 @@ void dataStoreCalls(DataStore store, String username, String seller, String list
     store.getCompletedDealCount(seller); store.getOffersReceivedCount(seller); store.getTotalViews(seller);
     store.getSellerUsername(review); store.getBuyerUsername(review);
     store.getReviewerName(review);                // the writer's name on screens: "Deleted User" once deleted (answer #6)
-    // reports
+    // reports, filed by buyers through Report Listing (UC9, services/ReportService)
     store.getAllReports(); store.getReportsForListing(listingId);
 }
 ```
@@ -177,6 +178,22 @@ Notifying the deleted account itself is skipped silently by `NotificationService
 `LISTING_APPROVED`, `LISTING_REJECTED` (include the reason), `LISTING_REMOVED`, `ACCOUNT_CHANGE`,
 `ANNOUNCEMENT`, `OFFER_UPDATE`. Categories the admins receive: `LISTING_SUBMITTED`, `LISTING_REPORTED`,
 `ACCOUNT_CHANGE`.
+
+**Reports reach you from the buyer's Report Listing (UC9, built 2026-11-22).** Each report notifies every admin,
+in category `LISTING_REPORTED`: "'<title>' by <seller's name> was reported (<reason>) and needs moderation."
+- The notification names neither the reporter nor the details. Show both in VIEW (5.1) from
+  `getReportsForListing`, as your `AdminListingService.getListingDetails` already does: only the admin may see
+  who reported (UC9 SR4).
+- A buyer reports any listing they can open: a live one, or one they have a deal on, whatever its status,
+  so reports on Sold, Given or Removed listings are possible (assumption 80).
+- "Reported" in the spec's Status filter is not a listing status. It is a permanent filter, "has at least
+  one report", as your `ListingFilter.reportedOnly` already treats it (assumption 87).
+- `store.addReport` now refuses a report on a listing that doesn't exist, or by an account that is not a
+  buyer (`IllegalArgumentException`, regression log R10). Test data you add yourself must use a real
+  buyer and listing, as `AdminListingQueryTest` already does.
+- `ReportServiceTest.aReport_fromTheDetailScreen_toTheAdminsBoard_andTheAdminsViewOfTheListing` calls your
+  `findListings(ListingFilter.none().withReportedOnly(true))` and `getListingDetails(id).reports()`. If
+  you change either, change that test too (or tell Gordon).
 
 ### `PhotoService`
 `importPhoto(Path)` → photo id (PNG/JPEG/GIF/BMP; admin allowed), for editing or adding a listing

@@ -11,6 +11,7 @@ import com.hkust.marketplace.services.MyDealsService;
 import com.hkust.marketplace.services.NotificationService;
 import com.hkust.marketplace.services.OfferService;
 import com.hkust.marketplace.services.ProfileService;
+import com.hkust.marketplace.services.ReportService;
 import com.hkust.marketplace.services.ReviewService;
 import com.hkust.marketplace.services.SellerProfile;
 import com.hkust.marketplace.services.ServiceException;
@@ -45,7 +46,8 @@ import java.util.Set;
  * It only moves between screens and connects their buttons to the use cases; the rules are in
  * the services, and each screen is a class of its own ({@link BrowseView},
  * {@link ListingDetailView}, {@link SellerProfileView}, {@link MakeOfferFlow},
- * {@link MyDealsView}, {@link DealHistoryView} and the shared ones in {@code ui}).
+ * {@link ReportListingFlow}, {@link MyDealsView}, {@link DealHistoryView} and the shared ones
+ * in {@code ui}).
  *
  * <p>The screens never call each other. Each one reports what the buyer asked for (for
  * example through {@code MyDealsView.Actions}), and the dashboard decides what opens next:
@@ -66,6 +68,7 @@ public class BuyerDashboardController implements ContentHost {
     private final MakeOfferFlow makeOffer = new MakeOfferFlow(new OfferService());
     private final MyDealsService myDealsService = new MyDealsService();
     private final ReviewSellerFlow reviewFlow = new ReviewSellerFlow(new ReviewService());
+    private final ReportListingFlow reportFlow = new ReportListingFlow(new ReportService());
     private final DealHistoryService dealHistoryService = new DealHistoryService();
     /** The automatic returns the buyer was asked about, or that happened before this dashboard opened (client answer #3). */
     private final Set<String> autoReturnsSeen = new HashSet<>();
@@ -216,9 +219,9 @@ public class BuyerDashboardController implements ContentHost {
         chat.setOnAgreeToCounter(offer -> makeOffer.startFromCounter(offer.getId()));
     }
 
-    /** UC9 Report Listing starts here. It is built later (B7). */
+    /** UC9 Report Listing, from the detail screen's button (step 1). The detail screen stays as it is. */
     private void reportListing(Listing listing) {
-        Dialogs.info("Not built yet", "Reporting '" + listing.getTitle() + "' (UC9) is built later.");
+        reportFlow.start(listing.getId());
     }
 
     // ========== UC7 Manage My Deals ==========

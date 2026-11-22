@@ -45,6 +45,18 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
+//showDeals
+import com.hkust.marketplace.services.AdminDealService;
+import com.hkust.marketplace.services.DealDetails;
+import com.hkust.marketplace.services.DealFilter;
+import com.hkust.marketplace.services.DealRecord;
+import com.hkust.marketplace.services.DealState;
+import javafx.stage.FileChooser;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.time.LocalTime;
+
 
 public class AdminDashboardController implements ContentHost {
     @FXML private StackPane contentPane;
@@ -56,6 +68,8 @@ public class AdminDashboardController implements ContentHost {
     private final AdminListingService listingService = new AdminListingService();
     private final AdminUserService userService = new AdminUserService();
     private Runnable listingsReload = () -> { };
+    private final AdminDealService dealService = new AdminDealService();
+    private List<DealRecord> currentDeals = List.of();   // the list the Export button saves
 
     @FXML
     public void initialize() {
@@ -669,30 +683,154 @@ public class AdminDashboardController implements ContentHost {
         VBox root = new VBox(12);
         root.setPadding(new Insets(4));
 
-        HBox filters = new HBox(10);
-        filters.setAlignment(Pos.CENTER_LEFT);
-        TextField search = new TextField();
-        search.setPromptText("Search by item / user...");
-        ComboBox<String> typeFilter = new ComboBox<>(FXCollections.observableArrayList("All Types", "Sell", "Lend", "Giveaway"));
-        typeFilter.getSelectionModel().selectFirst();
-        filters.getChildren().addAll(search, typeFilter);
-        root.getChildren().add(filters);
+        // ----- filter bar (spec step 2: Status, Date range, Deal type, Seller, Buyer) -----
+        ComboBox<Object> statusBox = new ComboBox<>();
+        statusBox.getItems().add("All statuses");
+        statusBox.getItems().addAll((Object[]) DealState.values());
+        statusBox.getSelectionModel().selectFirst();
 
-        TableView<String[]> table = new TableView<>();
+        ComboBox<Object> typeBox = new ComboBox<>();
+        typeBox.getItems().add("All types");
+        typeBox.getItems().addAll((Object[]) ListingType.values());
+        typeBox.getSelectionModel().selectFirst();
+
+        TextField sellerField = new TextField();
+        sellerField.setPromptText("Seller...");
+        TextField buyerField = new TextField();
+        buyerField.setPromptText("Buyer...");
+        DatePicker from = new DatePicker();
+        from.setPromptText("From");
+        DatePicker to = new DatePicker();
+        to.setPromptText("To");
+
+        Button apply = new Button("Apply filters");
+        apply.getStyleClass().addAll("btn-primary", "btn-sm");
+        Button export = new Button("Export CSV");
+        export.getStyleClass().addAll("btn-gold", "btn-sm");
+
+        HBox filterBar = new HBox(10, statusBox, typeBox, sellerField, buyerField, from, to, apply, export);
+        filterBar.setAlignment(Pos.CENTER_LEFT);
+
+        // ----- table (spec step 3) -----
+        TableView<DealRecord> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        String[] headers = {"Item", "Buyer", "Seller", "Type", "Status", "Date"};
-        for (int i = 0; i < headers.length; i++) {
-            final int idx = i;
-            TableColumn<String[], String> col = new TableColumn<>(headers[i]);
-            col.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue()[idx]));
-            table.getColumns().add(col);
-        }
-        table.setItems(FXCollections.observableArrayList(
-                new String[]{"Calculus Textbook", "alice", "charlie", "Sell", "Accepted", "2026-01-15"},
-                new String[]{"USB Hub", "bob", "diana", "Giveaway", "Completed", "2025-12-01"}
-        ));
-        root.getChildren().add(table);
+        table.getColumns().add(column("Item title", r -> r.listing().getTitle()));
+        table.getColumns().add(column("Buyer", DealRecord::buyerUsername));
+        table.getColumns().add(column("Seller", DealRecord::sellerUsername));
+        table.getColumns().add(column("Deal type", r -> dealTypeName(r.dealType())));
+        table.getColumns().add(column("Start date", r -> Formats.dateTime(r.startDate())));
+        table.getColumns().add(column("Return/Complete date", r -> Formats.dateTime(r.completedDate())));
+        table.getColumns().add(column("Status", r -> r.state().getDisplayName()));
+
+        TableColumn<DealRecord, Void> actions = new TableColumn<>("Actions");
+        actions.setCellFactory(col -> new TableCell<>() {
+            private final Button view = new Button("View Details");
+            {
+                view.getStyleClass().addAll("btn-outline", "btn-sm");
+                view.setOnAction(e -> showDealDetails(getTableView().getItems().get(getIndex())));
+            }
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                setGraphic(empty ? null : view);
+            }
+        });
+        table.getColumns().add(actions);
+
+        Label none = new Label("No deals found.");                       // spec A1
+        none.getStyleClass().add("text-muted");
+        none.setVisible(false);
+        none.setManaged(false);
+
+        root.getChildren().addAll(filterBar, none, table);
+
+        Runnable refresh = () -> {
+            DealFilter filter = DealFilter.none();
+            if (statusBox.getValue() instanceof DealState s) filter = filter.withStatus(s);
+            if (typeBox.getValue() instanceof ListingType t) filter = filter.withType(t);
+            filter = filter.withSeller(sellerField.getText()).withBuyer(buyerField.getText())
+                    .withDateRange(
+                            from.getValue() == null ? null : from.getValue().atStartOfDay(),
+                            to.getValue() == null ? null : to.getValue().atTime(LocalTime.MAX));
+            try {
+                currentDeals = dealService.findDeals(filter);
+            } catch (ServiceException ex) {
+                Dialogs.problem(ex);
+                return;
+            }
+            table.getItems().setAll(currentDeals);
+            boolean empty = currentDeals.isEmpty();
+            none.setVisible(empty);
+            none.setManaged(empty);
+            table.setVisible(!empty);
+            table.setManaged(!empty);
+        };
+        apply.setOnAction(e -> refresh.run());
+
+        export.setOnAction(e -> {                                         // spec 4.2 and A2
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Save deals as CSV");
+            chooser.setInitialFileName("deals.csv");
+            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV file", "*.csv"));
+            File file = chooser.showSaveDialog(SceneManager.getPrimaryStage());
+            if (file == null) {
+                return;                                                   // cancelled
+            }
+            try {
+                String csv = dealService.exportCsv(currentDeals);         // the currently filtered deals
+                Files.writeString(file.toPath(), csv);
+                Dialogs.info("Export complete", "Saved " + currentDeals.size() + " deal(s) to " + file.getName() + ".");
+            } catch (ServiceException ex) {
+                Dialogs.problem(ex);
+            } catch (IOException ex) {
+                Dialogs.error("Export failed", "Export failed. Please try again or refine your filters.");
+            }
+        });
+
+        refresh.run();
         contentPane.getChildren().add(root);
+    }
+
+    private static TableColumn<DealRecord, String> column(String title,
+                                                          java.util.function.Function<DealRecord, String> value) {
+        TableColumn<DealRecord, String> col = new TableColumn<>(title);
+        col.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(value.apply(c.getValue())));
+        return col;
+    }
+
+    private static String dealTypeName(ListingType type) {
+        return switch (type) {
+            case SELL -> "Sale";
+            case LEND -> "Loan";
+            case GIVEAWAY -> "Giveaway";
+        };
+    }
+
+    /** VIEW DETAILS (spec 4.1). Only reads the record and shows it. */
+    private void showDealDetails(DealRecord record) {
+        try {
+            DealDetails d = dealService.getDealDetails(record.offer().getId());
+            StringBuilder sb = new StringBuilder();
+            sb.append("BUYER\n  ").append(d.buyerFullName()).append(" (@").append(d.buyerUsername()).append(")\n");
+            if (d.residenceHall() != null) sb.append("  Residence: ").append(d.residenceHall()).append('\n');
+            sb.append("SELLER\n  ").append(d.sellerFullName()).append(" (@").append(d.sellerUsername()).append(")\n");
+            if (d.sellerBio() != null) sb.append("  Bio: ").append(d.sellerBio()).append('\n');
+            sb.append("ITEM\n  ").append(d.listing().getTitle()).append(" · ").append(d.listing().getCategory())
+                    .append(" · ").append(d.listing().getCondition()).append('\n')
+                    .append("  Meet-up: ").append(d.listing().getMeetupLocation()).append('\n');
+            sb.append("TRANSACTION\n  Type: ").append(dealTypeName(d.dealType())).append('\n');
+            if (d.amount() != null) sb.append("  Amount: ").append(Formats.price(d.amount())).append('\n');
+            if (d.borrowStart() != null) sb.append("  Borrow period: ")
+                    .append(Formats.period(d.borrowStart(), d.borrowEnd())).append('\n');
+            sb.append("  Start: ").append(Formats.dateTime(d.startDate())).append('\n')
+                    .append("  Completed: ").append(Formats.dateTime(d.completedDate())).append('\n')
+                    .append("  Status: ").append(d.state().getDisplayName()).append('\n');
+            sb.append("REVIEW\n  ").append(!d.reviewed() ? "Not reviewed yet"
+                    : d.reviewHidden() ? "Reviewed (hidden by admin)" : "Reviewed");
+            Dialogs.info("Deal details", sb.toString());
+        } catch (ServiceException ex) {
+            Dialogs.problem(ex);
+        }
     }
 
     @FXML

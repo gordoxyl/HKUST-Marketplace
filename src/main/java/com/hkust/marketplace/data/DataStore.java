@@ -673,11 +673,20 @@ public class DataStore {
 
     /**
      * Gives the report an id and adds it, unless this buyer already reported this listing
-     * (UC9 Special Requirement 3).
+     * (UC9 Special Requirement 3). The report must be filed by a buyer account on an existing
+     * listing (class diagram, UC9). {@code ReportService} checks this first and tells the buyer;
+     * here it is the inner layer of the barricade (Lecture 10, regression log R10).
      * @return false if the buyer already reported the listing
+     * @throws IllegalArgumentException if there is no such listing, or the reporter is not a buyer account
      */
     public boolean addReport(Report report) {
         return transaction(() -> {
+            if (listings.get(report.getListingId()) == null) {
+                throw new IllegalArgumentException("No listing with id " + report.getListingId());
+            }
+            if (!(findUser(report.getBuyerUsername()) instanceof Buyer)) {
+                throw new IllegalArgumentException("Only a buyer can report a listing: @" + report.getBuyerUsername());
+            }
             if (hasReported(report.getBuyerUsername(), report.getListingId())) {
                 return false;
             }

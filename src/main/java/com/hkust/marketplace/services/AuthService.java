@@ -78,7 +78,7 @@ public class AuthService {
         error = AccountValidator.validateFullName(fullName);
         if (error != null) return error;
 
-        error = AccountValidator.validatePassword(password);
+        error = AccountValidator.validatePasswordShowingRules(password); // A3: what is wrong, and the rules
         if (error != null) return error;
 
         error = AccountValidator.validateConfirmation(password, confirmPassword);

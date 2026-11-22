@@ -114,6 +114,32 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 
 ---
 
+## R10: The store recorded a report on a listing that does not exist, or "by" an account that is not a buyer
+
+- **Area / owner:** **shared core** (`data/DataStore.addReport`), Gordon's. Found while planning UC9 Report Listing (B7); no screen reached it, because the buyer's service checks first. Jack's admin screens read these reports, so an orphan report would have shown there.
+- **Found:** 2026-11-11, in the shared-core review against the spec (finding F5). **Fixed:** 2026-11-22, before UC9 was built.
+- **Input:** `addReport(new Report("L999", "bea", OTHER, …))` with no listing L999; and `addReport` on an existing listing with the reporter `sam` (a seller), `ada` (an admin) or `nobody` (no account).
+- **Correct output:** each is refused with an `IllegalArgumentException`, and nothing is recorded. The class diagram and UC9 say a buyer files a report on a listing.
+- **Output before the fix:** each report was recorded with an id. The new tests failed with *Expected java.lang.IllegalArgumentException to be thrown, but nothing was thrown.*
+- **Cause:** `addReport` only checked for a second report by the same buyer (UC9 SR3), not who files it or on what.
+- **Fix:** `addReport` checks that the listing exists and that the reporter is a buyer account before anything is added, as `getOrCreateThread` already did for chats. The service (`ReportService`) checks first and gives the buyer a message, so this inner check only stops programming errors (Lecture 10: the barricade has two layers). Loading a saved file doesn't go through `addReport`, so reports by accounts deleted later still load (client answer #6).
+- **Test:** `DataStoreTest.reportOnAnUnknownListing_isRefused`, `DataStoreTest.reportByASeller_anAdmin_orAnUnknownAccount_isRefused`.
+
+---
+
+## R11: Registration refused a weak password without showing the password rules
+
+- **Area / owner:** **shared core** (`services/AuthService`, used by both registrations), Gordon's. Seen on the buyer's register screen; the seller's screen hid it, because it always shows the rules under the field.
+- **Found:** 2026-11-11, in the shared-core review against the spec (finding F5). **Fixed:** 2026-11-22, while checking Task 1 against the spec before submission.
+- **Input:** register buyer `u4`, full name "Weak Password", password and confirmation `password1`.
+- **Correct output:** UC1 A3, "informs the Buyer that the password is invalid or too weak, and shows the password rules": "Password must contain at least one uppercase letter. Password rules: At least 8 characters, with at least one uppercase letter, one lowercase letter, one digit and one special character (such as ! @ # $ %). ASCII characters only." Nothing is stored.
+- **Output before the fix:** only "Password must contain at least one uppercase letter." The new test failed with *expected: <… Password rules: At least 8 characters, …> but was: <Password must contain at least one uppercase letter.>*.
+- **Cause:** "show the rules" was written once, inside `ProfileService` (UC3 A2), and registration never got it.
+- **Fix:** `AccountValidator.validatePasswordShowingRules` gives what is wrong followed by the rules; registration and profile changes both use it, so the two use cases cannot drift apart again. The seller's registration now gives the same message.
+- **Test:** `AuthServiceTest.register_weakPassword_saysWhatIsWrong_andShowsThePasswordRules` (the recorded input, buyer and seller), `AccountValidatorTest.aRefusedPassword_isExplainedWithTheRules_anAcceptedOneIsNot`; `ProfileServiceTest` still checks UC3 A2.
+
+---
+
 ## Tooling notes (not code bugs, so no test)
 
 ### T1: `mvnw test` passed on outdated compiled tests
@@ -149,6 +175,13 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 - **Prevention:** `maven.compiler.release 17`: the build now compiles against Java 17's own library and rejects anything newer. Everything compiled unchanged, so nothing newer than Java 17 was in use.
 
 ---
+
+### T5: IntelliJ's commit check reported 161 errors on code that compiles
+
+- **Seen:** 2026-11-22, committing UC9 (Report Listing): "Commit contains problems: 161 errors and 19 warnings", mostly "cannot resolve" in the new Report classes and the files that use them.
+- **Cause:** files created or changed outside IntelliJ while it was open were left out of its project index. `idea.log` showed `ProjectIndexableFilesFilterHealthCheck - Following files are indexable but they were NOT found in filter. Errors count: 9`, naming the 9 new files. Maven built every commit from a clean copy, and all tests passed.
+- **Fix:** File > Repair IDE (or Invalidate Caches > Invalidate and Restart). The errors were gone afterwards. A restart alone does not fix it.
+- **Avoid:** after files are added outside the IDE, run File > Reload All from Disk (Ctrl+Alt+Y) before committing. If the commit check shows "cannot resolve" while `mvnw clean verify` passes, check `idea.log` before changing any code.
 
 ### Template for a new entry
 

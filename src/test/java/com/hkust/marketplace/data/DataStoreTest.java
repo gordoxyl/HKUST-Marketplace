@@ -6,6 +6,8 @@ import com.hkust.marketplace.testsupport.SameMoment;
 import com.hkust.marketplace.testsupport.TestClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -334,6 +336,27 @@ class DataStoreTest {
         assertFalse(store.addReport(new Report(listing.getId(), "bea", ReportReason.OTHER, "Again")));
         assertTrue(store.addReport(new Report(listing.getId(), "ben", ReportReason.OTHER, "Me too")));
         assertEquals(2, store.getReportsForListing(listing.getId()).size());
+    }
+
+    /** Regression log R10: a report is filed on an existing listing (class diagram, UC9). */
+    @Test
+    void reportOnAnUnknownListing_isRefused() {
+        Report orphan = new Report("L999", "bea", ReportReason.OTHER, "There is no such listing.");
+
+        assertThrows(IllegalArgumentException.class, () -> store.addReport(orphan));
+        assertTrue(store.getAllReports().isEmpty());
+    }
+
+    /** Regression log R10: only a buyer account reports a listing (UC9's actor). */
+    @ParameterizedTest
+    @ValueSource(strings = {"sam", "ada", "nobody"})
+    void reportByASeller_anAdmin_orAnUnknownAccount_isRefused(String reporter) {
+        Fixtures.admin(store, "ada");
+        Listing listing = sale();
+        Report report = new Report(listing.getId(), reporter, ReportReason.OTHER, "Not filed by a buyer.");
+
+        assertThrows(IllegalArgumentException.class, () -> store.addReport(report));
+        assertTrue(store.getAllReports().isEmpty());
     }
 
     @Test

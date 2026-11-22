@@ -11,6 +11,7 @@ import com.hkust.marketplace.services.MyDealsService;
 import com.hkust.marketplace.services.NotificationService;
 import com.hkust.marketplace.services.OfferService;
 import com.hkust.marketplace.services.ProfileService;
+import com.hkust.marketplace.services.ReportService;
 import com.hkust.marketplace.services.ReviewService;
 import com.hkust.marketplace.services.SellerProfile;
 import com.hkust.marketplace.services.ServiceException;
@@ -29,8 +30,6 @@ import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -45,7 +44,8 @@ import java.util.Set;
  * It only moves between screens and connects their buttons to the use cases; the rules are in
  * the services, and each screen is a class of its own ({@link BrowseView},
  * {@link ListingDetailView}, {@link SellerProfileView}, {@link MakeOfferFlow},
- * {@link MyDealsView}, {@link DealHistoryView} and the shared ones in {@code ui}).
+ * {@link ReportListingFlow}, {@link MyDealsView}, {@link DealHistoryView} and the shared ones
+ * in {@code ui}).
  *
  * <p>The screens never call each other. Each one reports what the buyer asked for (for
  * example through {@code MyDealsView.Actions}), and the dashboard decides what opens next:
@@ -57,7 +57,7 @@ public class BuyerDashboardController implements ContentHost {
     @FXML private StackPane contentPane;
     @FXML private Label pageTitle;
     @FXML private Label welcomeLabel;
-    @FXML private Button btnBrowse, btnDeals, btnHistory, btnFavourites, btnChats, btnNotifications, btnProfile;
+    @FXML private Button btnBrowse, btnDeals, btnHistory, btnChats, btnNotifications, btnProfile;
 
     private Button currentActiveBtn;
 
@@ -66,6 +66,7 @@ public class BuyerDashboardController implements ContentHost {
     private final MakeOfferFlow makeOffer = new MakeOfferFlow(new OfferService());
     private final MyDealsService myDealsService = new MyDealsService();
     private final ReviewSellerFlow reviewFlow = new ReviewSellerFlow(new ReviewService());
+    private final ReportListingFlow reportFlow = new ReportListingFlow(new ReportService());
     private final DealHistoryService dealHistoryService = new DealHistoryService();
     /** The automatic returns the buyer was asked about, or that happened before this dashboard opened (client answer #3). */
     private final Set<String> autoReturnsSeen = new HashSet<>();
@@ -216,9 +217,9 @@ public class BuyerDashboardController implements ContentHost {
         chat.setOnAgreeToCounter(offer -> makeOffer.startFromCounter(offer.getId()));
     }
 
-    /** UC9 Report Listing starts here. It is built later (B7). */
+    /** UC9 Report Listing, from the detail screen's button (step 1). The detail screen stays as it is. */
     private void reportListing(Listing listing) {
-        Dialogs.info("Not built yet", "Reporting '" + listing.getTitle() + "' (UC9) is built later.");
+        reportFlow.start(listing.getId());
     }
 
     // ========== UC7 Manage My Deals ==========
@@ -319,25 +320,7 @@ public class BuyerDashboardController implements ContentHost {
         show("Deal History", new DealHistoryView(dealHistoryService));
     }
 
-    // ========== Screens that are still the skeleton's demo ==========
-
-    @FXML
-    private void showFavourites() {
-        setActive(btnFavourites, "Favourites & Following");
-        contentPane.getChildren().clear();
-        VBox root = new VBox(16);
-        root.setPadding(new Insets(4));
-        root.setAlignment(Pos.CENTER);
-        Label icon = new Label("♥");
-        icon.getStyleClass().add("placeholder-icon");
-        Label title = new Label("Favourites, Bookmarks & Following");
-        title.getStyleClass().add("placeholder-title");
-        Label desc = new Label("Save listings you like and follow favourite sellers.\nThis section is a UI placeholder for students to implement.");
-        desc.getStyleClass().add("placeholder-text");
-        desc.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
-        root.getChildren().addAll(icon, title, desc);
-        contentPane.getChildren().add(root);
-    }
+    // ========== Shared screens: chats (UC6), notifications (UC4), profile (UC3) ==========
 
     @FXML
     private void showChats() {

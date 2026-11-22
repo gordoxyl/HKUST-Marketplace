@@ -97,6 +97,13 @@ class AccountValidatorTest {
         assertEquals("Password cannot be empty.", AccountValidator.validatePassword(password));
     }
 
+    @Test
+    void aRefusedPassword_isExplainedWithTheRules_anAcceptedOneIsNot() { // UC1 A3, UC3 A2 (regression log R11)
+        assertEquals("Password must contain at least one digit. Password rules: " + AccountValidator.PASSWORD_RULES,
+                AccountValidator.validatePasswordShowingRules("Password!"));
+        assertNull(AccountValidator.validatePasswordShowingRules("Secure#123"));
+    }
+
     // ---------- Confirmation (UC1 A4) ----------
 
     @Test

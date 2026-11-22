@@ -169,19 +169,14 @@ public class BrowseService {
 
     private Listing requireOpenable(Buyer buyer, String listingId) {
         Listing listing = store.findListing(listingId);
-        if (listing == null || !(store.isLive(listing) || hasDealOn(buyer, listing))) {
-            throw new ServiceException("This listing is no longer on the marketplace.");
+        if (listing == null || !ListingAccess.canOpen(store, buyer, listing)) {
+            throw new ServiceException(ListingAccess.NOT_AVAILABLE);
         }
         return listing;
     }
 
     private ListingDetail detailOf(Listing listing) {
         return new ListingDetail(listing, store.isAvailable(listing), profileOf(listing.getSellerUsername()));
-    }
-
-    private boolean hasDealOn(Buyer buyer, Listing listing) {
-        return store.getOffersForListing(listing.getId()).stream()
-                .anyMatch(offer -> offer.getBuyerUsername().equalsIgnoreCase(buyer.getUsername()));
     }
 
     // ========== Seller profile (UC8 A3) ==========

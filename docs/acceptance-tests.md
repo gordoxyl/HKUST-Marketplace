@@ -174,3 +174,23 @@ returned automatically two days ago).
 | AT-UC11-10 | A2 | Choose a From date that is after the To date. Then move To to a date after From. | "The date range is invalid. Choose a start date on or before the end date." appears in red under the dates, with no pop-up, and the rows shown before stay. It goes away as soon as the range is valid, and the rows update. | |
 | AT-UC11-11 | Step 5, Reset | Set every filter, then press Reset. | Every filter is cleared and every completed deal is shown. | |
 | AT-UC11-12 | Step 2 order kept | Click the Deal Date column heading. | Nothing is re-sorted: the rows stay newest deal date first. | |
+
+## UC9 Report Listing (Task 1.4)
+
+Report Listing starts from the detail screen's button. A listing can be reported whenever the buyer can open its
+detail screen: any live listing, and any listing the buyer has a deal on, whatever its status (assumption 80). Only
+the admin sees reports, so the seller never learns who reported a listing (SR4). Run the scenarios in order after a
+reset: 02, 03, 07 and 09 use the report made in 01.
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-UC9-01 | Basic flow, steps 1-9 | As `bob`: Browse → *MacBook Pro Charger 61W* → View Details → Report Listing. Choose "Misleading description", type "Says 61W but the label shows 30W.", press Submit Report. | The form is headed "Report 'MacBook Pro Charger 61W' to the admin", lists the six reasons in SR1's order (Prohibited item, Scam or fraud, Misleading description, Offensive content, Spam or duplicate, Other) and has none chosen. After submitting: "Your report of 'MacBook Pro Charger 61W' was submitted. The admin will review the listing." The detail screen stays as it was. | |
+| AT-UC9-02 | Step 8, the admin is notified | Log in as `admin`, open Notification Board. | "Listing Reported": "'MacBook Pro Charger 61W' by Charlie Lee was reported (Misleading description) and needs moderation." The notification does not name `bob`. (VIEW in Manage Marketplace Listings shows the report with its reason and details once the admin's screen is wired.) | |
+| AT-UC9-03 | A1 | As `bob`, press Report Listing on the charger again. | "You have already reported this listing." No form opens. | |
+| AT-UC9-04 | A2, no reason | As `bob`, on the *IKEA Desk Lamp*: press Report Listing, type details, choose no reason, press Submit Report. | "Both a reason and details are required." The form comes back with the details still typed. | |
+| AT-UC9-05 | A2, empty details | In the same form, choose a reason, replace the details with only spaces, press Submit Report. | The same message. The form comes back with the reason still chosen. | |
+| AT-UC9-06 | A3 | In the form, press Cancel. Then press Report Listing again. | No message, and nothing is recorded. The form opens again, empty (not A1). | |
+| AT-UC9-07 | SR3 is per buyer | Log in as `alice` and report the charger, with any reason and details. | Accepted: another buyer may report the same listing. `admin` now has two "Listing Reported" notifications about it. | |
+| AT-UC9-08 | SR4 | Log in as `charlie`. Open Notification Board and every seller screen. | Nothing about the reports or who made them. | |
+| AT-UC9-09 | SR3 across a restart | Close the app and start it again. As `bob`, press Report Listing on the charger. | "You have already reported this listing." | |
+| AT-UC9-10 | A listing the buyer has a deal on (assumption 80) | As `bob`, open My Deals, and press View Listing on the completed *Organic Chemistry Textbook* (Sold). Press Report Listing. | The form opens: a buyer can report a listing they dealt on, even after it was sold. | |

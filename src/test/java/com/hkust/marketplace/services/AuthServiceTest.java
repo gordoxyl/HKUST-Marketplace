@@ -97,6 +97,18 @@ class AuthServiceTest {
         assertNull(data.findUser("u3"));
     }
 
+    /** Regression log R11: UC1 A3 says what is wrong with the password and shows the password rules. */
+    @Test
+    void register_weakPassword_saysWhatIsWrong_andShowsThePasswordRules() {
+        String expected = "Password must contain at least one uppercase letter. Password rules: "
+                + AccountValidator.PASSWORD_RULES;
+
+        assertEquals(expected, auth.registerBuyer("u4", "Weak Password", "password1", "password1", null));
+        assertEquals(expected, auth.registerSeller("u5", "Weak Password", "password1", "password1", null, null));
+        assertNull(data.findUser("u4"));
+        assertNull(data.findUser("u5"));
+    }
+
     // ---------- UC2 Log In ----------
 
     @Test

@@ -71,6 +71,16 @@ public final class AccountValidator {
         return null;
     }
 
+    /**
+     * What a user is told about a password that is refused (UC1 A3, UC3 A2): what is wrong with
+     * it, then the password rules. Registration and profile changes both use it.
+     * @return null if the password is acceptable
+     */
+    public static String validatePasswordShowingRules(String password) {
+        String error = validatePassword(password);
+        return error == null ? null : error + " Password rules: " + PASSWORD_RULES;
+    }
+
     /** True if at least one character of the text passes the test. */
     private static boolean contains(String text, IntPredicate test) {
         return text.chars().anyMatch(test);

@@ -91,10 +91,9 @@ public class ProfileService {
         if (newPassword == null || newPassword.isEmpty()) {
             return null; // Special Requirement 2: blank keeps the current password
         }
-        String error = AccountValidator.validatePassword(newPassword);
+        String error = AccountValidator.validatePasswordShowingRules(newPassword);
         if (error != null) {
-            // A2: say what is wrong and show the rules
-            throw new ServiceException(error + " Password rules: " + AccountValidator.PASSWORD_RULES);
+            throw new ServiceException(error); // A2: say what is wrong and show the rules
         }
         error = AccountValidator.validateConfirmation(newPassword, confirmPassword);
         if (error != null) {

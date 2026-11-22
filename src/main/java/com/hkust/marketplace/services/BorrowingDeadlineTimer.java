@@ -35,30 +35,42 @@ public class BorrowingDeadlineTimer {
     /** How long {@link #stop()} waits for a running check to finish before it interrupts it. */
     static final Duration STOP_WAIT = Duration.ofSeconds(5);
 
+    /** Logged when a check fails, followed by the problem; the next check tries again. */
+    static final String CHECK_FAILED = "[BorrowingDeadlineTimer] A deadline check failed and will be tried again: ";
+    /** Logged when {@link #stop()} had to interrupt a check that took too long. */
+    static final String CHECK_INTERRUPTED = "[BorrowingDeadlineTimer] A deadline check did not finish in time and was interrupted.";
+
     private final BorrowingDeadlineService service;
     private final Duration interval;
     private final Consumer<DeadlineReport> onChange;
     private final Duration stopWait;
+    private final Consumer<String> problemLog;
     private ScheduledExecutorService thread;
     private String lastProblem;
 
     /**
+     * A timer that logs its problems to the console's error stream.
      * @param interval the pause between two checks
      * @param onChange told, on the timer's thread, about every check that sent a reminder or
      *                 returned an item, so the open screen can show the new data (step 4);
      *                 a screen must move to its own thread before it touches anything
      */
     public BorrowingDeadlineTimer(BorrowingDeadlineService service, Duration interval, Consumer<DeadlineReport> onChange) {
-        this(service, interval, onChange, STOP_WAIT);
+        this(service, interval, onChange, STOP_WAIT, System.err::println);
     }
 
-    /** @param stopWait how long {@link #stop()} waits for a running check; tests make it short */
+    /**
+     * @param stopWait   how long {@link #stop()} waits for a running check; tests make it short
+     * @param problemLog where problems are written, on the thread that meets them; tests collect
+     *                   them to check what is logged (program to an interface, Lecture 17)
+     */
     BorrowingDeadlineTimer(BorrowingDeadlineService service, Duration interval, Consumer<DeadlineReport> onChange,
-                           Duration stopWait) {
+                           Duration stopWait, Consumer<String> problemLog) {
         this.service = Objects.requireNonNull(service, "service");
         this.interval = Objects.requireNonNull(interval, "interval");
         this.onChange = Objects.requireNonNull(onChange, "onChange");
         this.stopWait = Objects.requireNonNull(stopWait, "stopWait");
+        this.problemLog = Objects.requireNonNull(problemLog, "problemLog");
         if (interval.isZero() || interval.isNegative()) {
             throw new IllegalArgumentException("The timer needs a pause between checks.");
         }
@@ -92,7 +104,7 @@ public class BorrowingDeadlineTimer {
         try {
             if (!thread.awaitTermination(stopWait.toMillis(), TimeUnit.MILLISECONDS)) {
                 thread.shutdownNow();
-                System.err.println("[BorrowingDeadlineTimer] A deadline check did not finish in time and was interrupted.");
+                problemLog.accept(CHECK_INTERRUPTED);
             }
         } catch (InterruptedException e) {
             thread.shutdownNow();
@@ -119,7 +131,7 @@ public class BorrowingDeadlineTimer {
         } catch (RuntimeException e) {
             String problem = String.valueOf(e.getMessage());
             if (!problem.equals(lastProblem)) {
-                System.err.println("[BorrowingDeadlineTimer] A deadline check failed and will be tried again: " + problem);
+                problemLog.accept(CHECK_FAILED + problem);
                 lastProblem = problem;
             }
         }

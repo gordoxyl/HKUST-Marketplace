@@ -57,6 +57,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.time.LocalTime;
 
+//showRatings
+import com.hkust.marketplace.services.AdminReputationService;
+import com.hkust.marketplace.services.ReviewFilter;
+import com.hkust.marketplace.services.SellerRating;
+
 
 public class AdminDashboardController implements ContentHost {
     @FXML private StackPane contentPane;
@@ -70,6 +75,7 @@ public class AdminDashboardController implements ContentHost {
     private Runnable listingsReload = () -> { };
     private final AdminDealService dealService = new AdminDealService();
     private List<DealRecord> currentDeals = List.of();   // the list the Export button saves
+    private final AdminReputationService reputationService = new AdminReputationService();
 
     @FXML
     public void initialize() {
@@ -841,43 +847,181 @@ public class AdminDashboardController implements ContentHost {
         VBox root = new VBox(12);
         root.setPadding(new Insets(4));
 
-        HBox filters = new HBox(10);
-        TextField userFilter = new TextField();
-        userFilter.setPromptText("Filter by seller...");
-        ComboBox<String> scoreFilter = new ComboBox<>(FXCollections.observableArrayList(
-                "All scores", "5 stars", "4 stars", "3 stars", "2 stars", "1 star"));
-        scoreFilter.getSelectionModel().selectFirst();
-        filters.getChildren().addAll(userFilter, scoreFilter);
-        root.getChildren().add(filters);
+        TextField sellerField = new TextField();
+        sellerField.setPromptText("Filter by seller...");
+        Button apply = new Button("Search");
+        apply.getStyleClass().addAll("btn-primary", "btn-sm");
+        HBox filterBar = new HBox(10, sellerField, apply);
+        filterBar.setAlignment(Pos.CENTER_LEFT);
 
-        for (Review r : DataStore.getInstance().getAllReviews()) {
-            HBox row = new HBox(12);
-            row.getStyleClass().add("card");
-            row.setAlignment(Pos.CENTER_LEFT);
-            row.setPadding(new Insets(12));
+        VBox results = new VBox(10);
+        root.getChildren().addAll(filterBar, results);
 
-            VBox info = new VBox(4);
-            HBox.setHgrow(info, Priority.ALWAYS);
-            Label stars = new Label("★".repeat(r.getRating()) + "☆".repeat(5 - r.getRating()) +
-                    "  @" + DataStore.getInstance().getSellerUsername(r) + " by @" + DataStore.getInstance().getBuyerUsername(r));
-            stars.setStyle("-fx-font-weight: bold;");
-            Label comment = new Label(r.getComment());
-            comment.setWrapText(true);
-            comment.setStyle("-fx-text-fill: #5a5a7a;");
-            info.getChildren().addAll(stars, comment);
+        Runnable refresh = () -> {
+            results.getChildren().clear();
+            List<SellerRating> sellers;
+            try {
+                sellers = reputationService.findSellerRatings(sellerField.getText());
+            } catch (ServiceException ex) {
+                Dialogs.problem(ex);
+                return;
+            }
+            if (sellers.isEmpty()) {
+                Label none = new Label("No results found.");              // spec A3
+                none.getStyleClass().add("text-muted");
+                results.getChildren().add(none);
+                return;
+            }
+            for (SellerRating s : sellers) {
+                results.getChildren().add(createSellerRow(s));
+            }
+        };
+        apply.setOnAction(e -> refresh.run());
+        refresh.run();
 
-            Button hide = new Button(r.isHidden() ? "Unhide" : "Hide");
-            hide.getStyleClass().addAll("btn-outline", "btn-sm");
-            hide.setOnAction(e -> {
-                DataStore.getInstance().transaction(() -> r.setHidden(!r.isHidden())); // saved (R4)
-                showRatings();
-            });
-            row.getChildren().addAll(info, hide);
-            root.getChildren().add(row);
-        }
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
         contentPane.getChildren().add(scroll);
+    }
+
+    private HBox createSellerRow(SellerRating s) {
+        HBox row = new HBox(12);
+        row.getStyleClass().add("card");
+        row.setAlignment(Pos.CENTER_LEFT);
+
+        VBox info = new VBox(3);
+        HBox.setHgrow(info, Priority.ALWAYS);
+        Label name = new Label(s.fullName() + " (@" + s.username() + ")");
+        name.getStyleClass().add("section-title");
+        Label meta = new Label(Formats.averageRating(s.averageRating(), s.totalReviews())
+                + " · " + s.totalReviews() + " review(s) · " + s.completedDeals() + " completed deal(s)");
+        meta.getStyleClass().add("text-muted");
+        info.getChildren().addAll(name, meta);
+
+        Button view = new Button("View Reviews");
+        view.getStyleClass().addAll("btn-outline", "btn-sm");
+        view.setOnAction(e -> showSellerReviews(s));
+
+        row.getChildren().addAll(info, view);
+        return row;
+    }
+
+    /** One seller's reviews (spec 6.5), with hide (6.6). */
+    private void showSellerReviews(SellerRating seller) {
+        setActive(btnRatings, "Reviews of @" + seller.username());
+        contentPane.getChildren().clear();
+
+        VBox root = new VBox(12);
+        root.setPadding(new Insets(4));
+
+        Button back = new Button("← Back to sellers");
+        back.getStyleClass().addAll("btn-outline", "btn-sm");
+        back.setOnAction(e -> showRatings());
+
+        ComboBox<String> scoreBox = new ComboBox<>(FXCollections.observableArrayList(
+                "All scores", "5 stars", "4 stars", "3 stars", "2 stars", "1 star"));
+        scoreBox.getSelectionModel().selectFirst();
+        DatePicker from = new DatePicker();
+        from.setPromptText("From");
+        DatePicker to = new DatePicker();
+        to.setPromptText("To");
+        Button apply = new Button("Apply filters");
+        apply.getStyleClass().addAll("btn-primary", "btn-sm");
+
+        HBox filterBar = new HBox(10, back, scoreBox, from, to, apply);
+        filterBar.setAlignment(Pos.CENTER_LEFT);
+
+        VBox results = new VBox(10);
+        root.getChildren().addAll(filterBar, results);
+
+        Runnable refresh = () -> {
+            results.getChildren().clear();
+            ReviewFilter filter = ReviewFilter.none().withSeller(seller.username());
+            if (scoreBox.getSelectionModel().getSelectedIndex() > 0) {
+                filter = filter.withRating(5 - (scoreBox.getSelectionModel().getSelectedIndex() - 1));
+            }
+            filter = filter.withDateRange(
+                    from.getValue() == null ? null : from.getValue().atStartOfDay(),
+                    to.getValue() == null ? null : to.getValue().atTime(LocalTime.MAX));
+
+            List<Review> reviews;
+            try {
+                reviews = reputationService.findReviews(filter);
+            } catch (ServiceException ex) {
+                Dialogs.problem(ex);
+                return;
+            }
+            // findReviews matches part of a username, so keep only this seller's own reviews
+            DataStore store = DataStore.getInstance();                   // read-only display lookups
+            reviews = reviews.stream()
+                    .filter(r -> store.getSellerUsername(r).equalsIgnoreCase(seller.username())).toList();
+            if (reviews.isEmpty()) {
+                Label none = new Label("No results found.");              // spec A3
+                none.getStyleClass().add("text-muted");
+                results.getChildren().add(none);
+                return;
+            }
+            for (Review r : reviews) {
+                results.getChildren().add(createReviewRow(r, store, () -> showSellerReviews(seller)));
+            }
+        };
+        apply.setOnAction(e -> refresh.run());
+        refresh.run();
+
+        ScrollPane scroll = new ScrollPane(root);
+        scroll.setFitToWidth(true);
+        contentPane.getChildren().add(scroll);
+    }
+
+    private HBox createReviewRow(Review r, DataStore store, Runnable reload) {
+        Offer deal = store.findOffer(r.getOfferId());
+        String item = store.getListingOf(deal).getTitle();
+
+        HBox row = new HBox(12);
+        row.getStyleClass().add("card");
+        row.setAlignment(Pos.CENTER_LEFT);
+
+        VBox info = new VBox(4);
+        HBox.setHgrow(info, Priority.ALWAYS);
+        // PR #14: the reviewer is named with getReviewerName, so a deleted buyer shows as "Deleted User"
+        Label head = new Label(Formats.stars(r.getRating()) + "  by " + store.getReviewerName(r)
+                + " · " + item + " · deal " + Formats.date(deal.getCompletedDate()));
+        head.getStyleClass().add("section-title");
+        Label comment = new Label(r.getComment() == null ? Formats.NONE : r.getComment());
+        comment.setWrapText(true);
+        comment.getStyleClass().add("text-muted");
+        info.getChildren().addAll(head, comment);
+
+        if (r.isFlagged()) {
+            Label flagged = new Label("Flagged by seller");
+            flagged.getStyleClass().addAll("badge", "badge-pending");
+            info.getChildren().add(flagged);
+        }
+        if (r.isHidden()) {
+            Label hidden = new Label("Hidden");
+            hidden.getStyleClass().addAll("badge", "badge-rejected");
+            info.getChildren().add(hidden);
+        }
+        row.getChildren().add(info);
+
+        if (!r.isHidden()) {                                              // there is no unhide
+            Button hide = new Button("Hide");
+            hide.getStyleClass().addAll("btn-danger", "btn-sm");
+            hide.setOnAction(e -> {
+                Optional<String> reason = Dialogs.askReason("Hide review",
+                        "Why is this review hidden? Both the buyer and the seller will be told.");
+                if (reason.isEmpty()) return;                             // cancelled
+                try {
+                    reputationService.hideReview(r.getId(), reason.get());
+                    Dialogs.info("Review hidden", "The buyer and the seller have been notified.");
+                } catch (ServiceException ex) {
+                    Dialogs.problem(ex);
+                }
+                reload.run();
+            });
+            row.getChildren().add(hide);
+        }
+        return row;
     }
 
     @FXML

@@ -176,6 +176,13 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 
 ---
 
+### T5: IntelliJ's commit check reported 161 errors on code that compiles
+
+- **Seen:** 2026-11-22, committing UC9 (Report Listing): "Commit contains problems: 161 errors and 19 warnings", mostly "cannot resolve" in the new Report classes and the files that use them.
+- **Cause:** files created or changed outside IntelliJ while it was open were left out of its project index. `idea.log` showed `ProjectIndexableFilesFilterHealthCheck - Following files are indexable but they were NOT found in filter. Errors count: 9`, naming the 9 new files. Maven built every commit from a clean copy, and all tests passed.
+- **Fix:** File > Repair IDE (or Invalidate Caches > Invalidate and Restart). The errors were gone afterwards. A restart alone does not fix it.
+- **Avoid:** after files are added outside the IDE, run File > Reload All from Disk (Ctrl+Alt+Y) before committing. If the commit check shows "cannot resolve" while `mvnw clean verify` passes, check `idea.log` before changing any code.
+
 ### Template for a new entry
 
 ```markdown

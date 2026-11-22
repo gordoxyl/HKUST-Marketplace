@@ -20,20 +20,38 @@ import javafx.scene.layout.*;
 
 import java.util.List;
 
-public class AdminDashboardController implements ContentHost {
+import com.hkust.marketplace.services.AdminListingService;
+import com.hkust.marketplace.services.ListingFilter;
+import com.hkust.marketplace.services.ServiceException;
+import com.hkust.marketplace.ui.Dialogs;
+import com.hkust.marketplace.ui.LiveUpdates;
+import java.util.Optional;
 
+public class AdminDashboardController implements ContentHost {
     @FXML private StackPane contentPane;
     @FXML private Label pageTitle;
     @FXML private Label welcomeLabel;
     @FXML private Button btnReview, btnAllListings, btnUsers, btnDeals, btnRatings, btnNotifications, btnProfile;
 
     private Button currentActiveBtn;
+    private final AdminListingService listingService = new AdminListingService();
 
     @FXML
     public void initialize() {
         showGreeting();
         currentActiveBtn = btnReview;
+        // Reloads the open screen when the borrowing timer (UC12) commits a data change.
+        // Remove this line if LiveUpdates is not yet in main.
+        LiveUpdates.setOnDataChanged(() -> contentPane.getScene() != null, this::refreshCurrentScreen);
         showReview();
+    }
+
+    private void refreshCurrentScreen() {
+        if (currentActiveBtn == btnReview)           showReview();
+        else if (currentActiveBtn == btnAllListings) showAllListings();
+        else if (currentActiveBtn == btnUsers)       showUsers();
+        else if (currentActiveBtn == btnDeals)       showDeals();
+        else if (currentActiveBtn == btnRatings)     showRatings();
     }
 
     /** Shows the logged-in admin's name. Runs again after a profile change, so a new name shows at once. */
@@ -64,66 +82,65 @@ public class AdminDashboardController implements ContentHost {
         VBox root = new VBox(14);
         root.setPadding(new Insets(4));
 
-        List<Listing> pending = DataStore.getInstance().getListingsByStatus(ListingStatus.PENDING_REVIEW);
+        List<Listing> pending;
+        try {
+            pending = listingService.findListings(
+                    ListingFilter.none().withStatus(ListingStatus.PENDING_REVIEW));
+        } catch (ServiceException ex) {
+            Dialogs.problem(ex);
+            return;
+        }
+
         if (pending.isEmpty()) {
-            Label empty = new Label("No listings awaiting review.");
-            empty.setStyle("-fx-text-fill: #2e7d32; -fx-font-size: 15px;");
+            Label empty = new Label("No listings are waiting for review.");
+            empty.getStyleClass().add("text-muted");
             root.getChildren().add(empty);
         } else {
-            FlowPane grid = ListingCard.grid(); // shared listing card
+            FlowPane grid = ListingCard.grid();
             for (Listing l : pending) {
                 grid.getChildren().add(createPendingCard(l));
             }
             root.getChildren().add(grid);
         }
+
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
         contentPane.getChildren().add(scroll);
     }
 
     private ListingCard createPendingCard(Listing l) {
-        // Title, seller username and full name, category, photos, type, meet-up location,
-        // submitted date and status (Task 3.2) on the shared listing card
         ListingCard card = new ListingCard(l, UserRole.ADMIN);
 
         Button approve = new Button("Approve");
         approve.getStyleClass().addAll("btn-success", "btn-sm");
         approve.setOnAction(e -> {
-            Alert conf = new Alert(Alert.AlertType.CONFIRMATION, "Approve this listing?");
-            conf.showAndWait().ifPresent(r -> {
-                if (r == ButtonType.OK) {
-                    DataStore store = DataStore.getInstance();
-                    store.transaction(l::approve);
-                    store.addListingAction(new ListingActionRecord(l.getId(),
-                            SessionManager.getCurrentUser().getUsername(), ListingAction.APPROVE_LISTING, null));
-                    store.addNotification(new Notification(l.getSellerUsername(), NotificationCategory.LISTING_APPROVED,
-                            "Your listing '" + l.getTitle() + "' is now live!"));
-                    showReview();
-                }
-            });
+            if (!Dialogs.confirm("Approve listing", "Approve '" + l.getTitle() + "'?")) {
+                return;
+            }
+            try {
+                listingService.approveListing(l.getId());
+                Dialogs.info("Listing approved", "'" + l.getTitle() + "' is now live.");
+            } catch (ServiceException ex) {
+                Dialogs.problem(ex);
+            }
+            showReview();
         });
 
         Button reject = new Button("Reject");
         reject.getStyleClass().addAll("btn-danger", "btn-sm");
         reject.setOnAction(e -> {
-            TextInputDialog reasonDialog = new TextInputDialog();
-            reasonDialog.setTitle("Rejection Reason");
-            reasonDialog.setHeaderText("Please provide a reason for rejection");
-            reasonDialog.setContentText("Reason:");
-            reasonDialog.showAndWait().ifPresent(reason -> {
-                if (reason.isBlank()) {
-                    new Alert(Alert.AlertType.WARNING, "Reason is required.").showAndWait();
-                    return;
-                }
-                DataStore store = DataStore.getInstance();
-                store.transaction(l::reject);
-                // The reason is stored in the action record (ListingActionRecord in the domain class diagram)
-                store.addListingAction(new ListingActionRecord(l.getId(),
-                        SessionManager.getCurrentUser().getUsername(), ListingAction.REJECT_LISTING, reason));
-                store.addNotification(new Notification(l.getSellerUsername(), NotificationCategory.LISTING_REJECTED,
-                        "Your listing '" + l.getTitle() + "' was rejected. Reason: " + reason));
-                showReview();
-            });
+            Optional<String> reason = Dialogs.askReason("Reject listing",
+                    "Why is '" + l.getTitle() + "' rejected? The seller will see this reason.");
+            if (reason.isEmpty()) {
+                return;
+            }
+            try {
+                listingService.rejectListing(l.getId(), reason.get());
+                Dialogs.info("Listing rejected", "The seller has been notified.");
+            } catch (ServiceException ex) {
+                Dialogs.problem(ex);
+            }
+            showReview();
         });
 
         card.addActions(approve, reject);
@@ -321,16 +338,15 @@ public class AdminDashboardController implements ContentHost {
 
     @FXML
     private void showNotifications() {
-        setActive(btnNotifications, "Admin Notifications");
-        show("Admin Notifications", new NotificationBoard(new NotificationService())); // UC4, shared board
+        setActive(btnNotifications, "Notification Board");   // was "Admin Notifications"
+        show("Notification Board", new NotificationBoard(new NotificationService()));
     }
 
     @FXML
     private void showProfile() {
-        setActive(btnProfile, "My Profile");
-        show("My Profile", new ProfileView(new ProfileService(), this::showGreeting)); // UC3, shared profile screen
+        setActive(btnProfile, "Manage Profile");             // was "My Profile"
+        show("Manage Profile", new ProfileView(new ProfileService(), this::showGreeting));
     }
-
     @FXML
     private void logout() {
         SessionManager.logout();

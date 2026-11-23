@@ -568,7 +568,7 @@ public class AdminDashboardController implements ContentHost {
                 sb.append("Locations:  ").append(locs).append('\n');
             }
             sb.append('\n');
-            sb.append("Rating:         ").append(Formats.averageRating(details.averageRating(), details.ratingCount())).append('\n');
+            sb.append("Rating:         ").append(Formats.averageRating(details.rating())).append('\n');
             sb.append("Active listings: ").append(details.activeListings().size()).append('\n');
             sb.append("Completed deals: ").append(details.completedDeals().size()).append('\n');
             sb.append("Open offers:     ").append(details.pendingOffers().size());
@@ -893,8 +893,8 @@ public class AdminDashboardController implements ContentHost {
         HBox.setHgrow(info, Priority.ALWAYS);
         Label name = new Label(s.fullName() + " (@" + s.username() + ")");
         name.getStyleClass().add("section-title");
-        Label meta = new Label(Formats.averageRating(s.averageRating(), s.totalReviews())
-                + " · " + s.totalReviews() + " review(s) · " + s.completedDeals() + " completed deal(s)");
+        Label meta = new Label(Formats.averageRating(s.rating())
+                + " · " + s.rating().count() + " review(s) · " + s.completedDeals() + " completed deal(s)");
         meta.getStyleClass().add("text-muted");
         info.getChildren().addAll(name, meta);
 

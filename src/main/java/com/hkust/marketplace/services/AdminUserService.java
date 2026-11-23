@@ -5,9 +5,9 @@ import com.hkust.marketplace.models.*;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.OptionalDouble;
 import com.hkust.marketplace.data.DeletedAccount;
 
+import java.util.Objects;
 /**
  * Control class for Manage All User Accounts (Task 3.3): view the user list, view one user,
  * edit, deactivate and activate. Every method starts with the admin role check, and every
@@ -81,8 +81,7 @@ public class AdminUserService {
 
             List<Offer> related = new ArrayList<>(store.getOffersByBuyer(user.getUsername()));
             List<Listing> active = List.of();
-            OptionalDouble average = OptionalDouble.empty();
-            int ratingCount = 0;
+            RatingSummary rating = RatingSummary.NONE;
             String residenceHall = null;
             String bio = null;
             List<MeetupLocation> locations = List.of();
@@ -99,14 +98,13 @@ public class AdminUserService {
                                 || l.getStatus() == ListingStatus.LENT)
                         .toList();
                 related.addAll(store.getOffersForSeller(user.getUsername()));
-                average = store.getAverageRating(user.getUsername());
-                ratingCount = store.getRatingCount(user.getUsername());
+                rating = store.getRating(user.getUsername());
             }
 
             List<Offer> completed = related.stream().filter(Offer::isCompleted).toList();
             List<Offer> pending = related.stream().filter(Offer::isOpen).toList();
             return new UserDetails(user, residenceHall, bio, locations, active,
-                    completed, pending, average, ratingCount);
+                    completed, pending, rating);
         });
     }
 
@@ -132,7 +130,7 @@ public class AdminUserService {
         if (nameError != null) {
             throw new ServiceException(nameError);
         }
-        if (locations != null && locations.contains(null)) {
+        if (locations != null && locations.stream().anyMatch(Objects::isNull)) {
             throw new ServiceException("A meet-up location is not valid.");
         }
 
@@ -274,10 +272,8 @@ public class AdminUserService {
                 Listing listing = store.getListingOf(offer);
                 String otherUser = user instanceof Buyer ? listing.getSellerUsername() : offer.getBuyerUsername();
 
-                if (store.findUser(otherUser) != null) {
-                    notifications.send(otherUser, NotificationCategory.OFFER_UPDATE,
-                            "An offer on '" + listing.getTitle() + "' was cancelled because an account was deleted.");
-                }
+                notifications.send(otherUser, NotificationCategory.OFFER_UPDATE,
+                        "An offer on '" + listing.getTitle() + "' was cancelled because an account was deleted.");
             }
         });
     }

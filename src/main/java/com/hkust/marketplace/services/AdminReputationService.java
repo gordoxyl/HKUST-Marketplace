@@ -41,8 +41,7 @@ public class AdminReputationService {
                 .filter(u -> text.isEmpty() || u.getUsername().toLowerCase(Locale.ROOT).contains(text))
                 .sorted(Comparator.comparing(User::getUsername))
                 .map(u -> new SellerRating(u.getUsername(), u.getFullName(),
-                        store.getAverageRating(u.getUsername()),
-                        store.getRatingCount(u.getUsername()),
+                        store.getRating(u.getUsername()),
                         store.getCompletedDealCount(u.getUsername())))
                 .toList());
     }

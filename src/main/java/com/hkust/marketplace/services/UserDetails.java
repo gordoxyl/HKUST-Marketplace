@@ -3,10 +3,10 @@ package com.hkust.marketplace.services;
 import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.MeetupLocation;
 import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.models.RatingSummary;
 import com.hkust.marketplace.models.User;
 
 import java.util.List;
-import java.util.OptionalDouble;
 
 /**
  * Everything the admin sees for VIEW USER (Manage All User Accounts, Task 3.3 step 6.1):
@@ -20,12 +20,12 @@ import java.util.OptionalDouble;
  * @param activeListings      a seller's Live, Reserved or Lent listings, empty for a buyer
  * @param completedDeals      completed deals of the user, as buyer or as seller
  * @param pendingOffers       open (Pending or Countered) offers of the user, as buyer or as seller
- * @param averageRating       a seller's average rating (hidden reviews not counted), empty if none
- * @param ratingCount         a seller's number of shown ratings, 0 for a buyer
+ * @param rating              a seller's rating, hidden reviews not counted; {@code RatingSummary.NONE}
+ *                            for a buyer or a seller without ratings
  */
 public record UserDetails(User user, String residenceHall, String bio,
                           List<MeetupLocation> preferredLocations,
                           List<Listing> activeListings,
                           List<Offer> completedDeals,
                           List<Offer> pendingOffers,
-                          OptionalDouble averageRating, int ratingCount) { }
+                          RatingSummary rating) { }

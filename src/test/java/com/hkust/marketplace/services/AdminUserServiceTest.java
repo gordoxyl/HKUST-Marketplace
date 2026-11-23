@@ -12,6 +12,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Arrays;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -371,6 +373,240 @@ class AdminUserServiceTest {
     void manageUsers_UC2_SR3_deleteUser_noSession_isDenied() {
         support.logout();
         assertThrows(AccessDeniedException.class, () -> service.deleteUser("bea", "Spam"));
+    }
+
+
+    // ---------- helpers for Task 3.3 edit and view ----------
+
+    /** A sale of the seller that the buyer bought and marked complete. */
+    private Offer completedDeal(String seller, String buyer, double price) {
+        SaleListing listing = Fixtures.live(Fixtures.sale(support.store, seller, price));
+        Offer deal = support.store.addOffer(new PriceOffer(listing.getId(), buyer, price));
+        DealRules rules = new DealRules(support.store);
+        rules.accept(deal);
+        rules.complete(deal);
+        return deal;
+    }
+
+    private Review reviewed(String seller, String buyer, int rating) {
+        Offer deal = completedDeal(seller, buyer, 50);
+        return support.store.addReview(new Review(deal.getId(), rating, "comment"));
+    }
+
+    // ---------- Task 3.3 edit user ----------
+
+    @Test
+    void manageUsers_task33_edit_buyer_savesTrimmedName_logsAudit_notifiesUser() {
+        support.clock.advance(Duration.ofHours(1));
+
+        service.editUser("bea", "  Bea Chan  ", "   ", List.of());
+
+        assertEquals("Bea Chan", support.store.findUser("bea").getFullName());
+        List<AuditLogEntry> log = support.store.getAuditLog();
+        assertEquals(1, log.size());
+        assertEquals("Edit account", log.get(0).getActionTaken());
+        assertEquals("ada", log.get(0).getAdminUsername());
+        assertEquals("bea", log.get(0).getUsername());
+        assertNull(log.get(0).getReason());
+        assertEquals(support.clock.now(), log.get(0).getActionDate());
+        List<Notification> toUser = notificationsOf("bea", NotificationCategory.ACCOUNT_CHANGE);
+        assertEquals(1, toUser.size());
+        assertEquals("An administrator updated your account details.", toUser.get(0).getContent());
+    }
+
+    @Test
+    void manageUsers_task33_edit_seller_savesBio_andLocationsInOrderWithoutDuplicates() {
+        service.editUser("sam", "Sam Lee", "  Sells books ",
+                List.of(MeetupLocation.LIBRARY, MeetupLocation.NORTH_GATE, MeetupLocation.LIBRARY));
+
+        Seller sam = (Seller) support.store.findUser("sam");
+        assertEquals("Sam Lee", sam.getFullName());
+        assertEquals("Sells books", sam.getBio());
+        assertEquals(List.of(MeetupLocation.LIBRARY, MeetupLocation.NORTH_GATE), sam.getPreferredMeetupLocations());
+        assertEquals(1, support.store.getAuditLog().size());
+        assertEquals(1, notificationsOf("sam", NotificationCategory.ACCOUNT_CHANGE).size());
+    }
+
+    @Test
+    void manageUsers_task33_edit_seller_blankBioIsNoBio_andNullLocationsMeansNone() {
+        service.editUser("sam", "Sam Seller", "Old bio", List.of(MeetupLocation.LIBRARY));
+
+        service.editUser("sam", "Sam Seller", "   ", null);
+
+        Seller sam = (Seller) support.store.findUser("sam");
+        assertNull(sam.getBio());
+        assertTrue(sam.getPreferredMeetupLocations().isEmpty());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    void manageUsers_A1_edit_blankFullName_isRefusedAndChangesNothing(String name) {
+        ServiceException e = assertThrows(ServiceException.class,
+                () -> service.editUser("bea", name, null, null));
+
+        assertEquals(AccountValidator.validateFullName(name), e.getMessage());
+        assertEquals("Buyer bea", support.store.findUser("bea").getFullName());
+        assertTrue(support.store.getAuditLog().isEmpty());
+        assertTrue(notificationsOf("bea", NotificationCategory.ACCOUNT_CHANGE).isEmpty());
+    }
+
+    @Test
+    void manageUsers_A1_edit_locationListWithNull_isRefused() {
+        ServiceException e = assertThrows(ServiceException.class, () -> service.editUser("sam", "Sam",
+                null, Arrays.asList(MeetupLocation.LIBRARY, null)));
+
+        assertEquals("A meet-up location is not valid.", e.getMessage());
+        assertEquals("Seller sam", support.store.findUser("sam").getFullName());
+        assertTrue(support.store.getAuditLog().isEmpty());
+    }
+
+    @Test
+    void manageUsers_task33_edit_unknownUser_isRefused() {
+        ServiceException e = assertThrows(ServiceException.class,
+                () -> service.editUser("nobody", "Nobody", null, null));
+
+        assertEquals("This account no longer exists.", e.getMessage());
+        assertTrue(support.store.getAuditLog().isEmpty());
+    }
+
+    @Test
+    void manageUsers_task33_edit_adminAccount_isRefused() {
+        ServiceException e = assertThrows(ServiceException.class,
+                () -> service.editUser("ada", "New Name", null, null));
+
+        assertEquals("An admin account cannot be edited here.", e.getMessage());
+        assertEquals("Admin ada", support.store.findUser("ada").getFullName());
+        assertTrue(support.store.getAuditLog().isEmpty());
+    }
+
+    @Test
+    void manageUsers_task33_edit_buyerWithBio_isRefused() {
+        ServiceException e = assertThrows(ServiceException.class,
+                () -> service.editUser("bea", "Bea", "Hi", null));
+
+        assertEquals("Only a seller has a bio and meet-up locations.", e.getMessage());
+        assertEquals("Buyer bea", support.store.findUser("bea").getFullName());
+        assertTrue(support.store.getAuditLog().isEmpty());
+    }
+
+    @Test
+    void manageUsers_task33_edit_buyerWithLocations_isRefused() {
+        ServiceException e = assertThrows(ServiceException.class,
+                () -> service.editUser("bea", "Bea", null, List.of(MeetupLocation.LIBRARY)));
+
+        assertEquals("Only a seller has a bio and meet-up locations.", e.getMessage());
+        assertTrue(support.store.getAuditLog().isEmpty());
+    }
+
+    @Test
+    void manageUsers_UC2_SR3_edit_nonAdminSessions_areDenied() {
+        support.logout();
+        assertThrows(AccessDeniedException.class, () -> service.editUser("bea", "New", null, null));
+        support.loginAsBuyer();
+        assertThrows(AccessDeniedException.class, () -> service.editUser("bea", "New", null, null));
+        support.loginAsSeller();
+        assertThrows(AccessDeniedException.class, () -> service.editUser("bea", "New", null, null));
+
+        assertEquals("Buyer bea", support.store.findUser("bea").getFullName());
+        assertTrue(support.store.getAuditLog().isEmpty());
+    }
+
+    // ---------- Task 3.3 view user ----------
+
+    @Test
+    void manageUsers_task33_view_buyer_showsResidenceHall_noListingsOrRating_andSplitsDeals() {
+        Buyer hal = new Buyer("hal", "Hal Hall", "hash", "Hall 3");
+        support.store.addUser(hal);
+        Offer completed = completedDeal("sam", "hal", 100);
+        SaleListing other = support.liveSale();
+        Offer open = offer(other, "hal", 40);
+
+        UserDetails d = service.getUserDetails("hal");
+
+        assertSame(hal, d.user());
+        assertEquals("Hall 3", d.residenceHall());
+        assertNull(d.bio());
+        assertTrue(d.preferredLocations().isEmpty());
+        assertTrue(d.activeListings().isEmpty());
+        assertEquals(List.of(completed), d.completedDeals());
+        assertEquals(List.of(open), d.pendingOffers());
+        assertEquals(RatingSummary.NONE, d.rating());
+    }
+
+    @Test
+    void manageUsers_task33_view_seller_activeListingsAreLiveReservedAndLentOnly() {
+        SaleListing live = support.liveSale();
+        SaleListing reserved = Fixtures.moveTo(Fixtures.sale(support.store, "sam", 100), ListingStatus.RESERVED);
+        LendListing lent = Fixtures.moveTo(Fixtures.lend(support.store, "sam", Duration.ofDays(7)), ListingStatus.LENT);
+        Fixtures.moveTo(Fixtures.sale(support.store, "sam", 100), ListingStatus.SOLD);
+        Fixtures.moveTo(Fixtures.sale(support.store, "sam", 100), ListingStatus.REMOVED);
+        support.pendingSale();
+
+        UserDetails d = service.getUserDetails("sam");
+
+        assertEquals(Set.of(live, reserved, lent), Set.copyOf(d.activeListings()));
+        assertEquals(3, d.activeListings().size());
+        assertNull(d.residenceHall());
+    }
+
+    @Test
+    void manageUsers_task33_view_seller_showsBioAndLocations() {
+        service.editUser("sam", "Sam Seller", "Sells books", List.of(MeetupLocation.LIBRARY));
+
+        UserDetails d = service.getUserDetails("sam");
+
+        assertEquals("Sells books", d.bio());
+        assertEquals(List.of(MeetupLocation.LIBRARY), d.preferredLocations());
+    }
+
+    @Test
+    void manageUsers_task33_view_seller_ratingLeavesOutHiddenReviews() {
+        reviewed("sam", "bea", 5);
+        reviewed("sam", "ben", 3);
+        Review hidden = reviewed("sam", "bea", 1);
+        support.store.transaction(() -> hidden.setHidden(true));
+
+        RatingSummary rating = service.getUserDetails("sam").rating();
+
+        assertEquals(2, rating.count());
+        assertEquals(4.0, rating.average());
+    }
+
+    @Test
+    void manageUsers_task33_view_seller_includesDealsAndOffersOnTheirListings() {
+        Offer completed = completedDeal("sam", "bea", 100);
+        SaleListing book = support.liveSale();
+        Offer open = offer(book, "ben", 80);
+
+        UserDetails d = service.getUserDetails("sam");
+
+        assertEquals(List.of(completed), d.completedDeals());
+        assertEquals(List.of(open), d.pendingOffers());
+    }
+
+    @Test
+    void manageUsers_task33_view_unknownUser_isRefused() {
+        ServiceException e = assertThrows(ServiceException.class, () -> service.getUserDetails("nobody"));
+
+        assertEquals("This account no longer exists.", e.getMessage());
+    }
+
+    @Test
+    void manageUsers_task33_view_adminAccount_isRefused() {
+        ServiceException e = assertThrows(ServiceException.class, () -> service.getUserDetails("ada"));
+
+        assertEquals("This account no longer exists.", e.getMessage());
+    }
+
+    @Test
+    void manageUsers_UC2_SR3_view_nonAdminSessions_areDenied() {
+        support.logout();
+        assertThrows(AccessDeniedException.class, () -> service.getUserDetails("sam"));
+        support.loginAsBuyer();
+        assertThrows(AccessDeniedException.class, () -> service.getUserDetails("sam"));
+        support.loginAsSeller();
+        assertThrows(AccessDeniedException.class, () -> service.getUserDetails("sam"));
     }
 
 }

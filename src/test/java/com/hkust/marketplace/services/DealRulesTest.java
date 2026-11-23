@@ -3,6 +3,7 @@ package com.hkust.marketplace.services;
 import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.models.*;
 import com.hkust.marketplace.testsupport.Fixtures;
+import com.hkust.marketplace.testsupport.SameMoment;
 import com.hkust.marketplace.testsupport.TestClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,8 +13,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -257,29 +259,22 @@ class DealRulesTest {
         // UC12 Special Requirement 5, a critical subsystem: run both returns at once, many times
         for (int round = 0; round < 50; round++) {
             BorrowRequest request = acceptedBorrow(Duration.ofSeconds(5));
-            CountDownLatch start = new CountDownLatch(1);
-            ExecutorService pool = Executors.newFixedThreadPool(2);
-            List<Future<Boolean>> results = new ArrayList<>();
+            List<Callable<Boolean>> returns = new ArrayList<>();
             for (boolean automatic : new boolean[]{false, true}) {
-                results.add(pool.submit(() -> {
-                    start.await();
+                returns.add(() -> {
                     try {
                         rules.returnItem(request, automatic);
                         return true;
                     } catch (ServiceException alreadyReturned) {
                         return false;
                     }
-                }));
+                });
             }
-            start.countDown();
-            int successes = 0;
-            for (Future<Boolean> result : results) {
-                if (result.get(10, TimeUnit.SECONDS)) {
-                    successes++;
-                }
+            List<Boolean> returned;
+            try (SameMoment moment = new SameMoment(2)) {
+                returned = moment.run(returns);
             }
-            pool.shutdown();
-            assertEquals(1, successes, "round " + round);
+            assertEquals(1, Collections.frequency(returned, true), "round " + round);
             assertEquals(ListingStatus.LIVE, store.getListingOf(request).getStatus());
         }
     }

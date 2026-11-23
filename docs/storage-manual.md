@@ -353,7 +353,7 @@ A second call throws `IllegalStateException`. Never call `markAdded` yourself, a
 | `addOffer` | The listing exists, and the offer type matches the listing type (`Offer.canBeMadeOn`). It does **not** check availability: call `isAvailable` in the same transaction (UC5 SR2) |
 | `getOrCreateThread` | The listing exists, and the user is a `Buyer` |
 | `addReview` | The offer exists, is completed, and has no review yet. Otherwise `IllegalStateException` |
-| `addReport` | One report per buyer and listing. It returns `false` for a duplicate. It does not check that the listing exists |
+| `addReport` | The listing exists and the reporter is a `Buyer`; otherwise `IllegalArgumentException` (regression log R10). One report per buyer and listing: it returns `false` for a duplicate |
 | `addListing` | **None.** The caller must ensure the seller exists and is a `Seller` (Manage Marketplace Listings A4) |
 
 ### 7.4 Time
@@ -424,11 +424,12 @@ Abbreviations: **R** = read (`read`/`select`, never saves); **W** = write (a tra
 | `findReviewForOffer`, `getAllReviews` | R | |
 | `getReviewsForSeller` | R | Excludes reviews the admin hid (R5). Use it for every screen except the admin's moderation |
 | `getReviewsForSellerIncludingHidden` | R | Admin moderation only |
-| `getAverageRating`, `getRatingCount` | R | Shown reviews only |
+| `getRating` | R | A `RatingSummary`: the count and average of the shown ratings as one value (no average without ratings) |
+| `getAverageRating`, `getRatingCount` | R | Shown reviews only; the same figures as `getRating` |
 | `getSellerUsername(Review)`, `getBuyerUsername(Review)` | R | Through the reviewed offer |
 | `getReviewerName(Review)` | R | `DELETED_USER` ("Deleted User") if the writer's account was deleted (the username is retired), otherwise the writer's full name |
 | `getTotalViews`, `getOffersReceivedCount`, `getCompletedDealCount` | R | Derived seller statistics (class diagram `/` attributes) |
-| `addReport(Report)` | W | `false` for a duplicate |
+| `addReport(Report)` | W | `false` for a duplicate; `IllegalArgumentException` for an unknown listing or a reporter who is not a buyer (R10) |
 | `hasReported`, `getReportsForListing`, `getAllReports` | R | |
 
 **Notifications and admin records**
@@ -817,7 +818,7 @@ Backups from the scripts restore the same way.
 | `data/PersistenceTest` | `firstRun_createsTheDemoData_andSavesIt`, `restart_loadsExactlyWhatWasSaved`, `changes_areSavedAutomatically_andIdsContinueAfterARestart`, `adminDeactivationAndReviewHiding_surviveARestart` (R4), `stateChangesInsideATransaction_areSaved`, `readsDoNotSave_andUnchangedDataIsNotRewritten`, `nestedTransactions_saveOnceAtTheEnd`, `unreadableFile_isKept_demoDataIsUsed_andTheProblemIsReported`, `auditEntryWithASnapshot_alsoWritesAnEncryptedTxtFile` |
 | `data/EncryptedJsonStorageTest` | The cipher round trip with fresh nonces, refusal of changed data, other keys and foreign files, nothing to load on a first run, no readable text in the save file, no leftover temp file, set-aside under a new name, encrypted audit and photo files, traversal guards, dev photos in their own folder |
 | `data/AppStoreStartupTest` (+ `testsupport/StoreProbe`, run in a child JVM) | Creating a store never touches the app's folder, and the app store creates and saves the demo data (R3) |
-| `data/DataStoreTest` | Queries, rules, and `concurrentClaims_onlyTheFirstSucceeds` (a thread test of the lock) |
+| `data/DataStoreTest` | Queries, rules (including `addReport`'s checks, R10), and `concurrentClaims_onlyTheFirstSucceeds` (a thread test of the lock) |
 | `data/AccountDeletionTest`, `services/AccountDeletionFlowTest` | `deleteAccount` semantics and the end-to-end flow |
 | `data/SeedDataTest` | Seeded dates happen in order (R1), and the demo states |
 | `services/BorrowingDeadlineServiceTest`, `BorrowingDeadlineTimerTest` | The second writer. `runWithNoDeadlineReached_changesNothing_andDoesNotSave` counts saves with a storage spy; the timer tests run the real thread |

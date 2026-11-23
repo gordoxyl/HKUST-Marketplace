@@ -176,6 +176,12 @@
     -fx-text-fill: -text-secondary;
     -fx-font-size: 12px;
 }
+/* A problem with what was chosen, shown next to it instead of in a dialog
+   (controllers/buyer/DealHistoryView: UC11 A2); the same red as the login screens' message */
+.field-error {
+    -fx-text-fill: -danger;
+    -fx-font-size: 13px;
+}
 /* A value that is shown but cannot be changed (UC3 Special Requirement 1) */
 .fixed-value {
     -fx-font-weight: bold;
@@ -303,33 +309,18 @@
     -fx-background-color: white;
     -fx-background-radius: 10;
     -fx-padding: 14 18;
-    -fx-border-color: #e8f0f8;
+    /* An unread notification: a gold edge on the left (UC4) */
     -fx-border-width: 0 0 0 4;
-    -fx-border-color: #A68137;
+    -fx-border-color: -hkust-gold;
 }
 /* A notification already marked as read (UC4): grey edge, faded */
 .notif-read {
-    -fx-border-color: #d0d7e2;
+    -fx-border-color: -border;
     -fx-opacity: 0.75;
 }
 .notif-text {
     -fx-text-fill: -text-primary;
     -fx-font-size: 13px;
-}
-
-/* ---------- Placeholder screen (the skeleton's Favourites) ---------- */
-.placeholder-icon {
-    -fx-font-size: 48px;
-    -fx-text-fill: -hkust-gold;
-}
-.placeholder-title {
-    -fx-font-size: 18px;
-    -fx-font-weight: bold;
-    -fx-text-fill: -hkust-blue;
-}
-.placeholder-text {
-    -fx-text-fill: -text-secondary;
-    -fx-text-alignment: center;
 }
 
 /* ---------- Reviews (ui/ReviewList; UC8) ---------- */

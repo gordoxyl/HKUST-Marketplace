@@ -3,7 +3,8 @@
 Audience: the AI agent (or developer) building the **Admin portal**. Everything below already exists,
 is tested, and is meant to be **called, not rewritten**. Package root: `com.hkust.marketplace`.
 Written 2026-11-10 by the shared-core owner (Gordon, Buyer role); updated 2026-11-17 for the client's
-answers. If something here does not match the code, the code and its Javadoc win; then tell Gordon.
+answers, and 2026-11-22 for the buyers' reports (UC9). If something here does not match the code, the
+code and its Javadoc win; then tell Gordon.
 
 Read first: `README.md` section "Shared Core", `docs/state-machines.md`, `docs/regression-log.md`.
 The use-case spec `Diagrams and Use-Case Specifications.pdf` is authoritative for behaviour, except where
@@ -101,11 +102,12 @@ void dataStoreCalls(DataStore store, String username, String seller, String list
     // ratings (Seller Ratings tab: average, total reviews, completed deals)
     store.getAllReviews(); store.getReviewsForSellerIncludingHidden(seller);   // admin moderation ONLY
     store.getReviewsForSeller(seller);            // what everyone else sees: hidden excluded
-    store.getAverageRating(seller); store.getRatingCount(seller);              // hidden excluded automatically
+    store.getRating(seller);                      // RatingSummary: count + average as one value, hidden excluded
+    store.getAverageRating(seller); store.getRatingCount(seller);              // the same figures one by one
     store.getCompletedDealCount(seller); store.getOffersReceivedCount(seller); store.getTotalViews(seller);
     store.getSellerUsername(review); store.getBuyerUsername(review);
     store.getReviewerName(review);                // the writer's name on screens: "Deleted User" once deleted (answer #6)
-    // reports
+    // reports, filed by buyers through Report Listing (UC9, services/ReportService)
     store.getAllReports(); store.getReportsForListing(listingId);
 }
 ```
@@ -177,6 +179,22 @@ Notifying the deleted account itself is skipped silently by `NotificationService
 `ANNOUNCEMENT`, `OFFER_UPDATE`. Categories the admins receive: `LISTING_SUBMITTED`, `LISTING_REPORTED`,
 `ACCOUNT_CHANGE`.
 
+**Reports reach you from the buyer's Report Listing (UC9, built 2026-11-22).** Each report notifies every admin,
+in category `LISTING_REPORTED`: "'<title>' by <seller's name> was reported (<reason>) and needs moderation."
+- The notification names neither the reporter nor the details. Show both in VIEW (5.1) from
+  `getReportsForListing`, as your `AdminListingService.getListingDetails` already does: only the admin may see
+  who reported (UC9 SR4).
+- A buyer reports any listing they can open: a live one, or one they have a deal on, whatever its status,
+  so reports on Sold, Given or Removed listings are possible (assumption 80).
+- "Reported" in the spec's Status filter is not a listing status. It is a permanent filter, "has at least
+  one report", as your `ListingFilter.reportedOnly` already treats it (assumption 87).
+- `store.addReport` now refuses a report on a listing that doesn't exist, or by an account that is not a
+  buyer (`IllegalArgumentException`, regression log R10). Test data you add yourself must use a real
+  buyer and listing, as `AdminListingQueryTest` already does.
+- `ReportServiceTest.aReport_fromTheDetailScreen_toTheAdminsBoard_andTheAdminsViewOfTheListing` calls your
+  `findListings(ListingFilter.none().withReportedOnly(true))` and `getListingDetails(id).reports()`. If
+  you change either, change that test too (or tell Gordon).
+
 ### `PhotoService`
 `importPhoto(Path)` → photo id (PNG/JPEG/GIF/BMP; admin allowed), for editing or adding a listing
 (5.4, 5.6). Then `listing.setPhotos(ids)`. Show with `new PhotoFrame(id, w, h)` (Task 3.2 "Photos").
@@ -193,7 +211,7 @@ The average rating is recalculated automatically.
   `TextInputs.required(text)` → `Optional<String>` for the same check inside a service.
 - `Formats`: `date`, `dateTime` (to the minute), `borrowTime` and `period` (to the second: use them for borrow
   periods and due dates), `price`, `duration`, `stars(int)`,
-  `averageRating(OptionalDouble, count)`, `preview(text, max)`, `NONE`.
+  `averageRating(RatingSummary)` ("4.5 / 5 (2 ratings)" or "No ratings yet"; give it `store.getRating(seller)`), `datePickerConverter()` (date pickers show "21 Nov 2026"), `preview(text, max)`, `NONE`.
 - `OfferText`: `summary(offer)`, `counter(offer)`, `status(offer)` ("Completed" once completed),
   `badgeStyle(offer)`, `kind(offer)`: for the All Deals table.
 - `ListingCard`: `new ListingCard(listing, UserRole.ADMIN).addActions(approveBtn, rejectBtn)` shows seller

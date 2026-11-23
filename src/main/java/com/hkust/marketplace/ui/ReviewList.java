@@ -1,19 +1,19 @@
 package com.hkust.marketplace.ui;
 
+import com.hkust.marketplace.models.RatingSummary;
 import com.hkust.marketplace.models.Review;
 import javafx.scene.control.Label;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 import java.util.List;
-import java.util.OptionalDouble;
 
 /**
  * A seller's average rating and reviews, each with its stars, date, comment and the seller's
  * reply, if any. Shown the same way on the listing detail screen and on the seller's profile
  * (UC8 step 7 and A3; Task 1.10).
  * <pre>{@code
- * new ReviewList(profile.averageRating(), profile.ratingCount(), profile.reviews())
+ * new ReviewList(profile.rating(), profile.reviews())
  * }</pre>
  * Pass only the reviews that may be shown: {@code DataStore.getReviewsForSeller} already
  * leaves out the ones the admin hid. The wording is in the tested {@link ReviewText}.
@@ -25,12 +25,10 @@ import java.util.OptionalDouble;
  */
 public class ReviewList extends VBox {
 
-    // The average is passed on as DataStore.getAverageRating returns it: empty means
-    // "No ratings yet" (View Seller Stats A2), so callers never unwrap or wrap it.
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    public ReviewList(OptionalDouble averageRating, int ratingCount, List<Review> reviews) {
+    /** @param rating the seller's rating, counted from the same reviews ({@code SellerProfile} makes sure of it) */
+    public ReviewList(RatingSummary rating, List<Review> reviews) {
         super(8);
-        Label heading = new Label(ReviewText.ratingHeading(averageRating, ratingCount));
+        Label heading = new Label(ReviewText.ratingHeading(rating));
         heading.getStyleClass().add("listing-card-title");
         getChildren().add(heading);
         for (Review review : reviews) {

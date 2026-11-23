@@ -176,10 +176,9 @@ public class ChatView extends VBox implements Refreshable {
      * Claim Item. The action runs Make Offer; afterwards the history is reloaded, so a new
      * offer appears in it. Nothing is shown when the viewer is the seller.
      */
-    public ChatView setOnMakeOffer(Runnable makeOffer) {
+    public void setOnMakeOffer(Runnable makeOffer) {
         this.makeOffer = makeOffer;
         showActions();
-        return this;
     }
 
     /**
@@ -189,10 +188,9 @@ public class ChatView extends VBox implements Refreshable {
      * list of countered offers, each with the buyer's terms and the seller's counter, and Agree
      * runs {@code agree}. Nothing is shown when the viewer is the seller.
      */
-    public ChatView setOnAgreeToCounter(AgreeToCounter agree) {
+    public void setOnAgreeToCounter(AgreeToCounter agree) {
         this.agreeToCounter = agree;
         showActions();
-        return this;
     }
 
     /**
@@ -201,10 +199,9 @@ public class ChatView extends VBox implements Refreshable {
      * with Accept, Decline and Counter (no Counter for a claim), which call {@code answers}.
      * Without answers, or when the viewer is the buyer, nothing is shown.
      */
-    public ChatView setOnAnswerOffer(OfferAnswers answers) {
+    public void setOnAnswerOffer(OfferAnswers answers) {
         this.offerAnswers = answers;
         showActions();
-        return this;
     }
 
     /** Reloads the history, for example after an offer was made or the other party wrote. */

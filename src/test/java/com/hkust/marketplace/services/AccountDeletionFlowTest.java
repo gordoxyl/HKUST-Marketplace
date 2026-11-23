@@ -174,8 +174,8 @@ class AccountDeletionFlowTest {
         SellerProfile profile = new BrowseService(store).getSellerProfile("sam"); // UC8 A3
 
         assertEquals(List.of(review), profile.reviews());
-        assertEquals(1, profile.ratingCount());
-        assertEquals(4.0, profile.averageRating().orElseThrow());
+        assertEquals(1, profile.rating().count());
+        assertEquals(4.0, profile.rating().average());
         assertEquals("Deleted User", store.getReviewerName(review));
     }
 }

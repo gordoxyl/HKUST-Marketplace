@@ -28,7 +28,7 @@ Before asking, each earlier question was checked against the task list (`F2026_P
 | F1 | **A deal that cannot be finished.** If a buyer is deleted or deactivated after their purchase or claim is accepted (or the seller is deactivated during it), may the seller close it, or cancel it and put the listing back to Live (Task 2.5)? | No new action. The listing stays Reserved until the admin removes it (Task 3.7). | Shared core (Gordon); Seller (Daniel); Admin (Jack) | no change |
 | F2 | **The admin removing a listing that is not Live.** May the admin remove a Reserved or Lent listing, and is the buyer whose deal was already accepted told (Tasks 1.8 and 3.7)? | Remove is allowed in every status except Sold, Given and Removed. The accepted deal can still be completed. Only buyers with open offers are notified. | Admin (Jack) | no change |
 | F3 | **Lending duration.** Is it the longest period a buyer may request (Tasks 2.3 and 1.5)? | A guide, not a maximum: it fills in the borrow form, and the seller counters or declines a longer request. | Buyer (Gordon); Seller (Daniel) | no change |
-| F4 | **"User account changes / updates" on the admin's board (Task 3.6).** Which events are meant? | No list from the client, so the team chooses (last list below). Today the admins are notified only of submitted listings, and a user's own profile change notifies no one. | Admin (Jack) | for the team to decide |
+| F4 | **"User account changes / updates" on the admin's board (Task 3.6).** Which events are meant? | **Decided by the team on 24 Nov:** the board is the accounts' history. Every change to a buyer's or seller's account goes to every admin (category `ACCOUNT_CHANGE`), the admin who acted included: a new account; a change users make to their own profile, naming the fields and never their values; and the admin's edit, deactivation, reactivation and deletion, with the reason where one is required. An admin's own profile is not included. The user is told on screen about their own change, and on their board about an admin's change (6.2.4, 6.3.1). The wording is in `services/AccountNotices`. | Shared core (Gordon): new accounts, profile changes; Admin (Jack): the four admin actions | decided; shared core built 24 Nov, admin actions to do |
 
 Settled by the requirements or by an answer above (not asked):
 
@@ -54,6 +54,6 @@ For the team to decide:
 - Which user fields the admin can edit (Task 3.3).
 - The Seller Ratings user filter: by seller, by buyer, or both.
 - Whether reviews about a deleted seller stay in the admin's ratings overview (today: they are kept).
-- Which account events reach the admin's Notification Board (Task 3.6, question F4). Keep it small, as the client advised.
+- ~~Which account events reach the admin's Notification Board (Task 3.6, question F4)~~: decided 24 Nov, see F4 above.
 
 No more questions are planned: on 21 Nov the client asked us not to go deeper on edge cases. Decide such cases in the team and add them to the list above. If the client does answer more, update this page and the guides that state the old rule.

@@ -1,10 +1,8 @@
 package com.hkust.marketplace.ui;
 
-import com.hkust.marketplace.models.ListingType;
 import com.hkust.marketplace.models.Offer;
 import com.hkust.marketplace.services.ChatEntry;
 import com.hkust.marketplace.services.Conversation;
-import com.hkust.marketplace.services.OfferAction;
 
 /**
  * The wording of the shared chat screens ({@link ChatView}, {@link ChatList}), kept apart
@@ -66,93 +64,40 @@ public final class ChatText {
 
     // ---------- Deal actions beside Send (assumptions register 71) ----------
 
-    /**
-     * The seller's button while the chat has open offers: "Answer Offers (2)" for a sale,
-     * "Answer Requests (1)" for a loan, and "Answer Claim" for a giveaway, which has at most one
-     * claim waiting.
-     */
-    public static String answerButton(ListingType type, int open) {
-        return switch (type) {
-            case SELL -> "Answer Offers (" + open + ")";
-            case LEND -> "Answer Requests (" + open + ")";
-            case GIVEAWAY -> "Answer Claim";
-        };
-    }
+    /** The buyer's deal action while the seller has countered, and the title of its dialog. */
+    public static final String AGREE_TO_COUNTER = "Agree to Counter";
+    /** The button in that dialog that agrees to the chosen counter. */
+    public static final String AGREE = "Agree";
 
     /** The buyer's button while the seller has countered: "Agree to Counter (1)". */
     public static String agreeButton(int countered) {
-        return "Agree to Counter (" + countered + ")";
-    }
-
-    /** The window title of the dialog that picks an offer: what its button says, without the count. */
-    public static String choiceTitle(Conversation conversation) {
-        if (conversation.viewerIsBuyer()) {
-            return "Agree to Counter";
-        }
-        return switch (conversation.listing().getType()) {
-            case SELL -> "Answer Offers";
-            case LEND -> "Answer Requests";
-            case GIVEAWAY -> "Answer Claim";
-        };
+        return AGREE_TO_COUNTER + " (" + countered + ")";
     }
 
     /**
-     * The heading of that dialog: who the offers are from or the counters by, and the listing.
-     * "Answer an offer from Alice Chan" with "'Calculus Textbook', newest first" under it; the
-     * order is mentioned only when there is more than one offer.
+     * The seller's button while the chat has open offers: "Respond in Offers &amp; Requests (2)".
+     * It is a link: the seller answers offers only on Offers &amp; Requests (Task 2.5).
      */
-    public static String choiceHeading(Conversation conversation, int offers) {
-        String what;
-        if (conversation.viewerIsBuyer()) {
-            what = "Agree to a counter from ";
-        } else {
-            what = switch (conversation.listing().getType()) {
-                case SELL -> "Answer an offer from ";
-                case LEND -> "Answer a borrow request from ";
-                case GIVEAWAY -> "Answer a claim from ";
-            };
-        }
-        return what + conversation.otherPartyName() + "\n'" + conversation.listing().getTitle() + "'"
-                + (offers > 1 ? ", newest first" : "");
+    public static String respondButton(int waiting) {
+        return "Respond in Offers & Requests (" + waiting + ")";
     }
 
     /**
-     * One offer in that dialog, with the time it was made. The seller sees what the buyer
-     * proposed: "Price offer: HK$ 160 · 18 Nov 2026 22:16". The buyer sees their offer and the
-     * seller's counter: "HK$ 150 → HK$ 170 · 18 Nov 2026 22:13".
+     * The heading of the Agree to Counter dialog: whose counters, and the listing. "Agree to a
+     * counter from Sam Lee" with "'Calculus Textbook', newest first" under it; the order is
+     * mentioned only when there is more than one counter.
      */
-    public static String choice(Conversation conversation, Offer offer) {
-        String what = conversation.viewerIsBuyer()
-                ? OfferText.terms(offer) + OfferText.counterTerms(offer).map(counter -> " → " + counter).orElse("")
-                : OfferText.summary(offer);
-        return what + " · " + Formats.dateTime(offer.getOfferDate());
-    }
-
-    /** The words on an action's button in that dialog. */
-    public static String actionLabel(OfferAction action) {
-        return switch (action) {
-            case ACCEPT -> "Accept";
-            case DECLINE -> "Decline";
-            case COUNTER -> "Counter";
-            case AGREE_TO_COUNTER -> "Agree";
-        };
+    public static String choiceHeading(Conversation conversation, int counters) {
+        return "Agree to a counter from " + conversation.otherPartyName() + "\n'" + conversation.listing().getTitle()
+                + "'" + (counters > 1 ? ", newest first" : "");
     }
 
     /**
-     * Where to scroll the history so that one line is in the middle of the visible part, with
-     * the messages before and after it around it (UC6 A2 step 4).
-     * @param top            the line's distance from the top of the history
-     * @param height         the line's height
-     * @param contentHeight  the height of the whole history
-     * @param viewportHeight the height of the part that is visible
-     * @return the scroll position from 0 (top) to 1 (bottom); 0 if the whole history is visible
+     * One countered offer in that dialog: the buyer's terms, the seller's counter, and when the
+     * offer was made: "HK$ 150 → HK$ 170 · 18 Nov 2026 22:13".
      */
-    public static double scrollPosition(double top, double height, double contentHeight, double viewportHeight) {
-        double scrollable = contentHeight - viewportHeight;
-        if (scrollable <= 0) {
-            return 0;
-        }
-        double offset = top + height / 2 - viewportHeight / 2;
-        return Math.max(0, Math.min(1, offset / scrollable));
+    public static String choice(Offer offer) {
+        return OfferText.terms(offer) + OfferText.counterTerms(offer).map(counter -> " → " + counter).orElse("")
+                + " · " + Formats.dateTime(offer.getOfferDate());
     }
 }

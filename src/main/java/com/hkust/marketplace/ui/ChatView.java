@@ -6,7 +6,6 @@ import com.hkust.marketplace.services.ChatService;
 import com.hkust.marketplace.services.Conversation;
 import com.hkust.marketplace.services.OfferAction;
 import com.hkust.marketplace.services.ServiceException;
-import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -25,7 +24,6 @@ import javafx.scene.layout.VBox;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
 
 /**
  * The chat screen, the same in the buyer and seller portals (UC6 Chat About Listing; Tasks
@@ -41,12 +39,14 @@ import java.util.function.Function;
  * is there only while it is that person's turn (assumptions register 71):
  * <ul>
  *   <li>the buyer portal adds Make Offer with {@link #setOnMakeOffer} and, while the seller
- *       has countered, Agree to Counter with {@link #setOnAgreeToCounter} (UC5 step 1);</li>
- *   <li>the seller portal adds Answer Offers (or Answer Requests, Answer Claim) with
- *       {@link #setOnAnswerOffer}: the same actions as Offers &amp; Requests.</li>
+ *       has countered, Agree to Counter with {@link #setOnAgreeToCounter} (UC5 step 1). Agree
+ *       to Counter opens {@code OfferChoiceDialog}, which lists the countered offers and
+ *       returns the one chosen;</li>
+ *   <li>the seller portal adds Respond in Offers &amp; Requests with
+ *       {@link #setOnRespondToOffers}: a link, not an answer. The seller answers offers only on
+ *       Offers &amp; Requests (Task 2.5; Manage Offers &amp; Requests 3.3-3.5), so the chat does
+ *       not repeat that screen's actions.</li>
  * </ul>
- * Agree to Counter and Answer Offers open {@code OfferChoiceDialog}, which lists the offers to
- * act on and returns the one chosen with its action.
  *
  * <p>All rules (who may read and write, empty messages, searching, which offers allow which
  * action) are in the tested {@link ChatService}, {@link Conversation} and {@link OfferAction};
@@ -76,8 +76,8 @@ public class ChatView extends VBox implements Refreshable {
     private Runnable makeOffer;
     /** The buyer's Agree to Counter; null while it is not offered. */
     private AgreeToCounter agreeToCounter;
-    /** The seller's answers to offers; null while they are not offered. */
-    private OfferAnswers offerAnswers;
+    /** The seller's link to Offers &amp; Requests; null while it is not offered. */
+    private RespondToOffers respondToOffers;
 
     public ChatView(ChatService service, Conversation conversation) {
         super(12);
@@ -125,49 +125,22 @@ public class ChatView extends VBox implements Refreshable {
     }
 
     /**
-     * What the seller can do with an open offer from inside the chat: the same actions as Manage
-     * Offers &amp; Requests 3.3-3.5 (UI consistency; assumptions register 71).
-     *
-     * <p>The chat calls these on the JavaFX thread, after the seller chose one offer in the
-     * answer dialog and that dialog closed. Each method returns true if the offer was changed,
-     * and false if the seller cancelled or the service refused. The chat reloads after every
-     * call, and on false opens the answer dialog again. An implementation:
-     * <ul>
-     *   <li>asks its usual confirmation or counter form, calls the seller's service with
-     *       {@code offer.getId()} (the object may be out of date), and shows the outcome;</li>
-     *   <li>catches {@code ServiceException}, shows it, and returns false;</li>
-     *   <li>does not change the screen: the seller stays in the chat.</li>
-     * </ul>
-     * Interactions added later come as {@code default} methods, so an implementation keeps
-     * compiling (open-closed principle, Lecture 18).
+     * What the seller's Respond in Offers &amp; Requests does: the seller portal shows its Manage
+     * Offers &amp; Requests screen with these offers marked ({@link Scrolling#JUMP_HIGHLIGHT}) and
+     * the newest one scrolled into view ({@link Scrolling#bringIntoView}), as a chat search
+     * result is (UC6 A2 step 4). The seller answers them there (Task 2.5; assumptions register 71).
      */
-    public interface OfferAnswers {
+    @FunctionalInterface
+    public interface RespondToOffers {
 
         /**
-         * Pre: the offer was Pending when the dialog opened, is on this chat's listing, and the
-         * viewer is that listing's seller.
-         * Post: if true, the offer is Accepted (the service also declined the other open
-         * offers); if false, nothing changed.
-         * @param offer the offer the seller chose
-         * @return true if the offer was accepted
+         * Pre: the viewer is this chat's seller, and {@code waiting} is not empty: this chat's open
+         * offers (Pending or Countered) of its one buyer on its one listing, newest first, as
+         * {@link Conversation#offersToActOn()} lists them.
+         * Post: the chat itself has changed nothing.
+         * @param waiting the offers the seller is to answer
          */
-        boolean accept(Offer offer);
-
-        /**
-         * Pre: the offer was open (Pending or Countered) when the dialog opened.
-         * Post: if true, the offer is Declined; if false, nothing changed.
-         * @param offer the offer the seller chose
-         * @return true if the offer was declined
-         */
-        boolean decline(Offer offer);
-
-        /**
-         * Pre: the offer was Pending and is a price offer or a borrow request, never a claim.
-         * Post: if true, the offer is Countered; if false, nothing changed.
-         * @param offer the offer the seller chose
-         * @return true if the offer was countered
-         */
-        boolean counter(Offer offer);
+        void respond(List<Offer> waiting);
     }
 
     /**
@@ -194,13 +167,13 @@ public class ChatView extends VBox implements Refreshable {
     }
 
     /**
-     * Gives the chat the seller's answers. While the chat has open offers, the seller sees
-     * Answer Offers (n), Answer Requests (n) or Answer Claim; it opens the list of open offers
-     * with Accept, Decline and Counter (no Counter for a claim), which call {@code answers}.
-     * Without answers, or when the viewer is the buyer, nothing is shown.
+     * Gives the chat the seller's link to Offers &amp; Requests. While the chat has open offers,
+     * the seller sees "Respond in Offers &amp; Requests (n)", which calls {@code respond} with
+     * them. The chat never shows the seller Accept, Decline or Counter. Without the link, or
+     * when the viewer is the buyer, nothing is shown.
      */
-    public void setOnAnswerOffer(OfferAnswers answers) {
-        this.offerAnswers = answers;
+    public void setOnRespondToOffers(RespondToOffers respond) {
+        this.respondToOffers = respond;
         showActions();
     }
 
@@ -367,16 +340,15 @@ public class ChatView extends VBox implements Refreshable {
             }));
         }
         if (agreeToCounter != null && waiting > 0) {
-            dealActions.getChildren().add(actionButton(ChatText.agreeButton(waiting),
-                    () -> actOnOffers(choice -> agreeToCounter.agree(choice.offer()))));
+            dealActions.getChildren().add(actionButton(ChatText.agreeButton(waiting), this::chooseCounterAndAgree));
         }
     }
 
-    /** Answer Offers, Answer Requests or Answer Claim while the chat has open offers ({@code waiting}). */
+    /** The link to Offers &amp; Requests while the chat has open offers ({@code waiting} of them). */
     private void addSellerActions(int waiting) {
-        if (offerAnswers != null && waiting > 0) {
-            dealActions.getChildren().add(actionButton(ChatText.answerButton(conversation.listing().getType(), waiting),
-                    () -> actOnOffers(this::answer)));
+        if (respondToOffers != null && waiting > 0) {
+            dealActions.getChildren().add(actionButton(ChatText.respondButton(waiting),
+                    () -> respondToOffers.respond(conversation.offersToActOn())));
         }
     }
 
@@ -387,43 +359,33 @@ public class ChatView extends VBox implements Refreshable {
         return button;
     }
 
-    /** The seller's chosen answer, passed to the seller portal's {@link OfferAnswers}. */
-    private boolean answer(OfferChoiceDialog.Choice choice) {
-        return switch (choice.action()) {
-            case ACCEPT -> offerAnswers.accept(choice.offer());
-            case DECLINE -> offerAnswers.decline(choice.offer());
-            case COUNTER -> offerAnswers.counter(choice.offer());
-            case AGREE_TO_COUNTER -> throw new IllegalStateException("A seller cannot agree to a counter.");
-        };
-    }
-
     /**
-     * Lists the offers the viewer can act on, runs the chosen action and reloads the chat. When
-     * an action is cancelled or refused (it returns false), the list opens again, until the
-     * viewer cancels it, an action succeeds, or no offer is left to act on.
+     * Lists the offers the seller countered, runs the buyer's Agree to Counter on the chosen one
+     * and reloads the chat. When the buyer cancels the Make Offer form or it is refused (agree
+     * returns false), the list opens again, until the buyer cancels it, an offer is submitted, or
+     * no countered offer is left.
      */
-    private void actOnOffers(Function<OfferChoiceDialog.Choice, Boolean> act) {
+    private void chooseCounterAndAgree() {
         while (true) {
-            List<Offer> offers = conversation.offersToActOn();
-            if (offers.isEmpty()) {
+            List<Offer> countered = conversation.offersToActOn();
+            if (countered.isEmpty()) {
                 return;
             }
-            Optional<OfferChoiceDialog.Choice> chosen = OfferChoiceDialog.show(conversation, offers);
+            Optional<Offer> chosen = OfferChoiceDialog.show(conversation, countered);
             if (chosen.isEmpty()) {
                 return; // cancelled
             }
-            OfferChoiceDialog.Choice choice = chosen.get();
-            // Precondition of the action (Lecture 10): the dialog enables only what the offer allows
-            assert conversation.actionsFor(choice.offer()).contains(choice.action())
-                    : "the chosen offer allows " + choice.action();
-            boolean changed;
+            // Precondition of AgreeToCounter (Lecture 10): the dialog lists only countered offers
+            assert conversation.actionsFor(chosen.get()).contains(OfferAction.AGREE_TO_COUNTER)
+                    : "the chosen offer is countered";
+            boolean submitted;
             try {
-                changed = act.apply(choice);
-            } catch (ServiceException e) { // a safety net: the action should show its own problems
+                submitted = agreeToCounter.agree(chosen.get());
+            } catch (ServiceException e) { // a safety net: Make Offer shows its own problems
                 Dialogs.problem(e);
-                changed = false;
+                submitted = false;
             }
-            if (!reload() || changed) {
+            if (!reload() || submitted) {
                 return;
             }
         }
@@ -501,15 +463,13 @@ public class ChatView extends VBox implements Refreshable {
             return;
         }
         if (highlighted != null) {
-            highlighted.getStyleClass().remove("chat-highlight");
+            highlighted.getStyleClass().remove(Scrolling.JUMP_HIGHLIGHT);
         }
         highlighted = rows.get(position);
-        highlighted.getStyleClass().add("chat-highlight");
+        highlighted.getStyleClass().add(Scrolling.JUMP_HIGHLIGHT);
 
         followNewest = false;
-        Bounds line = highlighted.getBoundsInParent();
-        historyPane.setVvalue(ChatText.scrollPosition(line.getMinY(), line.getHeight(),
-                history.getHeight(), historyPane.getViewportBounds().getHeight()));
+        Scrolling.bringIntoView(historyPane, highlighted);
     }
 
     private void hideSearch() {
@@ -517,7 +477,7 @@ public class ChatView extends VBox implements Refreshable {
         searchResults.setVisible(false);
         searchResults.setManaged(false);
         if (highlighted != null) {
-            highlighted.getStyleClass().remove("chat-highlight");
+            highlighted.getStyleClass().remove(Scrolling.JUMP_HIGHLIGHT);
             highlighted = null;
         }
     }

@@ -70,10 +70,11 @@ Log in as `alice` unless a step says otherwise.
 
 ## Chat deal actions (UC5, UC6 and Manage Offers & Requests; assumptions register 71)
 
-The offer cards in a chat only show history and status. The deal actions are buttons under Send, the same in both
-portals, and each appears only while it is that person's turn. The seller's buttons need the seller portal to
-give its chats its answers (`ChatView.setOnAnswerOffer`); scenarios marked *needs the seller's wiring* wait for that.
-The rules behind them are tested in `OfferActionTest`, `ConversationTest` and `ChatTextTest`.
+The offer cards in a chat only show history and status. The deal actions are buttons under Send, and each appears
+only while it is that person's turn. The buyer makes offers there (UC5). The seller answers offers only on Offers &
+Requests (Task 2.5), which the chat links to with the chat's offers marked. The link needs the seller portal to give
+its chats the hook (`ChatView.setOnRespondToOffers`); scenarios marked *needs the seller's wiring* wait for that.
+The rules behind them are tested in `OfferActionTest`, `ConversationTest`, `ChatTextTest` and `ScrollingTest`.
 
 | ID | Flow | Steps | Expected result | Result |
 |---|---|---|---|---|
@@ -82,12 +83,12 @@ The rules behind them are tested in `OfferActionTest`, `ConversationTest` and `C
 | AT-CHAT-03 | Buyer: the Agree dialog | Press Agree to Counter (1). | A dialog "Agree to a counter from Charlie Lee" lists "HK$ 220 → HK$ 260 · <time>" already chosen, with Agree on the left and Cancel on the right. | |
 | AT-CHAT-04 | Buyer: cancelling goes back to the list | Press Agree, then Cancel in the Make Offer form. | The Agree dialog opens again. Cancel closes it; nothing was submitted. | |
 | AT-CHAT-05 | Buyer: agreeing | Press Agree, then Submit in the form (it starts with 260). | "Your price offer … was submitted: HK$ 260." A new Pending HK$ 260 card appears; the countered one stays Countered, so Agree to Counter (1) remains. | |
-| AT-CHAT-06 | Seller: Answer Offers *(needs the seller's wiring)* | As `charlie`, open the chat of an offer that is waiting. | Under Send: **Answer Offers (n)**, n being the open offers (Pending and Countered). No offer card has a button. | |
-| AT-CHAT-07 | Seller: the answer dialog *(needs the seller's wiring)* | Press Answer Offers (n). | The open offers, newest first and the newest chosen, with their status badges. Accept, Decline and Counter on the left, Cancel on the right. The list scrolls after about four offers. | |
-| AT-CHAT-08 | Seller: a Countered offer can only be declined *(needs the seller's wiring)* | Choose a Countered offer in the list. | Only Decline and Cancel can be pressed, as on Offers & Requests. | |
-| AT-CHAT-09 | Seller: accepting from the chat *(needs the seller's wiring)* | Choose a Pending offer, press Accept and confirm. | The seller stays in the chat. The card says Accepted, the other open offers Declined, and the Answer button is gone. | |
-| AT-CHAT-10 | Seller: a cancelled confirmation *(needs the seller's wiring)* | Press Decline, then cancel the confirmation. | The answer dialog opens again; nothing changed. | |
-| AT-CHAT-11 | Seller: loans and giveaways *(needs the seller's wiring)* | As `diana`, open Bob's borrow request on the calculator, then a claim on the desk lamp. | **Answer Requests (1)**, whose Counter asks for dates; **Answer Claim**, whose dialog has no Counter. | |
+| AT-CHAT-06 | Seller: the link under Send *(needs the seller's wiring)* | As `charlie`, open the chat of an offer that is waiting (from Chats, or Offers & Requests → Open Chat). | Under Send: **Respond in Offers & Requests (n)**, n being the chat's open offers (Pending and Countered). No Accept, Decline or Counter anywhere in the chat; no offer card has a button. | |
+| AT-CHAT-07 | Seller: the link opens the offers *(needs the seller's wiring)* | Press Respond in Offers & Requests (n). | Offers & Requests opens, with its sidebar button active. The listing's card is in view, and the chat's open offers are marked light yellow, the same yellow as a chat search result. Offers from other chats are not marked. | |
+| AT-CHAT-08 | Seller: the mark stays until the screen changes *(needs the seller's wiring)* | Wait a few seconds. Then open My Listings, and come back to Offers & Requests from the sidebar. | The mark stays while the screen is open. Coming back from the sidebar, nothing is marked. | |
+| AT-CHAT-09 | Seller: answering, then back to the chat *(needs the seller's wiring)* | From AT-CHAT-07, Accept the marked offer and confirm. Then open the chat again from Chats. | "Offer accepted"; the list is shown again, without marks. In the chat, the card says Accepted, the listing's other open offers say Declined, and the link is gone. | |
+| AT-CHAT-10 | Seller: two open offers from one buyer *(needs the seller's wiring)* | After AT-CHAT-05 (Alice agreed to Charlie's counter, so her countered offer and her new offer are both open), as `charlie` open that chat and press Respond in Offers & Requests (2). | Both of Alice's offers are marked, and the newest is in view. The Countered one has only Decline enabled; the Pending one has Accept, Decline and Counter. | |
+| AT-CHAT-11 | Seller: loans and giveaways *(needs the seller's wiring)* | As `diana`, open Bob's borrow request on the calculator, then a claim on the desk lamp, and press the link in each. | The same label in both, Respond in Offers & Requests (1). The request is marked and has Counter, which asks for dates; the claim is marked and has no Counter. | |
 
 ## UC7 Manage My Deals (Task 1.6)
 
@@ -194,3 +195,24 @@ reset: 02, 03, 07 and 09 use the report made in 01.
 | AT-UC9-08 | SR4 | Log in as `charlie`. Open Notification Board and every seller screen. | Nothing about the reports or who made them. | |
 | AT-UC9-09 | SR3 across a restart | Close the app and start it again. As `bob`, press Report Listing on the charger. | "You have already reported this listing." | |
 | AT-UC9-10 | A listing the buyer has a deal on (assumption 80) | As `bob`, open My Deals, and press View Listing on the completed *Organic Chemistry Textbook* (Sold). Press Report Listing. | The form opens: a buyer can report a listing they dealt on, even after it was sold. | |
+
+## UC4 View Notifications, admin: the accounts' history (Task 3.6; client question F4)
+
+The admin's Notification Board lists every change to a buyer's or seller's account, in category "Account Change", so
+it reads as the accounts' history (decided 24 Nov). A profile notice names the fields that changed, never their
+values. An admin's own profile, and a save that changes nothing, send nothing. Users are not notified of their own
+changes (the screen confirms them). The four admin actions (07-10) need the admin portal's wiring (Jack's
+`AdminUserService`). Run in order after a reset; each scenario ends by opening `admin`'s Notification Board.
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-UC4A-01 | New buyer account | Buyer portal → Register: username `nina`, full name `Nina Ng`, password and confirmation `Secure#123`. Then log in as `admin`. | "Account Change": "New buyer account: Nina Ng (@nina)." | |
+| AT-UC4A-02 | New seller account | Seller portal → Register `sunny`, `Sunny Lam`, `Secure#123`. Then as `admin`. | "New seller account: Sunny Lam (@sunny)." | |
+| AT-UC4A-03 | A buyer's own change | As `alice`: Manage Profile, full name `Alice Chan Tai`, new password and confirmation `New#Pass2`, Save. Open her Notification Board. Then as `admin`. | Alice sees "Profile updated" and no new notification. `admin`: "Alice Chan Tai (@alice) changed their profile: full name, password." The password does not appear. | |
+| AT-UC4A-04 | A seller's own change | As `charlie`: Manage Profile, change the bio, tick one more meet-up location, Save. Then as `admin`. | "Charlie Lee (@charlie) changed their profile: bio, meet-up locations." | |
+| AT-UC4A-05 | A save that changes nothing | As `bob`: Manage Profile, Save without changing anything. Then as `admin`. | "Profile updated" for Bob; no new Account Change notice for `admin`. | |
+| AT-UC4A-06 | An admin's own profile | As `admin`: Manage Profile, change the full name, Save. Open the Notification Board. | No Account Change notice about it. | |
+| AT-UC4A-07 | Admin edits an account *(needs the admin's wiring)* | As `admin`: Manage All Users → Edit `bob` → full name `Bob Wong Jr` → OK. | `bob` gets "An administrator updated your account details." `admin`: "@admin edited the buyer account of Bob Wong Jr (@bob)." | |
+| AT-UC4A-08 | Admin deactivates *(needs the admin's wiring)* | Deactivate `bob`, reason `Spam`. | "@admin deactivated the buyer account of Bob Wong Jr (@bob). Reason: Spam" | |
+| AT-UC4A-09 | Admin reactivates *(needs the admin's wiring)* | Activate `bob`. | "@admin reactivated the buyer account of Bob Wong Jr (@bob)." | |
+| AT-UC4A-10 | Admin deletes *(needs the admin's wiring)* | Delete `nina` (from 01), reason `Test account`. | "@admin deleted the buyer account of Nina Ng (@nina). Reason: Test account" | |

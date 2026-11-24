@@ -179,6 +179,27 @@ Notifying the deleted account itself is skipped silently by `NotificationService
 `ANNOUNCEMENT`, `OFFER_UPDATE`. Categories the admins receive: `LISTING_SUBMITTED`, `LISTING_REPORTED`,
 `ACCOUNT_CHANGE`.
 
+**The admins' board is the accounts' history (Task 3.6; client question F4, decided 24 Nov).** Every change to a
+buyer's or seller's account goes to every admin, the admin who acted included, as
+`sendToAdmins(NotificationCategory.ACCOUNT_CHANGE, ...)`. The wording comes from the package-private
+`services/AccountNotices`, so every notice reads the same way:
+
+| Event | Sent by | Wording (`AccountNotices`) |
+|---|---|---|
+| New account | `AuthService.registerBuyer` / `registerSeller` (shared core, built) | `created(user)`: "New buyer account: Bea Chan (@bea)." |
+| The user's own profile change | `ProfileService.updateProfile` / `updateSellerProfile` (shared core, built) | `profileChanged(user, fields)`: "Bea Chan (@bea) changed their profile: full name, password." |
+| Edit (Task 3.3) | your `AdminUserService.editUser` | `edited(user, admin)`: "@ada edited the buyer account of Bea Chan (@bea)." |
+| Deactivate (6.2) | your `deactivateUser` | `deactivated(user, admin, cleanReason)`: "@ada deactivated the buyer account of Bea Chan (@bea). Reason: Spam" |
+| Reactivate (6.3) | your `activateUser` | `activated(user, admin)`: "@ada reactivated the buyer account of Bea Chan (@bea)." |
+| Delete (6.4) | your `deleteUser` | `deleted(user, admin, cleanReason)`: "@ada deleted the buyer account of Bea Chan (@bea). Reason: Spam" |
+
+- Send it inside the action's own transaction, after the user's own notice (in `deleteUser`, after the audit
+  entry; `user` was read before `store.deleteAccount`, so its name and role are still there).
+- A profile notice names the fields that changed, never their values, so no password reaches the board. An
+  admin's own profile (Task 3.4) sends nothing, and neither does a save that changes nothing.
+- The user is not notified of their own change: the screen confirms it (UC3 step 9). An admin's change is
+  notified to the user as before ("An administrator updated your account details.", 6.2.4, 6.3.1).
+
 **Reports reach you from the buyer's Report Listing (UC9, built 2026-11-22).** Each report notifies every admin,
 in category `LISTING_REPORTED`: "'<title>' by <seller's name> was reported (<reason>) and needs moderation."
 - The notification names neither the reporter nor the details. Show both in VIEW (5.1) from

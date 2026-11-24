@@ -70,10 +70,11 @@ Log in as `alice` unless a step says otherwise.
 
 ## Chat deal actions (UC5, UC6 and Manage Offers & Requests; assumptions register 71)
 
-The offer cards in a chat only show history and status. The deal actions are buttons under Send, the same in both
-portals, and each appears only while it is that person's turn. The seller's buttons need the seller portal to
-give its chats its answers (`ChatView.setOnAnswerOffer`); scenarios marked *needs the seller's wiring* wait for that.
-The rules behind them are tested in `OfferActionTest`, `ConversationTest` and `ChatTextTest`.
+The offer cards in a chat only show history and status. The deal actions are buttons under Send, and each appears
+only while it is that person's turn. The buyer makes offers there (UC5). The seller answers offers only on Offers &
+Requests (Task 2.5), which the chat links to with the chat's offers marked. The link needs the seller portal to give
+its chats the hook (`ChatView.setOnRespondToOffers`); scenarios marked *needs the seller's wiring* wait for that.
+The rules behind them are tested in `OfferActionTest`, `ConversationTest`, `ChatTextTest` and `ScrollingTest`.
 
 | ID | Flow | Steps | Expected result | Result |
 |---|---|---|---|---|
@@ -82,12 +83,12 @@ The rules behind them are tested in `OfferActionTest`, `ConversationTest` and `C
 | AT-CHAT-03 | Buyer: the Agree dialog | Press Agree to Counter (1). | A dialog "Agree to a counter from Charlie Lee" lists "HK$ 220 → HK$ 260 · <time>" already chosen, with Agree on the left and Cancel on the right. | |
 | AT-CHAT-04 | Buyer: cancelling goes back to the list | Press Agree, then Cancel in the Make Offer form. | The Agree dialog opens again. Cancel closes it; nothing was submitted. | |
 | AT-CHAT-05 | Buyer: agreeing | Press Agree, then Submit in the form (it starts with 260). | "Your price offer … was submitted: HK$ 260." A new Pending HK$ 260 card appears; the countered one stays Countered, so Agree to Counter (1) remains. | |
-| AT-CHAT-06 | Seller: Answer Offers *(needs the seller's wiring)* | As `charlie`, open the chat of an offer that is waiting. | Under Send: **Answer Offers (n)**, n being the open offers (Pending and Countered). No offer card has a button. | |
-| AT-CHAT-07 | Seller: the answer dialog *(needs the seller's wiring)* | Press Answer Offers (n). | The open offers, newest first and the newest chosen, with their status badges. Accept, Decline and Counter on the left, Cancel on the right. The list scrolls after about four offers. | |
-| AT-CHAT-08 | Seller: a Countered offer can only be declined *(needs the seller's wiring)* | Choose a Countered offer in the list. | Only Decline and Cancel can be pressed, as on Offers & Requests. | |
-| AT-CHAT-09 | Seller: accepting from the chat *(needs the seller's wiring)* | Choose a Pending offer, press Accept and confirm. | The seller stays in the chat. The card says Accepted, the other open offers Declined, and the Answer button is gone. | |
-| AT-CHAT-10 | Seller: a cancelled confirmation *(needs the seller's wiring)* | Press Decline, then cancel the confirmation. | The answer dialog opens again; nothing changed. | |
-| AT-CHAT-11 | Seller: loans and giveaways *(needs the seller's wiring)* | As `diana`, open Bob's borrow request on the calculator, then a claim on the desk lamp. | **Answer Requests (1)**, whose Counter asks for dates; **Answer Claim**, whose dialog has no Counter. | |
+| AT-CHAT-06 | Seller: the link under Send *(needs the seller's wiring)* | As `charlie`, open the chat of an offer that is waiting (from Chats, or Offers & Requests → Open Chat). | Under Send: **Respond in Offers & Requests (n)**, n being the chat's open offers (Pending and Countered). No Accept, Decline or Counter anywhere in the chat; no offer card has a button. | |
+| AT-CHAT-07 | Seller: the link opens the offers *(needs the seller's wiring)* | Press Respond in Offers & Requests (n). | Offers & Requests opens, with its sidebar button active. The listing's card is in view, and the chat's open offers are marked light yellow, the same yellow as a chat search result. Offers from other chats are not marked. | |
+| AT-CHAT-08 | Seller: the mark stays until the screen changes *(needs the seller's wiring)* | Wait a few seconds. Then open My Listings, and come back to Offers & Requests from the sidebar. | The mark stays while the screen is open. Coming back from the sidebar, nothing is marked. | |
+| AT-CHAT-09 | Seller: answering, then back to the chat *(needs the seller's wiring)* | From AT-CHAT-07, Accept the marked offer and confirm. Then open the chat again from Chats. | "Offer accepted"; the list is shown again, without marks. In the chat, the card says Accepted, the listing's other open offers say Declined, and the link is gone. | |
+| AT-CHAT-10 | Seller: two open offers from one buyer *(needs the seller's wiring)* | After AT-CHAT-05 (Alice agreed to Charlie's counter, so her countered offer and her new offer are both open), as `charlie` open that chat and press Respond in Offers & Requests (2). | Both of Alice's offers are marked, and the newest is in view. The Countered one has only Decline enabled; the Pending one has Accept, Decline and Counter. | |
+| AT-CHAT-11 | Seller: loans and giveaways *(needs the seller's wiring)* | As `diana`, open Bob's borrow request on the calculator, then a claim on the desk lamp, and press the link in each. | The same label in both, Respond in Offers & Requests (1). The request is marked and has Counter, which asks for dates; the claim is marked and has no Counter. | |
 
 ## UC7 Manage My Deals (Task 1.6)
 

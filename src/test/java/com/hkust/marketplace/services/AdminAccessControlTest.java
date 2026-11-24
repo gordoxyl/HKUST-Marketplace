@@ -6,6 +6,8 @@ import com.hkust.marketplace.testsupport.AdminTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import com.hkust.marketplace.models.Category;
+import com.hkust.marketplace.models.MeetupLocation;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -50,4 +52,49 @@ class AdminAccessControlTest {
         assertEquals(ListingStatus.PENDING_REVIEW, listing.getStatus());
         assertTrue(support.store.getAllListingActions().isEmpty());
     }
+
+// ---------- editListing ----------
+
+    @Test
+    void manageMarketplaceListings_UC2_SR3_noSession_editIsDenied() {
+        assertThrows(AccessDeniedException.class, () -> service.editListing(listing.getId(),
+                "New Title", "d", Category.TEXTBOOKS, MeetupLocation.LIBRARY, null, null, null));
+        assertEquals("Book", listing.getTitle());                       // nothing changed
+        assertTrue(support.store.getAllListingActions().isEmpty());
+    }
+
+    @Test
+    void manageMarketplaceListings_UC2_SR3_buyerSession_editIsDenied() {
+        support.loginAsBuyer();
+
+        assertThrows(AccessDeniedException.class, () -> service.editListing(listing.getId(),
+                "New Title", "d", Category.TEXTBOOKS, MeetupLocation.LIBRARY, null, null, null));
+        assertEquals("Book", listing.getTitle());
+        assertTrue(support.store.getAllListingActions().isEmpty());
+    }
+
+// ---------- removeListing ----------
+
+    @Test
+    void manageMarketplaceListings_UC2_SR3_noSession_removeIsDenied() {
+        SaleListing live = support.liveSale();
+
+        assertThrows(AccessDeniedException.class, () -> service.removeListing(live.getId(), "Spam"));
+        assertEquals(ListingStatus.LIVE, live.getStatus());
+        assertTrue(support.store.getAllListingActions().isEmpty());
+    }
+
+    @Test
+    void manageMarketplaceListings_UC2_SR3_sellerSession_removeIsDenied() {
+        SaleListing live = support.liveSale();
+        support.loginAsSeller();
+
+        assertThrows(AccessDeniedException.class, () -> service.removeListing(live.getId(), "Spam"));
+        assertEquals(ListingStatus.LIVE, live.getStatus());
+        assertTrue(support.store.getAllListingActions().isEmpty());
+    }
+
+
+
+
 }

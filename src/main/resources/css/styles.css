@@ -373,8 +373,9 @@
     -fx-text-fill: #1a1a2e;
     -fx-font-size: 13px;
 }
-/* The message a search result jumped to (UC6 A2 step 4) */
-.chat-highlight {
+/* The item a search result or a link jumped to (ui/Scrolling.JUMP_HIGHLIGHT): the chat search's message
+   (UC6 A2 step 4), and the offers that a chat's Respond in Offers & Requests marks (assumptions register 71) */
+.jump-highlight {
     -fx-background-color: #ffe9a8;
 }
 .chat-result {

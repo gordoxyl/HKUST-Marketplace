@@ -18,15 +18,17 @@ import static com.hkust.marketplace.services.OfferAction.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for which deal actions a chat offers on an offer (assumptions register 71).
+ * Tests for what each party can do with an offer now (assumptions register 71): the seller's
+ * buttons on Offers &amp; Requests, the only place where offers are answered (Task 2.5), and
+ * the buyer's Agree to Counter in the chat.
  *
  * <p><b>State-based tests</b> (Lecture 13): each kind of offer is moved into each state of the
  * Offer state machine through the model's own events, and the actions for the seller and for
  * the buyer are checked in each.
  *
  * <p><b>A contract test against the seller's service</b> (Lecture 14, integration): in every
- * state where the chat offers something, each answer the chat offers succeeds with
- * {@link SellerOfferService} and each one it does not offer is refused. If either side changes
+ * state where an offer can be answered, each answer that Offers &amp; Requests enables succeeds
+ * with {@link SellerOfferService} and each one it disables is refused. If either side changes
  * its rules, this test fails instead of the screen offering a button that cannot work.
  */
 class OfferActionTest {
@@ -101,20 +103,17 @@ class OfferActionTest {
     }
 
     @Test
-    void theDialogsButtons_areTheSellersAnswers_withoutCounterOnAGiveaway_orTheBuyersAgree() {
-        assertEquals(List.of(ACCEPT, DECLINE, COUNTER), OfferAction.buttons(ListingType.SELL, false));
-        assertEquals(List.of(ACCEPT, DECLINE, COUNTER), OfferAction.buttons(ListingType.LEND, false));
-        assertEquals(List.of(ACCEPT, DECLINE), OfferAction.buttons(ListingType.GIVEAWAY, false));
-        for (ListingType type : ListingType.values()) {
-            assertEquals(List.of(AGREE_TO_COUNTER), OfferAction.buttons(type, true), type.name());
-        }
+    void theSellersButtons_areAcceptDeclineAndCounter_withoutCounterOnAGiveaway() {
+        assertEquals(List.of(ACCEPT, DECLINE, COUNTER), OfferAction.sellerButtons(ListingType.SELL));
+        assertEquals(List.of(ACCEPT, DECLINE, COUNTER), OfferAction.sellerButtons(ListingType.LEND));
+        assertEquals(List.of(ACCEPT, DECLINE), OfferAction.sellerButtons(ListingType.GIVEAWAY)); // claims cannot be countered
     }
 
     // ================= Contract with the seller's service =================
 
     @ParameterizedTest(name = "{0} {1}")
     @CsvSource({"PRICE, PENDING", "PRICE, COUNTERED", "BORROW, PENDING", "BORROW, COUNTERED", "CLAIM, PENDING"})
-    void everyAnswerTheChatOffers_isOneTheSellersServiceAllows_andNoOther(String kind, String state) {
+    void everyAnswerOffersAndRequestsEnables_isOneTheSellersServiceAllows_andNoOther(String kind, String state) {
         for (OfferAction answer : List.of(ACCEPT, DECLINE, COUNTER)) {
             DataStore store = Fixtures.store(Fixtures.clock()); // a fresh deal for each answer
             Seller sam = Fixtures.seller(store, "sam");

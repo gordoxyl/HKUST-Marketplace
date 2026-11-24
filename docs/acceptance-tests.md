@@ -195,3 +195,24 @@ reset: 02, 03, 07 and 09 use the report made in 01.
 | AT-UC9-08 | SR4 | Log in as `charlie`. Open Notification Board and every seller screen. | Nothing about the reports or who made them. | |
 | AT-UC9-09 | SR3 across a restart | Close the app and start it again. As `bob`, press Report Listing on the charger. | "You have already reported this listing." | |
 | AT-UC9-10 | A listing the buyer has a deal on (assumption 80) | As `bob`, open My Deals, and press View Listing on the completed *Organic Chemistry Textbook* (Sold). Press Report Listing. | The form opens: a buyer can report a listing they dealt on, even after it was sold. | |
+
+## UC4 View Notifications, admin: the accounts' history (Task 3.6; client question F4)
+
+The admin's Notification Board lists every change to a buyer's or seller's account, in category "Account Change", so
+it reads as the accounts' history (decided 24 Nov). A profile notice names the fields that changed, never their
+values. An admin's own profile, and a save that changes nothing, send nothing. Users are not notified of their own
+changes (the screen confirms them). The four admin actions (07-10) need the admin portal's wiring (Jack's
+`AdminUserService`). Run in order after a reset; each scenario ends by opening `admin`'s Notification Board.
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-UC4A-01 | New buyer account | Buyer portal → Register: username `nina`, full name `Nina Ng`, password and confirmation `Secure#123`. Then log in as `admin`. | "Account Change": "New buyer account: Nina Ng (@nina)." | |
+| AT-UC4A-02 | New seller account | Seller portal → Register `sunny`, `Sunny Lam`, `Secure#123`. Then as `admin`. | "New seller account: Sunny Lam (@sunny)." | |
+| AT-UC4A-03 | A buyer's own change | As `alice`: Manage Profile, full name `Alice Chan Tai`, new password and confirmation `New#Pass2`, Save. Open her Notification Board. Then as `admin`. | Alice sees "Profile updated" and no new notification. `admin`: "Alice Chan Tai (@alice) changed their profile: full name, password." The password does not appear. | |
+| AT-UC4A-04 | A seller's own change | As `charlie`: Manage Profile, change the bio, tick one more meet-up location, Save. Then as `admin`. | "Charlie Lee (@charlie) changed their profile: bio, meet-up locations." | |
+| AT-UC4A-05 | A save that changes nothing | As `bob`: Manage Profile, Save without changing anything. Then as `admin`. | "Profile updated" for Bob; no new Account Change notice for `admin`. | |
+| AT-UC4A-06 | An admin's own profile | As `admin`: Manage Profile, change the full name, Save. Open the Notification Board. | No Account Change notice about it. | |
+| AT-UC4A-07 | Admin edits an account *(needs the admin's wiring)* | As `admin`: Manage All Users → Edit `bob` → full name `Bob Wong Jr` → OK. | `bob` gets "An administrator updated your account details." `admin`: "@admin edited the buyer account of Bob Wong Jr (@bob)." | |
+| AT-UC4A-08 | Admin deactivates *(needs the admin's wiring)* | Deactivate `bob`, reason `Spam`. | "@admin deactivated the buyer account of Bob Wong Jr (@bob). Reason: Spam" | |
+| AT-UC4A-09 | Admin reactivates *(needs the admin's wiring)* | Activate `bob`. | "@admin reactivated the buyer account of Bob Wong Jr (@bob)." | |
+| AT-UC4A-10 | Admin deletes *(needs the admin's wiring)* | Delete `nina` (from 01), reason `Test account`. | "@admin deleted the buyer account of Nina Ng (@nina). Reason: Test account" | |

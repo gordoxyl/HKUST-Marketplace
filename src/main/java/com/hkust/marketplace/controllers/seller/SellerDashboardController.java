@@ -10,6 +10,7 @@ import com.hkust.marketplace.services.PhotoService;
 import com.hkust.marketplace.services.ProfileService;
 import com.hkust.marketplace.services.SellerListingService;
 import com.hkust.marketplace.services.SellerOfferService;
+import com.hkust.marketplace.services.SellerReviewService;
 import com.hkust.marketplace.services.SellerStats;
 import com.hkust.marketplace.services.SellerStatsService;
 import com.hkust.marketplace.services.ServiceException;
@@ -49,6 +50,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class SellerDashboardController implements ContentHost {
 
@@ -60,6 +62,10 @@ public class SellerDashboardController implements ContentHost {
     /** The seller's answers to the offers in every chat this portal opens (Task 2.5). */
     private final SellerOfferAnswers answers =
             new SellerOfferAnswers(new SellerOfferService(), new DialogPrompts());
+
+    /** The button of the reply form (Manage Reviews step 4). */
+    private static final ButtonType SEND_REPLY =
+            new ButtonType("Send reply", ButtonBar.ButtonData.OK_DONE);
 
     private Button currentActiveBtn;
 
@@ -738,12 +744,18 @@ public class SellerDashboardController implements ContentHost {
         VBox root = new VBox(12);
         root.setPadding(new Insets(4));
 
-        User user = SessionManager.getCurrentUser();
-        List<Review> reviews = DataStore.getInstance()
-                .getReviewsForSeller(user != null ? user.getUsername() : "");
+        List<Review> reviews;
+        try {
+            reviews = new SellerReviewService().reviews();
+        } catch (ServiceException e) {
+            Dialogs.problem(e);
+            return;
+        }
 
         if (reviews.isEmpty()) {
-            root.getChildren().add(new Label("No reviews yet."));
+            Label empty = new Label("No reviews yet. A buyer can review you after a completed deal.");
+            empty.getStyleClass().add("text-muted");
+            root.getChildren().add(empty);
         } else {
             for (Review r : reviews) {
                 VBox item = new VBox(6);
@@ -756,23 +768,83 @@ public class SellerDashboardController implements ContentHost {
                 Label meta = new Label("by " + store.getReviewerName(r) + " · "
                         + store.getListingOf(store.findOffer(r.getOfferId())).getTitle());
                 meta.getStyleClass().add("dialog-hint");
+                item.getChildren().addAll(stars, comment, meta);
+                if (r.getSellerReply() != null) {
+                    Label yourReply = new Label("Your reply: " + r.getSellerReply());
+                    yourReply.setWrapText(true);
+                    yourReply.getStyleClass().add("fixed-value");
+                    item.getChildren().add(yourReply);
+                }
+
                 HBox actions = new HBox(8);
-                Button reply = new Button("Reply");
+                Button reply = new Button(r.getSellerReply() == null ? "Reply" : "Replied");
                 reply.getStyleClass().addAll("btn-outline", "btn-sm");
-                reply.setOnAction(e -> Dialogs.info("Reply", "Reply sent to the buyer (demo)."));
-                Button flag = new Button("Flag");
+                reply.setDisable(r.getSellerReply() != null); // one reply per review
+                reply.setOnAction(e -> replyToReview(r));
+                Button flag = new Button(r.isFlagged() ? "Flagged" : "Flag");
                 flag.getStyleClass().addAll("btn-danger", "btn-sm");
-                flag.setOnAction(e -> {
-                    if (Dialogs.confirm("Flag review", "Flag this review for the admin?")) {
-                        Dialogs.info("Review flagged", "The review was flagged for the admin (demo).");
-                    }
-                });
+                flag.setDisable(r.isFlagged());
+                flag.setOnAction(e -> flagReview(r));
                 actions.getChildren().addAll(reply, flag);
-                item.getChildren().addAll(stars, comment, meta, actions);
+                if (r.isFlagged()) {
+                    Label flagged = new Label("Flagged for the admin");
+                    flagged.getStyleClass().addAll("badge", "badge-pending");
+                    actions.getChildren().add(flagged);
+                }
+                item.getChildren().add(actions);
                 root.getChildren().add(item);
             }
         }
         contentPane.getChildren().add(new ScrollPane(root));
+    }
+
+    /**
+     * Manage Reviews steps 3-5: asks for the reply and sends it to the buyer. The form comes
+     * back with what was typed after a refusal, until it is accepted or cancelled.
+     */
+    private void replyToReview(Review review) {
+        String typed = "";
+        while (true) {
+            TextArea replyArea = new TextArea(typed);
+            replyArea.setPrefRowCount(3);
+            replyArea.setWrapText(true);
+            Dialog<ButtonType> dialog = Dialogs.form("Reply to review",
+                    "Your reply to " + DataStore.getInstance().getReviewerName(review) + "'s review",
+                    SEND_REPLY, ButtonType.CANCEL);
+            dialog.getDialogPane().setContent(new VBox(8,
+                    new Label("Your reply"), replyArea,
+                    Dialogs.hint("The buyer receives your reply as a notification. "
+                            + "A review can have one reply.")));
+            Optional<ButtonType> answer = dialog.showAndWait();
+            if (answer.isEmpty() || answer.get() != SEND_REPLY) {
+                return;
+            }
+            typed = replyArea.getText();
+            try {
+                new SellerReviewService().reply(review.getId(), typed);
+            } catch (ServiceException e) {
+                Dialogs.problem(e);
+                continue;
+            }
+            Dialogs.info("Reply sent", "The buyer has been notified.");
+            showReviews();
+            return;
+        }
+    }
+
+    /** Manage Reviews step 6: marks an inappropriate review for the admin. */
+    private void flagReview(Review review) {
+        if (!Dialogs.confirm("Flag review", "Flag this review for the admin as inappropriate?")) {
+            return;
+        }
+        try {
+            new SellerReviewService().flag(review.getId());
+        } catch (ServiceException e) {
+            Dialogs.problem(e);
+            return;
+        }
+        Dialogs.info("Review flagged", "The admin can now see that you flagged this review.");
+        showReviews();
     }
 
     @FXML

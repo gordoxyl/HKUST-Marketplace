@@ -2,6 +2,7 @@ package com.hkust.marketplace.controllers.seller;
 
 import com.hkust.marketplace.models.*;
 import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.services.Amounts;
 import com.hkust.marketplace.services.ChatService;
 import com.hkust.marketplace.services.CreateListingService;
 import com.hkust.marketplace.services.NotificationService;
@@ -26,7 +27,9 @@ import com.hkust.marketplace.ui.NotificationBoard;
 import com.hkust.marketplace.ui.OfferText;
 import com.hkust.marketplace.ui.ProfileView;
 import com.hkust.marketplace.ui.Refreshable;
+import com.hkust.marketplace.ui.Scrolling;
 import com.hkust.marketplace.ui.SubScreen;
+import com.hkust.marketplace.ui.TextInputs;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
 import javafx.collections.FXCollections;
@@ -46,11 +49,14 @@ import javafx.stage.FileChooser;
 import java.io.File;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class SellerDashboardController implements ContentHost {
 
@@ -59,13 +65,13 @@ public class SellerDashboardController implements ContentHost {
     @FXML private Label welcomeLabel;
     @FXML private Button btnListings, btnOffers, btnCreate, btnStats, btnReviews, btnChats, btnNotifications, btnProfile;
 
-    /** The seller's answers to the offers in every chat this portal opens (Task 2.5). */
-    private final SellerOfferAnswers answers =
-            new SellerOfferAnswers(new SellerOfferService(), new DialogPrompts());
-
     /** The button of the reply form (Manage Reviews step 4). */
     private static final ButtonType SEND_REPLY =
             new ButtonType("Send reply", ButtonBar.ButtonData.OK_DONE);
+
+    /** The button of the counter forms (Manage Offers &amp; Requests 3.5). */
+    private static final ButtonType SEND_COUNTER =
+            new ButtonType("Send counter", ButtonBar.ButtonData.OK_DONE);
 
     private Button currentActiveBtn;
 
@@ -402,6 +408,7 @@ public class SellerDashboardController implements ContentHost {
                                  List<File> chosenPhotos) {
         List<Path> photoFiles = chosenPhotos.stream().map(File::toPath).toList();
         SellerListingService service = new SellerListingService();
+        Listing saved;
         try {
             // Manage Listings A3: warn before saving, because saving declines the open offers.
             int openOffers = service.openOfferCount(existing.getId());
@@ -411,20 +418,21 @@ public class SellerDashboardController implements ContentHost {
                             + ". Saving your changes declines them and notifies the buyers. Continue?")) {
                 return;
             }
-            switch (existing.getType()) {
+            saved = switch (existing.getType()) {
                 case SELL -> service.updateSale(existing.getId(), name, category, condition, description,
                         location, parsePrice(priceText), photoFiles);
                 case LEND -> service.updateLend(existing.getId(), name, category, condition, description,
                         location, parseDuration(durationText, durationUnit), photoFiles);
                 default -> service.updateGiveaway(existing.getId(), name, category, condition, description,
                         location, photoFiles);
-            }
+            };
         } catch (ServiceException e) {
             Dialogs.problem(e);
             return;
         }
-        Dialogs.info("Changes saved", "'" + existing.getTitle()
-                + "' was updated and is Pending Review again.");
+        String note = saved.getStatus() == ListingStatus.PENDING_REVIEW
+                ? " and is Pending Review again" : "";
+        Dialogs.info("Changes saved", "'" + saved.getTitle() + "' was updated" + note + ".");
         showMyListings();
     }
 
@@ -507,9 +515,22 @@ public class SellerDashboardController implements ContentHost {
     /** Task 2.5: every open offer, borrow request and claim on the seller's listings, by listing. */
     @FXML
     private void showOffers() {
+        showOffersFor(List.of());
+    }
+
+    /**
+     * Manage Offers &amp; Requests. The offers in {@code waiting}, from a chat's Respond in
+     * Offers &amp; Requests link, are marked with {@link Scrolling#JUMP_HIGHLIGHT} until the
+     * screen is built again, and the newest one is scrolled into view, as a chat search result is
+     * (UC6 A2 step 4; assumptions register 71).
+     */
+    private void showOffersFor(List<Offer> waiting) {
         setActive(btnOffers, "Offers & Requests");
         contentPane.getChildren().clear();
         reloadCurrentScreen = this::showOffers;
+
+        Set<String> marked = waiting.stream().map(Offer::getId).collect(Collectors.toSet());
+        List<Node> markedRows = new ArrayList<>();
 
         VBox root = new VBox(16);
         root.setPadding(new Insets(4));
@@ -525,16 +546,20 @@ public class SellerDashboardController implements ContentHost {
             }
             for (Map.Entry<String, List<Offer>> entry : byListing.entrySet()) {
                 root.getChildren().add(offerSection(DataStore.getInstance().findListing(entry.getKey()),
-                        entry.getValue()));
+                        entry.getValue(), marked, markedRows));
             }
         }
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
         contentPane.getChildren().add(scroll);
+        if (!markedRows.isEmpty()) {
+            Scrolling.bringIntoView(scroll, markedRows.get(0)); // waiting is newest first
+        }
     }
 
     /** One card per listing that has offers waiting, with a row for each offer. */
-    private VBox offerSection(Listing listing, List<Offer> offers) {
+    private VBox offerSection(Listing listing, List<Offer> offers, Set<String> marked,
+                              List<Node> markedRows) {
         Label title = new Label(listing.getTitle());
         title.getStyleClass().add("section-title");
         Label meta = new Label(listing.getType().getDisplayName() + " · "
@@ -547,13 +572,13 @@ public class SellerDashboardController implements ContentHost {
         section.setPadding(new Insets(16));
         section.getChildren().addAll(title, meta);
         for (Offer offer : offers) {
-            section.getChildren().add(offerRow(offer));
+            section.getChildren().add(offerRow(listing, offer, marked, markedRows));
         }
         return section;
     }
 
     /** One buyer's offer: who, what, when, and the actions of Manage Offers &amp; Requests. */
-    private Node offerRow(Offer offer) {
+    private Node offerRow(Listing listing, Offer offer, Set<String> marked, List<Node> markedRows) {
         DataStore store = DataStore.getInstance();
         Label who = new Label(store.getFullName(offer.getBuyerUsername())
                 + " (@" + offer.getBuyerUsername() + ")");
@@ -569,39 +594,21 @@ public class SellerDashboardController implements ContentHost {
         text.getChildren().add(when);
         HBox.setHgrow(text, Priority.ALWAYS);
 
-        // The same actions, enabled by the same rule, as the chat's answer dialog (OfferAction).
+        // The buttons and the rule are the shared OfferAction's (Task 2.5; assumptions register 71).
         List<OfferAction> allowed = OfferAction.allowedFor(offer, false);
-        Button accept = new Button("Accept");
-        accept.getStyleClass().addAll("btn-success", "btn-sm");
-        accept.setDisable(!allowed.contains(OfferAction.ACCEPT));
-        accept.setOnAction(e -> {
-            if (answers.accept(offer)) {
-                showOffers();
-            }
-        });
-
-        Button decline = new Button("Decline");
-        decline.getStyleClass().addAll("btn-danger", "btn-sm");
-        decline.setDisable(!allowed.contains(OfferAction.DECLINE));
-        decline.setOnAction(e -> {
-            if (answers.decline(offer)) {
-                showOffers();
-            }
-        });
-
-        HBox actions = new HBox(8, accept, decline, status);
+        HBox actions = new HBox(8);
         actions.setAlignment(Pos.CENTER_LEFT);
-        if (offer instanceof PriceOffer || offer instanceof BorrowRequest) {
-            Button counter = new Button("Counter");
-            counter.getStyleClass().addAll("btn-outline", "btn-sm");
-            counter.setDisable(!allowed.contains(OfferAction.COUNTER));
-            counter.setOnAction(e -> {
-                if (answers.counter(offer)) {
-                    showOffers();
-                }
-            });
-            actions.getChildren().add(counter);
+        for (OfferAction action : OfferAction.sellerButtons(listing.getType())) {
+            Button button = switch (action) {
+                case ACCEPT -> actionButton("Accept", "btn-success", () -> acceptOffer(offer, listing));
+                case DECLINE -> actionButton("Decline", "btn-danger", () -> declineOffer(offer));
+                case COUNTER -> actionButton("Counter", "btn-outline", () -> counterOffer(offer));
+                case AGREE_TO_COUNTER -> throw new IllegalStateException("Not a seller action.");
+            };
+            button.setDisable(!allowed.contains(action));
+            actions.getChildren().add(button);
         }
+        actions.getChildren().add(status);
         Button chat = new Button("Open Chat");
         chat.getStyleClass().addAll("btn-outline", "btn-sm");
         chat.setOnAction(e -> openOfferChat(offer));
@@ -611,15 +618,152 @@ public class SellerDashboardController implements ContentHost {
         row.setAlignment(Pos.CENTER_LEFT);
         row.setPadding(new Insets(8, 0, 0, 0));
         row.getStyleClass().add("offer-row");
+        if (marked.contains(offer.getId())) {
+            row.getStyleClass().add(Scrolling.JUMP_HIGHLIGHT);
+            markedRows.add(row);
+        }
         return row;
     }
 
-    /** 3.6: the chat thread linked to the offer, with Back to the list and the seller's answers. */
+    private static Button actionButton(String text, String styleClass, Runnable action) {
+        Button button = new Button(text);
+        button.getStyleClass().addAll(styleClass, "btn-sm");
+        button.setOnAction(e -> action.run());
+        return button;
+    }
+
+    /** 3.3: accept, after confirming; the service reserves or lends and declines the other offers. */
+    private void acceptOffer(Offer offer, Listing listing) {
+        String becomes = listing.getType() == ListingType.LEND ? "Lent" : "Reserved";
+        if (!Dialogs.confirm("Accept " + offer.getKindName(),
+                "Accept this " + offer.getKindName() + " for '" + listing.getTitle() + "'? "
+                        + "The listing becomes " + becomes
+                        + " and the other offers on it are declined.")) {
+            return;
+        }
+        try {
+            new SellerOfferService().accept(offer.getId());
+        } catch (ServiceException e) {
+            Dialogs.problem(e); // A2: the listing is no longer available
+            return;
+        }
+        Dialogs.info("Offer accepted", "The buyer has been notified.");
+        showOffers();
+    }
+
+    /** 3.4: decline one offer and tell its buyer. */
+    private void declineOffer(Offer offer) {
+        if (!Dialogs.confirm("Decline " + offer.getKindName(),
+                "Decline this " + offer.getKindName() + "? The buyer will be told.")) {
+            return;
+        }
+        try {
+            new SellerOfferService().decline(offer.getId());
+        } catch (ServiceException e) {
+            Dialogs.problem(e);
+            return;
+        }
+        Dialogs.info("Offer declined", "The buyer has been notified.");
+        showOffers();
+    }
+
+    /** 3.5: a price for a price offer, new dates for a borrow request; a claim has neither. */
+    private void counterOffer(Offer offer) {
+        if (offer instanceof PriceOffer price) {
+            counterPrice(price);
+        } else if (offer instanceof BorrowRequest request) {
+            counterBorrow(request);
+        }
+    }
+
+    /** The shared form; after a refused price it comes back with what was typed, until sent or cancelled. */
+    private void counterPrice(PriceOffer offer) {
+        String typed = null;
+        while (true) {
+            TextField priceBox = new TextField(typed != null
+                    ? typed : Amounts.plain(offer.getOfferedPrice()));
+            priceBox.setPromptText("such as 150 or 99.50");
+            Dialog<ButtonType> dialog = Dialogs.form("Counter price offer",
+                    "Counter " + DataStore.getInstance().getFullName(offer.getBuyerUsername())
+                            + "'s price offer", SEND_COUNTER, ButtonType.CANCEL);
+            dialog.getDialogPane().setContent(new VBox(8,
+                    new Label("New price (HK$)"), priceBox,
+                    Dialogs.hint("Type whole dollars with up to two decimals, such as 150 or 99.50.")));
+            dialog.setOnShown(e -> priceBox.requestFocus());
+            Optional<ButtonType> answer = dialog.showAndWait();
+            if (answer.isEmpty() || answer.get() != SEND_COUNTER) {
+                return;
+            }
+            typed = priceBox.getText();
+            try {
+                new SellerOfferService().counterPrice(offer.getId(), typed);
+            } catch (ServiceException e) {
+                Dialogs.problem(e);
+                continue;
+            }
+            Dialogs.info("Counter sent", "The buyer has been notified.");
+            showOffers();
+            return;
+        }
+    }
+
+    /** The same, with a date and a time of day for the start and the end (3.5, A4). */
+    private void counterBorrow(BorrowRequest request) {
+        LocalDate startDate = request.getProposedStartDate().toLocalDate();
+        String startTime = Formats.timeOfDay(request.getProposedStartDate());
+        LocalDate endDate = request.getProposedEndDate().toLocalDate();
+        String endTime = Formats.timeOfDay(request.getProposedEndDate());
+        while (true) {
+            DatePicker startPicker = new DatePicker(startDate);
+            TextField startField = new TextField(startTime);
+            DatePicker endPicker = new DatePicker(endDate);
+            TextField endField = new TextField(endTime);
+            for (TextField time : new TextField[]{startField, endField}) {
+                time.setPromptText("HH:mm or HH:mm:ss");
+                time.setPrefWidth(150);
+            }
+            GridPane form = new GridPane();
+            form.setHgap(10);
+            form.setVgap(8);
+            form.addRow(0, new Label("Start"), startPicker, startField);
+            form.addRow(1, new Label("End"), endPicker, endField);
+            Label rules = Dialogs.hint("The buyer asked for "
+                    + Formats.period(request.getProposedStartDate(), request.getProposedEndDate())
+                    + ". The period cannot start in the past and must last at least "
+                    + LendListing.formatDuration(BorrowRequest.MIN_BORROW_TIME) + ".");
+
+            Dialog<ButtonType> dialog = Dialogs.form("Counter borrow request",
+                    "Counter " + DataStore.getInstance().getFullName(request.getBuyerUsername())
+                            + "'s borrow request", SEND_COUNTER, ButtonType.CANCEL);
+            dialog.getDialogPane().setContent(new VBox(10, form, rules));
+            Optional<ButtonType> answer = dialog.showAndWait();
+            if (answer.isEmpty() || answer.get() != SEND_COUNTER) {
+                return;
+            }
+            startDate = startPicker.getValue();
+            startTime = startField.getText();
+            endDate = endPicker.getValue();
+            endTime = endField.getText();
+            try {
+                new SellerOfferService().counterBorrow(request.getId(),
+                        TextInputs.dateTime(startDate, startTime).orElse(null),
+                        TextInputs.dateTime(endDate, endTime).orElse(null));
+            } catch (ServiceException e) {
+                Dialogs.problem(e);
+                continue;
+            }
+            Dialogs.info("Counter sent", "The buyer has been notified.");
+            showOffers();
+            return;
+        }
+    }
+
+    /** 3.6: the chat thread linked to the offer, with Back to the list and the link back to its offers. */
     private void openOfferChat(Offer offer) {
         try {
             ChatService service = new ChatService();
             ChatView chat = new ChatView(service, service.openForOffer(offer.getId()));
-            addOfferAnswers(chat);
+            addOfferLink(chat);
             show(ChatText.title(chat.conversation()),
                     new SubScreen("Back to Offers & Requests", this::showOffers, chat));
         } catch (ServiceException e) {
@@ -627,9 +771,9 @@ public class SellerDashboardController implements ContentHost {
         }
     }
 
-    /** Gives a chat the seller's answers, so Answer Offers / Requests / Claim works inside it. */
-    private void addOfferAnswers(ChatView chat) {
-        chat.setOnAnswerOffer(answers);
+    /** The seller's link from a chat to its offers on Offers &amp; Requests (assumptions register 71). */
+    private void addOfferLink(ChatView chat) {
+        chat.setOnRespondToOffers(this::showOffersFor);
     }
 
     @FXML
@@ -640,7 +784,7 @@ public class SellerDashboardController implements ContentHost {
 
         SellerStats stats;
         try {
-            stats = new SellerStatsService().forCurrentSeller();
+            stats = new SellerStatsService().getMyStats();
         } catch (ServiceException e) {
             Dialogs.problem(e); // only a seller can open this screen
             return;
@@ -649,47 +793,55 @@ public class SellerDashboardController implements ContentHost {
         VBox root = new VBox(20);
         root.setPadding(new Insets(4));
 
-        // Step 3: the four numbers of the use case, plus how many listings they come from.
+        // Step 3: the numbers of the use case, and the rating exactly as the shared core words it.
         HBox metrics = new HBox(16);
         metrics.getChildren().addAll(
-                metricCard("Listings", String.valueOf(stats.listingCount()), "stat-navy"),
-                metricCard("Views", String.valueOf(stats.totalViews()), "stat-blue"),
+                metricCard("Listings", String.valueOf(stats.listings()), "stat-navy"),
+                metricCard("Views", String.valueOf(stats.views()), "stat-blue"),
                 metricCard("Offers received", String.valueOf(stats.offersReceived()), "stat-gold"),
                 metricCard("Completed deals", String.valueOf(stats.completedDeals()), "stat-green"),
-                metricCard("Avg rating (" + stats.ratingCount() + ")",
-                        stats.averageRating().isPresent()
-                                ? String.format("%.1f", stats.averageRating().getAsDouble())
-                                : Formats.NONE,
+                metricCard("Avg rating (" + stats.rating().count() + ")",
+                        stats.rating().isEmpty()
+                                ? Formats.NONE
+                                : String.format("%.1f", stats.rating().average()),
                         "stat-gold"));
         root.getChildren().add(metrics);
 
-        // Steps 4-5: the two charts. Views per listing, and how the completed deals split by type.
-        root.getChildren().add(new HBox(20, viewsChart(stats), completedDealsChart(stats)));
+        Label average = new Label("Average rating: " + Formats.averageRating(stats.rating()));
+        average.getStyleClass().add("dialog-hint");
+        root.getChildren().add(average);
+
+        // Steps 4-5, with A1 when there is nothing to chart.
+        if (stats.perListing().isEmpty()) {
+            root.getChildren().add(emptyChart("There isn't enough data to draw charts yet."));
+        } else {
+            root.getChildren().add(new HBox(20, listingChart(stats), completedDealsChart(stats)));
+        }
 
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
         contentPane.getChildren().add(scroll);
     }
 
-    /** The bar chart of View Seller Stats step 4: each of the seller's listings and its views. */
-    private static Node viewsChart(SellerStats stats) {
-        if (stats.listings().isEmpty()) {
-            return emptyChart("Post a listing to see its views here.");
-        }
+    /** Step 4: the views and the offers received for each of the seller's listings. */
+    private static Node listingChart(SellerStats stats) {
         CategoryAxis xAxis = new CategoryAxis();
         xAxis.setTickLabelRotation(-30);
         NumberAxis yAxis = new NumberAxis();
-        yAxis.setLabel("Views");
         BarChart<String, Number> chart = new BarChart<>(xAxis, yAxis);
-        chart.setTitle("Views per listing");
-        chart.setLegendVisible(false);
+        chart.setTitle("Views and offers per listing");
         chart.setAnimated(false);
         chart.setPrefSize(620, 300);
-        XYChart.Series<String, Number> series = new XYChart.Series<>();
-        for (SellerStats.ListingStat listing : stats.listings()) {
-            series.getData().add(new XYChart.Data<>(Formats.preview(listing.title(), 18), listing.views()));
+        XYChart.Series<String, Number> views = new XYChart.Series<>();
+        views.setName("Views");
+        XYChart.Series<String, Number> offers = new XYChart.Series<>();
+        offers.setName("Offers");
+        for (SellerStats.ListingStats listing : stats.perListing()) {
+            String label = Formats.preview(listing.title(), 18);
+            views.getData().add(new XYChart.Data<>(label, listing.views()));
+            offers.getData().add(new XYChart.Data<>(label, listing.offers()));
         }
-        chart.getData().add(series);
+        chart.getData().addAll(views, offers);
         return chart;
     }
 
@@ -700,7 +852,7 @@ public class SellerDashboardController implements ContentHost {
         chart.setAnimated(false);
         chart.setPrefSize(420, 300);
         for (ListingType type : ListingType.values()) {
-            int completed = stats.completedDealsByType().getOrDefault(type, 0);
+            int completed = stats.completedByType().getOrDefault(type, 0);
             if (completed > 0) {
                 chart.getData().add(new PieChart.Data(type.getDisplayName() + " (" + completed + ")", completed));
             }
@@ -744,13 +896,20 @@ public class SellerDashboardController implements ContentHost {
         VBox root = new VBox(12);
         root.setPadding(new Insets(4));
 
+        SellerReviewService service = new SellerReviewService();
+        RatingSummary rating;
         List<Review> reviews;
         try {
-            reviews = new SellerReviewService().reviews();
+            rating = service.getMyRating();
+            reviews = service.getMyReviews();
         } catch (ServiceException e) {
             Dialogs.problem(e);
             return;
         }
+
+        Label average = new Label("Average rating: " + Formats.averageRating(rating));
+        average.getStyleClass().add("dialog-hint");
+        root.getChildren().add(average);
 
         if (reviews.isEmpty()) {
             Label empty = new Label("No reviews yet. A buyer can review you after a completed deal.");
@@ -766,7 +925,8 @@ public class SellerDashboardController implements ContentHost {
                 comment.setWrapText(true);
                 DataStore store = DataStore.getInstance();
                 Label meta = new Label("by " + store.getReviewerName(r) + " · "
-                        + store.getListingOf(store.findOffer(r.getOfferId())).getTitle());
+                        + store.getListingOf(store.findOffer(r.getOfferId())).getTitle()
+                        + " · " + Formats.date(r.getReviewDate()));
                 meta.getStyleClass().add("dialog-hint");
                 item.getChildren().addAll(stars, comment, meta);
                 if (r.getSellerReply() != null) {
@@ -787,7 +947,7 @@ public class SellerDashboardController implements ContentHost {
                 flag.setOnAction(e -> flagReview(r));
                 actions.getChildren().addAll(reply, flag);
                 if (r.isFlagged()) {
-                    Label flagged = new Label("Flagged for the admin");
+                    Label flagged = new Label("Awaiting moderation");
                     flagged.getStyleClass().addAll("badge", "badge-pending");
                     actions.getChildren().add(flagged);
                 }
@@ -826,7 +986,7 @@ public class SellerDashboardController implements ContentHost {
                 Dialogs.problem(e);
                 continue;
             }
-            Dialogs.info("Reply sent", "The buyer has been notified.");
+            Dialogs.info("Reply posted", "Your reply has been posted; the buyer has been notified.");
             showReviews();
             return;
         }
@@ -843,15 +1003,15 @@ public class SellerDashboardController implements ContentHost {
             Dialogs.problem(e);
             return;
         }
-        Dialogs.info("Review flagged", "The admin can now see that you flagged this review.");
+        Dialogs.info("Review flagged", "The review is awaiting moderation by the admin.");
         showReviews();
     }
 
     @FXML
     private void showChats() {
         setActive(btnChats, "Chats");
-        // The 3-argument constructor gives every chat the seller's answers (Task 2.5).
-        show("Chats", new ChatList(new ChatService(), this, this::addOfferAnswers));
+        // The 3-argument constructor gives every chat the link to its offers (Task 2.5).
+        show("Chats", new ChatList(new ChatService(), this, this::addOfferLink));
     }
 
     @FXML

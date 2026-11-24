@@ -3,6 +3,7 @@ package com.hkust.marketplace.services;
 import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.NotificationCategory;
+import com.hkust.marketplace.models.RatingSummary;
 import com.hkust.marketplace.models.Review;
 import com.hkust.marketplace.models.Seller;
 
@@ -13,15 +14,16 @@ import java.util.List;
  * deals, and the two things the seller can do with one (Manage Reviews).
  *
  * <ul>
- *   <li><b>Reply</b> - one reply per review (Special Requirement 1); the buyer who wrote the
+ *   <li><b>Reply</b> - one reply per review (A2), never empty (A3); the buyer who wrote the
  *       review is told with a {@link NotificationCategory#REVIEW_REPLY} notification.</li>
  *   <li><b>Flag</b> - marks an inappropriate review for the admin ({@link Review#isFlagged()});
- *       a flagged review stays visible until an admin hides it (UC8 Special Requirement 5).</li>
+ *       a already flagged review is "already awaiting moderation" (A4), and an
+ *       {@link NotificationCategory#ANNOUNCEMENT} notice puts it on the admin's board.</li>
  * </ul>
  *
  * <p>Only the seller of the reviewed deal's listing may act on a review, and every method
  * starts with the role check, like the other seller services. A hidden review is not in
- * {@link #reviews()}: the admin hid it from the marketplace.
+ * {@link #getMyReviews()}: the admin hid it from the marketplace.
  */
 public class SellerReviewService {
 
@@ -42,9 +44,19 @@ public class SellerReviewService {
      * Hidden reviews are not included.
      * @throws AccessDeniedException if the logged-in user is not a seller
      */
-    public List<Review> reviews() {
+    public List<Review> getMyReviews() {
         Seller seller = AccessControl.requireSeller();
         return store.getReviewsForSeller(seller.getUsername());
+    }
+
+    /**
+     * The seller's rating, shown above the reviews: count and average, hidden reviews left out
+     * (View Seller Stats A2 and SR1).
+     * @throws AccessDeniedException if the logged-in user is not a seller
+     */
+    public RatingSummary getMyRating() {
+        Seller seller = AccessControl.requireSeller();
+        return store.getRating(seller.getUsername());
     }
 
     /**
@@ -60,7 +72,7 @@ public class SellerReviewService {
         store.transaction(() -> {
             Review review = requireOwnedReview(reviewId, seller);
             if (review.getSellerReply() != null) {
-                throw new ServiceException("This review already has your reply.");
+                throw new ServiceException("Only one reply is allowed per review.");
             }
             Listing listing = store.getListingOf(store.findOffer(review.getOfferId()));
             review.reply(text);
@@ -82,13 +94,13 @@ public class SellerReviewService {
         store.transaction(() -> {
             Review review = requireOwnedReview(reviewId, seller);
             if (review.isFlagged()) {
-                throw new ServiceException("This review is already flagged for the admin.");
+                throw new ServiceException("This review is already awaiting moderation.");
             }
             Listing listing = store.getListingOf(store.findOffer(review.getOfferId()));
             review.flag();
             notifications.sendToAdmins(NotificationCategory.ANNOUNCEMENT,
-                    seller.getFullName() + " flagged a review by " + store.getReviewerName(review)
-                            + " on '" + listing.getTitle() + "' as inappropriate.");
+                    "@" + seller.getUsername() + " flagged a review of '" + listing.getTitle()
+                            + "' as inappropriate.");
         });
     }
 

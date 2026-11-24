@@ -1,6 +1,7 @@
 package com.hkust.marketplace.services;
 
 import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.Admin;
 import com.hkust.marketplace.models.Buyer;
 import com.hkust.marketplace.models.NotificationCategory;
 import com.hkust.marketplace.models.PriceOffer;
@@ -19,8 +20,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Task 2.9 Review and Feedback Handling: the seller's list of reviews, replying once and
- * telling the buyer, and flagging an inappropriate review (Manage Reviews).
+ * Task 2.9 Review and Feedback Handling: the seller's list of reviews and rating, replying once
+ * and telling the buyer, and flagging an inappropriate review for the admin (Manage Reviews).
  */
 class SellerReviewServiceTest {
 
@@ -55,7 +56,7 @@ class SellerReviewServiceTest {
         return store.addReview(new Review(offer.getId(), rating, comment));
     }
 
-    // ---------- Step 1: the list ----------
+    // ---------- Step 1: the list and the rating ----------
 
     @Test
     void reviews_areThisSellersVisibleOnesOnly() {
@@ -63,15 +64,25 @@ class SellerReviewServiceTest {
         Fixtures.seller(store, "sue");
         reviewedDeal("sue", "ben", 4, "Fine");
 
-        assertEquals(List.of(mine), service.reviews());
+        assertEquals(List.of(mine), service.getMyReviews());
     }
 
     @Test
-    void aHiddenReview_isNotShown() {
+    void aHiddenReview_isNotShownAndNotCountedInTheRating() {
         Review review = reviewedDeal("sam", "bea", 5, "Very smooth");
         review.setHidden(true);
 
-        assertTrue(service.reviews().isEmpty());
+        assertTrue(service.getMyReviews().isEmpty());
+        assertTrue(service.getMyRating().isEmpty());
+    }
+
+    @Test
+    void theRatingIsTheCountAndAverageOfTheShownReviews() {
+        reviewedDeal("sam", "bea", 4, "Good");
+        reviewedDeal("sam", "ben", 5, "Great");
+
+        assertEquals(2, service.getMyRating().count());
+        assertEquals(4.5, service.getMyRating().average(), 0.0001);
     }
 
     // ---------- Steps 3-5: reply ----------
@@ -94,7 +105,7 @@ class SellerReviewServiceTest {
         Review review = reviewedDeal("sam", "bea", 5, "Very smooth");
         service.reply(review.getId(), "Thanks!");
 
-        assertEquals("This review already has your reply.",
+        assertEquals("Only one reply is allowed per review.",
                 assertThrows(ServiceException.class,
                         () -> service.reply(review.getId(), "One more thing")).getMessage());
         assertEquals("Thanks!", review.getSellerReply());
@@ -112,6 +123,18 @@ class SellerReviewServiceTest {
         assertNull(review.getSellerReply());
     }
 
+    @Test
+    void replyingToAReviewFromADeletedBuyer_worksAndSendsNoNotice() {
+        Review review = reviewedDeal("sam", "bea", 5, "Very smooth");
+        store.deleteAccount("bea");
+
+        service.reply(review.getId(), "Thanks anyway");
+
+        assertEquals("Thanks anyway", review.getSellerReply());
+        assertEquals(DataStore.DELETED_USER, store.getReviewerName(review));
+        assertTrue(store.getNotificationsFor("bea").isEmpty());
+    }
+
     // ---------- Step 6: flag ----------
 
     @Test
@@ -124,8 +147,7 @@ class SellerReviewServiceTest {
         assertTrue(review.isFlagged());
         assertTrue(store.getNotificationsFor("ada").stream().anyMatch(n ->
                 n.getCategory() == NotificationCategory.ANNOUNCEMENT
-                        && n.getContent().contains("Seller sam flagged a review by Buyer bea")
-                        && n.getContent().contains("'Book'")));
+                        && n.getContent().equals("@sam flagged a review of 'Book' as inappropriate.")));
     }
 
     @Test
@@ -133,7 +155,7 @@ class SellerReviewServiceTest {
         Review review = reviewedDeal("sam", "bea", 1, "Rude comment");
         service.flag(review.getId());
 
-        assertEquals("This review is already flagged for the admin.",
+        assertEquals("This review is already awaiting moderation.",
                 assertThrows(ServiceException.class, () -> service.flag(review.getId())).getMessage());
         assertTrue(review.isFlagged());
     }
@@ -168,15 +190,21 @@ class SellerReviewServiceTest {
         Review review = reviewedDeal("sam", "bea", 5, "Very smooth");
 
         SessionManager.logout();
-        assertThrows(AccessDeniedException.class, () -> service.reviews());
+        assertThrows(AccessDeniedException.class, () -> service.getMyReviews());
+        assertThrows(AccessDeniedException.class, () -> service.getMyRating());
         assertThrows(AccessDeniedException.class, () -> service.reply(review.getId(), "Thanks"));
         assertThrows(AccessDeniedException.class, () -> service.flag(review.getId()));
 
         Buyer bea = (Buyer) store.findUser("bea");
         SessionManager.login(bea);
-        assertThrows(AccessDeniedException.class, () -> service.reviews());
+        assertThrows(AccessDeniedException.class, () -> service.getMyReviews());
         assertThrows(AccessDeniedException.class, () -> service.reply(review.getId(), "Thanks"));
         assertThrows(AccessDeniedException.class, () -> service.flag(review.getId()));
+
+        Admin ada = Fixtures.admin(store, "ada");
+        SessionManager.login(ada);
+        assertThrows(AccessDeniedException.class, () -> service.getMyReviews());
+        assertThrows(AccessDeniedException.class, () -> service.reply(review.getId(), "Thanks"));
 
         assertNull(review.getSellerReply());
         assertFalse(review.isFlagged());

@@ -3,6 +3,7 @@ package com.hkust.marketplace.services;
 import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.models.*;
 import com.hkust.marketplace.testsupport.Fixtures;
+import com.hkust.marketplace.testsupport.SameMoment;
 import com.hkust.marketplace.testsupport.TestClock;
 import com.hkust.marketplace.utils.SessionManager;
 import org.junit.jupiter.api.AfterEach;
@@ -15,13 +16,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.OptionalDouble;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Callable;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -339,29 +337,23 @@ class ReviewServiceTest {
     void reviewsOfOneDealSubmittedAtTheSameMoment_onlyTheFirstIsRecorded() throws Exception {
         Offer purchase = completedPurchase("bea");
         int attempts = 8;
-        ExecutorService pool = Executors.newFixedThreadPool(attempts);
-        CountDownLatch start = new CountDownLatch(1);
-        List<Future<Boolean>> results = new ArrayList<>();
+        List<Callable<Boolean>> submissions = new ArrayList<>();
         for (int i = 0; i < attempts; i++) {
             int stars = 1 + i % Review.MAX_RATING;
-            results.add(pool.submit(() -> {
-                start.await();
+            submissions.add(() -> {
                 try {
                     reviews.submit(purchase.getId(), stars, "Attempt " + stars);
                     return true;
                 } catch (DealNotReviewableException e) {
                     return false; // already reviewed by a faster attempt
                 }
-            }));
+            });
         }
-        start.countDown();
-        int recorded = 0;
-        for (Future<Boolean> result : results) {
-            if (result.get(10, TimeUnit.SECONDS)) {
-                recorded++;
-            }
+        List<Boolean> submitted;
+        try (SameMoment moment = new SameMoment(attempts)) {
+            submitted = moment.run(submissions);
         }
-        pool.shutdown();
+        int recorded = Collections.frequency(submitted, true);
 
         assertEquals(1, recorded);
         assertEquals(1, store.getRatingCount("sam"));

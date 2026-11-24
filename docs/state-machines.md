@@ -69,7 +69,7 @@ stateDiagram-v2
 
 These come from the team's assumptions register and need tests at every level:
 
-1. If the admin removes a **Reserved** listing, its accepted deal can still be completed and the listing stays Removed, as UC12 A1 says for lent items. *(To confirm with the client.)*
+1. If the admin removes a **Reserved** listing, its accepted deal can still be completed and the listing stays Removed, as UC12 A1 says for lent items. *(The client called this an edge case on 21 Nov, so it stays as built: [client-answers.md](client-answers.md) F2.)*
 2. A listing is **available** only if its seller's account is active, in addition to the glossary's rule.
 3. A seller can accept only a **Pending** offer, never a Countered one.
 4. A borrow request whose period has already ended **cannot be accepted** (regression log R8); the seller declines it or counters with new dates. Otherwise it would be lent and returned automatically at once, completed before it was accepted.

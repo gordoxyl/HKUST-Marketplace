@@ -6,7 +6,7 @@ import com.hkust.marketplace.models.Report;
 import java.util.List;
 
 /**
- * Everything the admin sees when viewing one listing (Manage Marketplace Listings 5.1): the
+ * Everything the admin sees when viewing one listing (Manage Marketplace Listings 3.7): the
  * listing, its seller's full name, and the reports filed on it. Reports show who reported
  * (UC9 Special Requirement 4: only the admin sees this), so never use this outside admin code.
  *

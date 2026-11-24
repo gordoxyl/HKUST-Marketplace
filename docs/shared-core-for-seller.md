@@ -39,7 +39,7 @@ the client (TA) answered differently: `docs/client-answers.md` wins over the spe
 | Register as Seller (2.1), Login (2.2) | `AuthService.registerSeller`, `AuthService.login`; screens wired | nothing |
 | Manage Profile (2.6) | `ProfileService.updateSellerProfile`, shared `ui/ProfileView`, wired | nothing |
 | Notification Board (2.7) | `NotificationService`, shared `ui/NotificationBoard`, wired | send the right notifications from your services |
-| Chat (2.5 "open the linked chat thread") | `ChatService`, `ui/ChatView`, `ui/ChatList`, "Chats" sidebar button wired; the deal actions under Send with `ChatView.setOnAnswerOffer` and `services/OfferAction` | call `openForOffer` from your offers screen; give every chat your answers (see "Answering offers inside the chat") |
+| Chat (2.5 "open the linked chat thread") | `ChatService`, `ui/ChatView`, `ui/ChatList`, "Chats" sidebar button wired; under Send, the seller's link **Respond in Offers & Requests (n)** (`ChatView.setOnRespondToOffers`); `services/OfferAction` for the screen's buttons | call `openForOffer` from your offers screen; give every chat the link and mark its offers on Offers & Requests (see "From the chat to Offers & Requests") |
 | Create Listing (2.3) | models, `store.addListing`, `PhotoService.importPhoto` | service + form (photo chooser is a placeholder; duration is whole days only) |
 | My Listings (2.4) | `ui/ListingCard` already used; `Listing` state machine; `DealRules.declineOpenOffers` | edit/delete service (current buttons are placeholders / inline) |
 | Manage Offers & Requests (2.5) | `DealRules.accept`, offer model methods, `ui/OfferText` | service (accept / decline / counter) + screen |
@@ -98,6 +98,7 @@ void dataStoreCalls(DataStore store, String username, String listingId, String o
     store.getOffersForListing(listingId); store.findOffer(offerId); store.getListingOf(offer);
     store.getFullName(username);               // falls back to the username if the account was deleted
     store.getReviewsForSeller(username);       // hidden reviews already excluded: use this, nothing else
+    store.getRating(username);                 // RatingSummary: count + average as one value, hidden excluded
     store.getAverageRating(username);          // OptionalDouble, hidden excluded
     store.getRatingCount(username);
     store.getTotalViews(username); store.getOffersReceivedCount(username); store.getCompletedDealCount(username);
@@ -154,78 +155,68 @@ void openChat(ChatService chatService, ContentHost host, Offer offer) {
 Also `getMyConversations()` (the Chats screen, already wired), `send(chat, text)`, `search(chat, keyword)`,
 `reload(chat)`. A seller cannot start a chat; one exists as soon as the buyer wrote or made an offer.
 
-### Answering offers inside the chat (`ChatView.setOnAnswerOffer`; since 19 Nov 2026)
+### From the chat to Offers & Requests (`ChatView.setOnRespondToOffers`; design of 24 Nov 2026)
 
-The chat's offer cards only show history and status. The deal actions are buttons in one row under Send, the
-same in both portals (non-functional requirement: a consistent interface across the three user types):
+The seller answers offers in one place: the Offers & Requests screen (Task 2.5; spec Manage Offers & Requests, steps 3.3–3.5). The chat links there instead of answering:
+- Chat About Listing (UC6) has no answering step.
+- Formal offers made from a thread go through Make Offer (UC6 Special Requirement 3).
 
-| Listing type | Buyer (already wired) | Seller (yours to wire) | Seller's dialog |
-|---|---|---|---|
-| Sale | Make Offer; Agree to Counter (n) | Answer Offers (n) | Pending: Accept, Decline, Counter. Countered: Decline only |
-| Lend | Request Borrow; Agree to Counter (n) | Answer Requests (n) | the same; Counter asks for new dates |
-| Giveaway | Claim Item | Answer Claim | Accept, Decline (a claim cannot be countered) |
+This replaces the 19 Nov design (`ChatView.OfferAnswers`, never wired), which repeated the screen's Accept / Decline / Counter inside the chat. The link adds no data, rule or feature: it is navigation between two required screens, marked with the jump-and-highlight of the chat search (UC6 A2 step 4).
 
-The seller's button opens a dialog with the chat's open offers, newest first and the newest already chosen. The
-list scrolls after about four offers. The actions are on the left and Cancel on the right, and an action the chosen
-offer does not allow is disabled. `ChatView` draws all of this. Your part is the three answers:
+The chat's offer cards only show history and status. The deal actions are buttons in one row under Send, and each appears only while it is that person's turn:
 
-```java
-// in ui/ChatView (shared core): the contract your class implements
-public interface OfferAnswers {
-    boolean accept(Offer offer);    // Pre: was Pending.  Post: true = Accepted (the other open offers are declined)
-    boolean decline(Offer offer);   // Pre: was open (Pending or Countered).  Post: true = Declined
-    boolean counter(Offer offer);   // Pre: was Pending, never a Claim.  Post: true = Countered
-}
-```
+| Listing type | Buyer (wired) | Seller (yours to wire) |
+|---|---|---|
+| Sale | Make Offer; Agree to Counter (n) | Respond in Offers & Requests (n) |
+| Lend | Request Borrow; Agree to Counter (n) | Respond in Offers & Requests (n) |
+| Giveaway | Claim Item | Respond in Offers & Requests (1) |
 
-- **What the chat guarantees.** It calls these on the JavaFX thread, after the seller chose an offer of this chat's
-  listing and the dialog closed. It reloads the chat after every call. If a call returns `false`, the dialog opens
-  again.
-- **What your methods do:**
-  - ask your usual confirmation or counter form;
-  - call `SellerOfferService` with `offer.getId()`, because the object may be out of date;
-  - show the outcome with `Dialogs.info`;
-  - return `true` only if the offer changed;
-  - catch `ServiceException`, show it with `Dialogs.problem`, and return `false`;
-  - do not change the screen: the seller stays in the chat.
-- **Wiring.** Give the same object to every chat the seller opens: the 3-argument `ChatList(service, this,
-  chat -> chat.setOnAnswerOffer(answers))` and `openForOffer`. A chat without answers shows no seller button, so
-  nothing breaks before you wire it.
-- **Same rules everywhere.** `services/OfferAction.allowedFor(offer, false)` lists the answers an offer allows now
-  (it follows the Offer state machine). Use it for the buttons of Offers & Requests too, so both screens offer the
-  same actions. `OfferActionTest` checks it against `SellerOfferService`.
-- **Changes to the contract.** New interactions are added as `default` methods, so your class keeps compiling
-  (open-closed principle). Ask Gordon before you rely on a change.
+`n` counts the chat's open offers, as `Conversation.offersToActOn()` lists them:
+- for the buyer, the ones the seller countered;
+- for the seller, the Pending and the Countered ones.
 
-A testable shape (L14: drivers and stubs). Put the answers in your own class, which asks the seller through a
-small interface that a JUnit test can stub:
+Both buyer actions are UC5 Make Offer: agreeing to a counter makes a new offer with the counter's terms (UC5 Special Requirement 4).
 
 ```java
-// controllers/seller/SellerOfferAnswers.java (yours)
-final class SellerOfferAnswers implements ChatView.OfferAnswers {
-
-    interface SellerPrompts {                                   // Dialogs in the app, a stub in tests
-        boolean confirm(String title, String message);
-        Optional<String> askCounterPrice(PriceOffer offer, String typedBefore);   // empty if cancelled
-        Optional<Period> askCounterPeriod(BorrowRequest request, Period before);  // empty if cancelled
-        void info(String title, String message);
-        void problem(ServiceException e);
-        record Period(LocalDate startDate, String startTime, LocalDate endDate, String endTime) { } // as entered
-    }
-
-    private final SellerOfferService offers;
-    private final SellerPrompts prompts;
-
-    SellerOfferAnswers(SellerOfferService offers, SellerPrompts prompts) {
-        this.offers = offers;
-        this.prompts = prompts;
-    }
-
-    @Override public boolean accept(Offer offer)  { /* confirm, offers.accept(offer.getId()), info */ return false; }
-    @Override public boolean decline(Offer offer) { /* confirm, offers.decline(offer.getId()), info */ return false; }
-    @Override public boolean counter(Offer offer) { /* ask, offers.counterPrice or counterBorrow, info */ return false; }
+// in ui/ChatView (shared core)
+@FunctionalInterface
+public interface RespondToOffers {
+    /**
+     * Pre: the viewer is this chat's seller; waiting is not empty and holds this chat's open offers
+     * (Pending or Countered) of its one buyer on its one listing, newest first, exactly as
+     * Conversation.offersToActOn() lists them.
+     * Post: the chat itself changed nothing.
+     */
+    void respond(List<Offer> waiting);
 }
+public void setOnRespondToOffers(RespondToOffers respond)
+
+// in ui/Scrolling (shared core; the chat search uses it too)
+public static final String JUMP_HIGHLIGHT = "jump-highlight";   // the mark: light yellow, in styles.css
+public static void bringIntoView(ScrollPane pane, Node node)   // lays the screen out, then centres the node as far as the content allows
 ```
+
+- **What the chat guarantees:**
+  - it shows the button only while the hook is set and the chat has open offers;
+  - it calls `respond` on the JavaFX thread, with those offers, newest first;
+  - it never changes the screen itself;
+  - it never shows Accept, Decline or Counter to the seller.
+- **What your hook does:**
+  - It shows Offers & Requests with every offer in `waiting` marked with the `Scrolling.JUMP_HIGHLIGHT` style class (`jump-highlight`): the light yellow of a chat search result.
+  - It scrolls the newest one into view with `Scrolling.bringIntoView(scrollPane, row)`.
+  - The mark stays until the screen is built again: after an answer, or when the seller leaves. Not on a timer.
+  - Offers answered in the meantime are no longer listed, so nothing is marked and no special case is needed.
+  - A buyer can have two open offers on one listing (a Countered one and the offer made by agreeing to it), and both are marked.
+- **Wiring.** Give every chat the seller opens the same hook:
+  - the Chats list: the 3-argument `ChatList(service, this, chat -> chat.setOnRespondToOffers(this::showOffersFor))`;
+  - the chat that Open Chat (3.6) opens.
+
+  A chat without the hook shows no seller button, so nothing breaks before you wire it.
+- **The same rules on the screen.**
+  - `services/OfferAction.sellerButtons(type)` lists the seller's buttons for a listing type (no Counter for a giveaway).
+  - `allowedFor(offer, false)` lists the ones an offer allows now (a Countered offer: Decline only).
+  - Drive the buttons of Offers & Requests from them. `OfferActionTest` checks both against `SellerOfferService`.
+- **Changes to the contract** go through Gordon (L11 change control).
 
 ### `PhotoService` (Create Listing step 8)
 ```java
@@ -251,13 +242,16 @@ Already wired. `AccountValidator` has the username / full name / password rules 
   `askReason(title, question)` → `Optional<String>`.
 - `Formats`: `date`, `dateTime` (to the minute), `borrowTime` and `period(start, end)` (to the second: use them for
   borrow periods and due dates), `price(double)`, `duration(Duration)`, `stars(int)`,
-  `averageRating(OptionalDouble, count)` ("No ratings yet" when none), `preview(text, max)`, `NONE`.
+  `averageRating(RatingSummary)` ("No ratings yet" when none; give it `store.getRating(username)`), `datePickerConverter()` (date pickers show "21 Nov 2026", like every other date), `preview(text, max)`, `NONE`.
 - `OfferText`: `summary(offer)` ("Price offer: HK$ 160"), `counter(offer)`, `status(offer)`,
   `badgeStyle(offer)`, `kind(offer)`. Use it on the offers screen.
 - `ListingCard`: `new ListingCard(listing, UserRole.SELLER).addActions(editBtn, deleteBtn)`; `ListingCard.grid()`.
 - `PhotoFrame`, `ChatView`, `ChatList`, `NotificationBoard`, `ProfileView`, `ContentHost`.
+- `Scrolling.bringIntoView(scrollPane, node)`: scrolls a node into the middle of the visible part (the chat search, and
+  Offers & Requests for a chat's offers).
 - CSS classes in `css/styles.css`: `card`, `badge` + `badge-live|pending|sold|rejected`, `btn-primary`,
-  `btn-outline`, `btn-danger`, `btn-success`, `btn-sm`, `section-title`.
+  `btn-outline`, `btn-danger`, `btn-success`, `btn-sm`, `section-title`, and `jump-highlight` (the item a search
+  result or a link jumped to).
 
 ## 7. Shape of a seller service (follow this)
 
@@ -309,10 +303,12 @@ void deletingAReservedListing_isRefused() {
 Examples to copy: `DealRulesTest`, `ChatServiceTest`, `ProfileServiceTest`. Demo logins: sellers
 `charlie`, `diana`, password `Demo@1234`.
 
-## 9. Known gaps on the seller side (as of 2026-11-17)
+## 9. Known gaps on the seller side (as of 2026-11-24)
 
 Tasks 2.1, 2.3, 2.4 and 2.5 are merged (PR #11: `CreateListingService`, `SellerListingService`,
 `SellerOfferService`). Still open:
 - The follow-ups listed on PR #11, first of all the client's answer above: an edited Live listing with no
   open offers stays Live.
-- Stats (2.8) shows demo numbers; Reviews (2.9) has no reply or flag service.
+- Stats (2.8) shows demo numbers; Reviews (2.9) has no reply or flag service (so the buyer's "seller replied"
+  notification, Task 1.8, never arrives).
+- The chat's link to Offers & Requests and the marked offers ("From the chat to Offers & Requests").

@@ -34,32 +34,29 @@ final class ReviewSellerFlow {
         this.reviews = reviews;
     }
 
-    /**
-     * Review Seller for one of the buyer's deals.
-     * @return true if a review was submitted
-     */
-    boolean start(String offerId) {
+    /** Review Seller for one of the buyer's deals. */
+    void start(String offerId) {
         ReviewForm form;
         try {
             form = reviews.start(offerId); // {Check Deal}
         } catch (ServiceException e) {
             Dialogs.problem(e); // A1
-            return false;
+            return;
         }
         ReviewDialog.Entry entry = ReviewDialog.Entry.EMPTY;
         while (true) {
             Optional<ReviewDialog.Entry> entered = ReviewDialog.ask(form, entry); // {Enter Review}
             if (entered.isEmpty()) {
-                return false; // A3
+                return; // A3
             }
             entry = entered.get();
             try {
                 reviews.submit(form.offerId(), entry.rating(), entry.comment()); // {Check Rating}, steps 7-9
                 Dialogs.info("Review submitted", ReviewText.submitted(form)); // step 10
-                return true;
+                return;
             } catch (DealNotReviewableException e) {
                 Dialogs.problem(e); // A1: nothing was recorded, and the use case ends
-                return false;
+                return;
             } catch (ServiceException e) {
                 Dialogs.problem(e); // A2, or no written review: back to {Enter Review}
             }

@@ -17,7 +17,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.hkust.marketplace.testsupport.Fixtures;
 
 /**
- * Tests for Manage Marketplace Listings 5.2 (approve) and 5.3 (reject).
+ * Tests for Manage Marketplace Listings: 3.2 (approve), 3.2 (reject), 3.7 (edit),
+ * 3.7 (remove / take down), 3.7 (add), and A1 input validation.
+ * Access-denied tests for all methods are in {@link AdminAccessControlTest}.
  */
 class AdminListingServiceTest {
 
@@ -39,7 +41,7 @@ class AdminListingServiceTest {
     // ---------- 3.2 Approve ----------
 
     @Test
-    void manageMarketplaceListings_5_2_basicFlow_approveMakesListingLive_recordsAction_notifiesSeller() {
+    void manageMarketplaceListings__basicFlow_approveMakesListingLive_recordsAction_notifiesSeller() {
         SaleListing book = support.pendingSale();
         support.clock.advance(Duration.ofHours(3));
 
@@ -76,7 +78,7 @@ class AdminListingServiceTest {
     // ---------- 3.2 Reject ----------
 
     @Test
-    void manageMarketplaceListings_5_3_basicFlow_rejectStoresReason_notifiesSellerWithReason() {
+    void manageMarketplaceListings_5_2_basicFlow_rejectStoresReason_notifiesSellerWithReason() {
         SaleListing book = support.pendingSale();
 
         service.rejectListing(book.getId(), "  Photo is blurry ");
@@ -106,7 +108,7 @@ class AdminListingServiceTest {
     }
 
     @Test
-    void manageMarketplaceListings_5_3_rejectRefusedWhenListingIsNotPendingReview() {
+    void manageMarketplaceListings_5_2_rejectRefusedWhenListingIsNotPendingReview() {
         SaleListing live = support.liveSale();
 
         ServiceException e = assertThrows(ServiceException.class, () -> service.rejectListing(live.getId(), "Spam"));
@@ -195,7 +197,7 @@ class AdminListingServiceTest {
     }
 
     @Test
-    void manageMarketplaceListings_5_4_SR2_editDoesNotChangeStatus() {
+    void manageMarketplaceListings_3_7_SR2_editDoesNotChangeStatus() {
         SaleListing pending = support.pendingSale();
         SaleListing live = support.liveSale();
 
@@ -260,7 +262,7 @@ class AdminListingServiceTest {
     }
 
     @Test
-    void manageMarketplaceListings_A1_durationOnSaleListing_addIsRefused() {
+    void manageMarketplaceListings_A1_durationOnSaleListing_editIsRefused() {
         SaleListing book = support.pendingSale();
 
         ServiceException e = assertThrows(ServiceException.class, () -> service.editListing(book.getId(),
@@ -270,7 +272,7 @@ class AdminListingServiceTest {
     }
 
     @Test
-    void manageMarketplaceListings_A1_moreThanSixPhotos_addIsRefused() {
+    void manageMarketplaceListings_A1_moreThanSixPhotos_editIsRefused() {
         SaleListing book = support.pendingSale();
         List<String> seven = List.of("1", "2", "3", "4", "5", "6", "7");
 
@@ -282,7 +284,7 @@ class AdminListingServiceTest {
     }
 
     @Test
-    void manageMarketplaceListings_5_4_editRefusedWhenListingDoesNotExist() {
+    void manageMarketplaceListings_3_7_editRefusedWhenListingDoesNotExist() {
         ServiceException e = assertThrows(ServiceException.class, () -> service.editListing("L999",
                 "x", "d", Category.TEXTBOOKS, MeetupLocation.LIBRARY, null, null, null));
         assertEquals("This listing no longer exists.", e.getMessage());
@@ -548,7 +550,7 @@ class AdminListingServiceTest {
     }
 
     @Test
-    void manageMarketplaceListings_5_4_editListingOfDeletedSeller_worksAndSkipsTheNotification() {
+    void manageMarketplaceListings_3_7_editListingOfDeletedSeller_worksAndSkipsTheNotification() {
         // store.deleteAccount (Gordon, 6.4.4) keeps the listing as archive and removes the account
         SaleListing book = support.liveSale();
         support.store.deleteAccount("sam");

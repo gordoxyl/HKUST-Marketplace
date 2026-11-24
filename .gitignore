@@ -8,6 +8,9 @@
 # Maven build output
 target/
 
+# IntelliJ's exported coverage report (Run with Coverage > Generate Coverage Report): generated, like target/
+/htmlReport/
+
 # macOS
 .DS_Store
 

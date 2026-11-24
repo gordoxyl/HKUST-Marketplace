@@ -77,14 +77,15 @@ final class OfferDialogs {
 
     /**
      * Asks for the period of a borrow request: a date and a time of day for the start and for
-     * the end. Seconds can be typed, because the shortest period is a few seconds.
+     * the end. Seconds can be typed, because the shortest period is a few seconds. The dates
+     * read as on every other screen, "21 Nov 2026", whether chosen from the calendar or typed.
      * @param period what the boxes start with: a suggestion, or what the buyer entered before
      * @return the period as entered, or empty if the buyer cancelled
      */
     static Optional<Period> askPeriod(Listing listing, Period period) {
-        DatePicker startDate = new DatePicker(period.startDate());
+        DatePicker startDate = datePicker(period.startDate());
         TextField startTime = new TextField(period.startTime());
-        DatePicker endDate = new DatePicker(period.endDate());
+        DatePicker endDate = datePicker(period.endDate());
         TextField endTime = new TextField(period.endTime());
         for (TextField time : new TextField[] {startTime, endTime}) {
             time.setPromptText("HH:mm or HH:mm:ss");
@@ -104,7 +105,28 @@ final class OfferDialogs {
         Dialog<ButtonType> dialog = dialog("Request Borrow", "Your borrow request for '" + listing.getTitle() + "'");
         dialog.getDialogPane().setContent(new VBox(10, form, rules));
         return dialog.showAndWait().filter(SUBMIT::equals).map(button -> new Period(
-                startDate.getValue(), startTime.getText(), endDate.getValue(), endTime.getText()));
+                shownDate(startDate), startTime.getText(), shownDate(endDate), endTime.getText()));
+    }
+
+    /**
+     * A date picker that shows and reads its date in the form every screen uses, "21 Nov 2026"
+     * ({@link Formats#datePickerConverter()}), and suggests that form while it is empty.
+     */
+    private static DatePicker datePicker(LocalDate date) {
+        DatePicker picker = new DatePicker(date);
+        picker.setConverter(Formats.datePickerConverter());
+        picker.setPromptText("such as 21 Nov 2026");
+        return picker;
+    }
+
+    /**
+     * The date the picker shows now. A picker takes in typed text only on Enter or when it
+     * loses focus, so a date typed just before Submit is read from the text here: the form never
+     * sends a date other than the one on the screen. Text that is not a date gives no date,
+     * which {@code OfferService} reports (A3).
+     */
+    private static LocalDate shownDate(DatePicker picker) {
+        return picker.getConverter().fromString(picker.getEditor().getText());
     }
 
     /** A Make Offer form: Submit, or Cancel (A4). */

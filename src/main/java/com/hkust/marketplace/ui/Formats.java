@@ -2,14 +2,19 @@ package com.hkust.marketplace.ui;
 
 import com.hkust.marketplace.models.BorrowRequest;
 import com.hkust.marketplace.models.LendListing;
+import com.hkust.marketplace.models.RatingSummary;
 import com.hkust.marketplace.models.Review;
 import com.hkust.marketplace.models.SaleListing;
+import javafx.util.StringConverter;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.Locale;
-import java.util.OptionalDouble;
 
 /**
  * One way to show dates, prices, ratings and periods on every screen, so all three portals
@@ -23,6 +28,32 @@ public final class Formats {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH);
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", Locale.ENGLISH);
     private static final DateTimeFormatter TIME_OF_DAY = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.ENGLISH);
+    /** A date as {@link #DATE} writes it, read back: one or two digits for the day, any case, real dates only. */
+    private static final DateTimeFormatter TYPED_DATE = new DateTimeFormatterBuilder()
+            .parseCaseInsensitive()
+            .appendPattern("d MMM uuuu")
+            .toFormatter(Locale.ENGLISH)
+            .withResolverStyle(ResolverStyle.STRICT);
+
+    /** See {@link #datePickerConverter()}. */
+    private static final StringConverter<LocalDate> PICKER_DATES = new StringConverter<>() {
+        @Override
+        public String toString(LocalDate date) {
+            return date == null ? "" : date.format(DATE);
+        }
+
+        @Override
+        public LocalDate fromString(String text) {
+            if (text == null || text.isBlank()) {
+                return null;
+            }
+            try {
+                return LocalDate.parse(text.strip(), TYPED_DATE);
+            } catch (DateTimeParseException e) {
+                return null; // not a date in this form: the picker is left without a date
+            }
+        }
+    };
 
     private Formats() {
         // Utility class
@@ -31,6 +62,20 @@ public final class Formats {
     /** "09 Nov 2026", or {@link #NONE} for no date. */
     public static String date(LocalDateTime time) {
         return time == null ? NONE : time.format(DATE);
+    }
+
+    /**
+     * How a date picker shows and reads its date: "21 Nov 2026", as {@link #date} shows dates in
+     * lists and tables, so a chosen date reads the same as the dates beside it (a consistent
+     * interface). Text typed into an editable picker is read in the same form, in any case; text
+     * that is not such a date, or no text, gives no date (null), which the form then reports.
+     * <pre>{@code
+     * DatePicker from = new DatePicker();
+     * from.setConverter(Formats.datePickerConverter());
+     * }</pre>
+     */
+    public static StringConverter<LocalDate> datePickerConverter() {
+        return PICKER_DATES;
     }
 
     /**
@@ -106,10 +151,11 @@ public final class Formats {
      * A seller's average rating: "4.5 / 5 (2 ratings)", or "No ratings yet" when there are none
      * (View Seller Stats A2).
      */
-    public static String averageRating(OptionalDouble average, int count) {
-        if (average.isEmpty() || count == 0) {
+    public static String averageRating(RatingSummary rating) {
+        if (rating.isEmpty()) {
             return "No ratings yet";
         }
-        return String.format(Locale.ENGLISH, "%.1f / 5 (%d rating%s)", average.getAsDouble(), count, count == 1 ? "" : "s");
+        int count = rating.count();
+        return String.format(Locale.ENGLISH, "%.1f / 5 (%d rating%s)", rating.average(), count, count == 1 ? "" : "s");
     }
 }

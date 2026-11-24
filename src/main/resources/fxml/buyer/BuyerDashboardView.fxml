@@ -34,8 +34,6 @@
                     onAction="#showMyDeals" maxWidth="Infinity" alignment="CENTER_LEFT"/>
             <Button fx:id="btnHistory" text="  Deal History" styleClass="sidebar-btn"
                     onAction="#showHistory" maxWidth="Infinity" alignment="CENTER_LEFT"/>
-            <Button fx:id="btnFavourites" text="  Favourites" styleClass="sidebar-btn"
-                    onAction="#showFavourites" maxWidth="Infinity" alignment="CENTER_LEFT"/>
             <Button fx:id="btnChats" text="  Chats" styleClass="sidebar-btn"
                     onAction="#showChats" maxWidth="Infinity" alignment="CENTER_LEFT"/>
             <Button fx:id="btnNotifications" text="  Notifications" styleClass="sidebar-btn"

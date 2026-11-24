@@ -62,9 +62,8 @@ public class ListingDetailView extends ScrollPane implements Refreshable {
     }
 
     /** How the screen reloads, for example when the timer returned the item and it is available again. */
-    public ListingDetailView setOnRefresh(Runnable reload) {
+    public void setOnRefresh(Runnable reload) {
         this.reload = reload;
-        return this;
     }
 
     @Override
@@ -73,27 +72,23 @@ public class ListingDetailView extends ScrollPane implements Refreshable {
     }
 
     /** What the action button does: start Make Offer (UC5) for this listing. */
-    public ListingDetailView setOnAction(Runnable startOffer) {
+    public void setOnAction(Runnable startOffer) {
         action.setOnAction(e -> startOffer.run());
-        return this;
     }
 
     /** What Chat with Seller does: open the chat about this listing (UC6). */
-    public ListingDetailView setOnChat(Runnable openChat) {
+    public void setOnChat(Runnable openChat) {
         chat.setOnAction(e -> openChat.run());
-        return this;
     }
 
     /** What Report Listing does: start Report Listing (UC9). */
-    public ListingDetailView setOnReport(Runnable startReport) {
+    public void setOnReport(Runnable startReport) {
         report.setOnAction(e -> startReport.run());
-        return this;
     }
 
     /** What choosing the seller's name does: show the seller's profile (UC8 A3). */
-    public ListingDetailView setOnSellerProfile(Runnable showProfile) {
+    public void setOnSellerProfile(Runnable showProfile) {
         sellerName.setOnAction(e -> showProfile.run());
-        return this;
     }
 
     // ---------- Layout ----------
@@ -170,7 +165,7 @@ public class ListingDetailView extends ScrollPane implements Refreshable {
         HBox name = new HBox(4, label, sellerName);
         name.setAlignment(Pos.CENTER_LEFT);
         return card(new VBox(10, name,
-                new ReviewList(seller.averageRating(), seller.ratingCount(), seller.reviews())));
+                new ReviewList(seller.rating(), seller.reviews())));
     }
 
     private static VBox card(Node content) {

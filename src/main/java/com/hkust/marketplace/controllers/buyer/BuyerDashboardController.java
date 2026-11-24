@@ -5,11 +5,13 @@ import com.hkust.marketplace.models.User;
 import com.hkust.marketplace.services.BrowseService;
 import com.hkust.marketplace.services.ChatService;
 import com.hkust.marketplace.services.Deal;
+import com.hkust.marketplace.services.DealHistoryService;
 import com.hkust.marketplace.services.ListingDetail;
 import com.hkust.marketplace.services.MyDealsService;
 import com.hkust.marketplace.services.NotificationService;
 import com.hkust.marketplace.services.OfferService;
 import com.hkust.marketplace.services.ProfileService;
+import com.hkust.marketplace.services.ReportService;
 import com.hkust.marketplace.services.ReviewService;
 import com.hkust.marketplace.services.SellerProfile;
 import com.hkust.marketplace.services.ServiceException;
@@ -27,10 +29,7 @@ import com.hkust.marketplace.ui.SubScreen;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
 import javafx.application.Platform;
-import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -45,7 +44,8 @@ import java.util.Set;
  * It only moves between screens and connects their buttons to the use cases; the rules are in
  * the services, and each screen is a class of its own ({@link BrowseView},
  * {@link ListingDetailView}, {@link SellerProfileView}, {@link MakeOfferFlow},
- * {@link MyDealsView} and the shared ones in {@code ui}).
+ * {@link ReportListingFlow}, {@link MyDealsView}, {@link DealHistoryView} and the shared ones
+ * in {@code ui}).
  *
  * <p>The screens never call each other. Each one reports what the buyer asked for (for
  * example through {@code MyDealsView.Actions}), and the dashboard decides what opens next:
@@ -57,7 +57,7 @@ public class BuyerDashboardController implements ContentHost {
     @FXML private StackPane contentPane;
     @FXML private Label pageTitle;
     @FXML private Label welcomeLabel;
-    @FXML private Button btnBrowse, btnDeals, btnHistory, btnFavourites, btnChats, btnNotifications, btnProfile;
+    @FXML private Button btnBrowse, btnDeals, btnHistory, btnChats, btnNotifications, btnProfile;
 
     private Button currentActiveBtn;
 
@@ -66,6 +66,8 @@ public class BuyerDashboardController implements ContentHost {
     private final MakeOfferFlow makeOffer = new MakeOfferFlow(new OfferService());
     private final MyDealsService myDealsService = new MyDealsService();
     private final ReviewSellerFlow reviewFlow = new ReviewSellerFlow(new ReviewService());
+    private final ReportListingFlow reportFlow = new ReportListingFlow(new ReportService());
+    private final DealHistoryService dealHistoryService = new DealHistoryService();
     /** The automatic returns the buyer was asked about, or that happened before this dashboard opened (client answer #3). */
     private final Set<String> autoReturnsSeen = new HashSet<>();
     /** The My Deals screen now open. It is kept while a deal's listing or chat is open, so Back returns to it. */
@@ -215,9 +217,9 @@ public class BuyerDashboardController implements ContentHost {
         chat.setOnAgreeToCounter(offer -> makeOffer.startFromCounter(offer.getId()));
     }
 
-    /** UC9 Report Listing starts here. It is built later (B7). */
+    /** UC9 Report Listing, from the detail screen's button (step 1). The detail screen stays as it is. */
     private void reportListing(Listing listing) {
-        Dialogs.info("Not built yet", "Reporting '" + listing.getTitle() + "' (UC9) is built later.");
+        reportFlow.start(listing.getId());
     }
 
     // ========== UC7 Manage My Deals ==========
@@ -305,65 +307,20 @@ public class BuyerDashboardController implements ContentHost {
         }
     }
 
-    // ========== Screens that are still the skeleton's demo ==========
+    // ========== UC11 View Deal History ==========
 
+    /**
+     * UC11 step 1. The screen is shown directly, not inside a {@link SubScreen}, so that
+     * {@link #refreshCurrentScreen()} reaches it when the timer returns an item (Special
+     * Requirement 1).
+     */
     @FXML
     private void showHistory() {
         setActive(btnHistory, "Deal History");
-        contentPane.getChildren().clear();
-
-        VBox root = new VBox(16);
-        root.setPadding(new Insets(4));
-
-        HBox filters = new HBox(12);
-        filters.setAlignment(Pos.CENTER_LEFT);
-        DatePicker from = new DatePicker();
-        from.setPromptText("From");
-        DatePicker to = new DatePicker();
-        to.setPromptText("To");
-        TextField search = new TextField();
-        search.setPromptText("Search by title / seller...");
-        filters.getChildren().addAll(new Label("Date range:"), from, new Label("–"), to, search);
-        root.getChildren().add(filters);
-
-        TableView<String[]> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        TableColumn<String[], String> c1 = new TableColumn<>("Item Title");
-        c1.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue()[0]));
-        TableColumn<String[], String> c2 = new TableColumn<>("Seller");
-        c2.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue()[1]));
-        TableColumn<String[], String> c3 = new TableColumn<>("Deal Date");
-        c3.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue()[2]));
-        TableColumn<String[], String> c4 = new TableColumn<>("Type");
-        c4.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue()[3]));
-        TableColumn<String[], String> c5 = new TableColumn<>("Outcome");
-        c5.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue()[4]));
-        table.getColumns().addAll(c1, c2, c3, c4, c5);
-        table.setItems(FXCollections.observableArrayList(
-                new String[]{"Old Chemistry Book", "Charlie Lee", "2025-11-12", "Bought", "Completed"},
-                new String[]{"USB Hub", "Diana Ng", "2025-10-03", "Received", "Completed"}
-        ));
-        root.getChildren().add(table);
-        contentPane.getChildren().add(root);
+        show("Deal History", new DealHistoryView(dealHistoryService));
     }
 
-    @FXML
-    private void showFavourites() {
-        setActive(btnFavourites, "Favourites & Following");
-        contentPane.getChildren().clear();
-        VBox root = new VBox(16);
-        root.setPadding(new Insets(4));
-        root.setAlignment(Pos.CENTER);
-        Label icon = new Label("♥");
-        icon.getStyleClass().add("placeholder-icon");
-        Label title = new Label("Favourites, Bookmarks & Following");
-        title.getStyleClass().add("placeholder-title");
-        Label desc = new Label("Save listings you like and follow favourite sellers.\nThis section is a UI placeholder for students to implement.");
-        desc.getStyleClass().add("placeholder-text");
-        desc.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
-        root.getChildren().addAll(icon, title, desc);
-        contentPane.getChildren().add(root);
-    }
+    // ========== Shared screens: chats (UC6), notifications (UC4), profile (UC3) ==========
 
     @FXML
     private void showChats() {

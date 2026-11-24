@@ -10,6 +10,7 @@ import com.hkust.marketplace.services.BrowseService;
 import com.hkust.marketplace.services.ListingSort;
 import com.hkust.marketplace.services.ServiceException;
 import com.hkust.marketplace.ui.BrowseText;
+import com.hkust.marketplace.ui.Choices;
 import com.hkust.marketplace.ui.Dialogs;
 import com.hkust.marketplace.ui.ListingCard;
 import com.hkust.marketplace.ui.Refreshable;
@@ -46,9 +47,9 @@ public class BrowseView extends VBox implements Refreshable {
     private final Consumer<Listing> onOpen;
 
     private final TextField keyword = new TextField();
-    private final ComboBox<String> category = choice("All categories", Category.values());
-    private final ComboBox<String> type = choice("All types", ListingType.values());
-    private final ComboBox<String> condition = choice("All conditions", ItemCondition.values());
+    private final ComboBox<String> category = Choices.withAll("All categories", Category.values());
+    private final ComboBox<String> type = Choices.withAll("All types", ListingType.values());
+    private final ComboBox<String> condition = Choices.withAll("All conditions", ItemCondition.values());
     private final TextField minPrice = new TextField();
     private final TextField maxPrice = new TextField();
     private final ComboBox<ListingSort> sort = new ComboBox<>(FXCollections.observableArrayList(ListingSort.values()));
@@ -129,8 +130,8 @@ public class BrowseView extends VBox implements Refreshable {
             return;
         }
         show(new BrowseQuery(keyword.getText(),
-                chosen(category, Category.values()), chosen(type, ListingType.values()),
-                chosen(condition, ItemCondition.values()),
+                Choices.chosen(category, Category.values()), Choices.chosen(type, ListingType.values()),
+                Choices.chosen(condition, ItemCondition.values()),
                 minPrice.getText(), maxPrice.getText(), sort.getValue()));
     }
 
@@ -169,7 +170,7 @@ public class BrowseView extends VBox implements Refreshable {
         }
     }
 
-    // ---------- Filter choices ----------
+    // ---------- Layout ----------
 
     /** Controls that belong together, such as a label and its box: they wrap as one. */
     private static HBox group(Node... controls) {
@@ -181,22 +182,5 @@ public class BrowseView extends VBox implements Refreshable {
             }
         }
         return group;
-    }
-
-    /** A choice of "all" followed by the values' display names. */
-    private static ComboBox<String> choice(String all, Enum<?>[] values) {
-        ComboBox<String> box = new ComboBox<>();
-        box.getItems().add(all);
-        for (Enum<?> value : values) {
-            box.getItems().add(value.toString());
-        }
-        box.getSelectionModel().selectFirst();
-        return box;
-    }
-
-    /** The chosen value, or null when "all" is chosen. */
-    private static <E> E chosen(ComboBox<String> box, E[] values) {
-        int index = box.getSelectionModel().getSelectedIndex();
-        return index <= 0 ? null : values[index - 1];
     }
 }

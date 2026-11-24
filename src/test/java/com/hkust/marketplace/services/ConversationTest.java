@@ -33,8 +33,9 @@ class ConversationTest {
         return offer;
     }
 
-    private void message(String sender, String text) {
-        entries.add(new ChatEntry(entries.size(), sender, sender, TIME.plusMinutes(entries.size()), text, null));
+    /** Adds bea's message to the history: a line the offer logic skips, whoever wrote it. */
+    private void beaWrites(String text) {
+        entries.add(new ChatEntry(entries.size(), "bea", "Bea Chan", TIME.plusMinutes(entries.size()), text, null));
     }
 
     private Conversation seenBy(String viewer) {
@@ -45,7 +46,7 @@ class ConversationTest {
     void theSeller_actsOnTheOpenOffers_newestFirst() {
         Offer accepted = said(offer(120));
         accepted.accept(TIME);
-        message("bea", "Would you take less?");
+        beaWrites("Would you take less?");
         Offer countered = said(offer(150));
         ((PriceOffer) countered).counter(170);
         Offer declined = said(offer(100));
@@ -72,7 +73,7 @@ class ConversationTest {
     @Test
     void aChatWithoutOpenOffers_hasNothingToActOn() {
         assertTrue(seenBy("sam").offersToActOn().isEmpty()); // no history at all
-        message("bea", "Is it still available?");
+        beaWrites("Is it still available?");
         Offer declined = said(offer(100));
         declined.decline();
 

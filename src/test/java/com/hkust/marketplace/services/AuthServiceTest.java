@@ -4,6 +4,8 @@ import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.data.SeedData;
 import com.hkust.marketplace.models.Buyer;
 import com.hkust.marketplace.models.MeetupLocation;
+import com.hkust.marketplace.models.Notification;
+import com.hkust.marketplace.models.NotificationCategory;
 import com.hkust.marketplace.models.Seller;
 import com.hkust.marketplace.models.User;
 import com.hkust.marketplace.models.UserRole;
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -97,6 +100,18 @@ class AuthServiceTest {
         assertNull(data.findUser("u3"));
     }
 
+    /** Regression log R11: UC1 A3 says what is wrong with the password and shows the password rules. */
+    @Test
+    void register_weakPassword_saysWhatIsWrong_andShowsThePasswordRules() {
+        String expected = "Password must contain at least one uppercase letter. Password rules: "
+                + AccountValidator.PASSWORD_RULES;
+
+        assertEquals(expected, auth.registerBuyer("u4", "Weak Password", "password1", "password1", null));
+        assertEquals(expected, auth.registerSeller("u5", "Weak Password", "password1", "password1", null, null));
+        assertNull(data.findUser("u4"));
+        assertNull(data.findUser("u5"));
+    }
+
     // ---------- UC2 Log In ----------
 
     @Test
@@ -165,5 +180,60 @@ class AuthServiceTest {
         String username = registerBuyer();
 
         assertEquals(LoginResult.SUCCESS, auth.login(username.toUpperCase(), GOOD_PASSWORD, UserRole.BUYER));
+    }
+
+    // ---------- Task 3.6: every new account is announced to the admins (client question F4) ----------
+
+    /** What the seeded admin's Notification Board says about user accounts. */
+    private List<String> accountNotices() {
+        return data.getNotificationsFor("admin").stream()
+                .filter(n -> n.getCategory() == NotificationCategory.ACCOUNT_CHANGE)
+                .map(Notification::getContent)
+                .toList();
+    }
+
+    @Test
+    void register_aNewBuyerAndANewSeller_areAnnouncedToTheAdmins() {
+        registerBuyer();
+        assertNull(auth.registerSeller("newseller", "Test Seller", GOOD_PASSWORD, GOOD_PASSWORD, null, List.of()));
+
+        assertEquals(2, accountNotices().size());
+        assertEquals(Set.of("New buyer account: Test Buyer (@newbuyer).", "New seller account: Test Seller (@newseller)."),
+                Set.copyOf(accountNotices()));
+    }
+
+    @Test
+    void register_refused_announcesNothing() {
+        assertNotNull(auth.registerBuyer("alice", "Another Alice", GOOD_PASSWORD, GOOD_PASSWORD, null)); // A1: taken
+        assertNotNull(auth.registerBuyer("weakling", "Weak Password", "password1", "password1", null)); // A3: weak
+
+        assertTrue(accountNotices().isEmpty());
+    }
+
+    @Test
+    void register_usernameTakenWhileThePasswordWasHashed_isRefused_andAnnouncesNothing() {
+        // A stub store (Lecture 14): its first check misses alice, as if her account were created just after it
+        class RacingStore extends DataStore {
+            boolean missNextCheck;
+
+            @Override
+            public boolean usernameExists(String username) {
+                if (missNextCheck) {
+                    missNextCheck = false;
+                    return false;
+                }
+                return super.usernameExists(username);
+            }
+        }
+        RacingStore racing = new RacingStore();
+        SeedData.populate(racing);
+        racing.missNextCheck = true;
+
+        String error = new AuthService(racing).registerBuyer("alice", "Another Alice", GOOD_PASSWORD, GOOD_PASSWORD, null);
+
+        assertEquals("This username is already in use.", error);
+        assertEquals("Alice Chan", racing.findUser("alice").getFullName());
+        assertTrue(racing.getNotificationsFor("admin").stream()
+                .noneMatch(n -> n.getCategory() == NotificationCategory.ACCOUNT_CHANGE));
     }
 }

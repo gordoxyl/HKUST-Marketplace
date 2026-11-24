@@ -65,14 +65,16 @@ Log in as `alice` unless a step says otherwise.
 | AT-UC5-11 | SR5 earlier offers stay | Continue from AT-UC5-10. | Both offers (HK$ 200 and HK$ 210) are listed as Pending. | |
 | AT-UC5-12 | SR4 agreeing to a counter | Needs the seller's Offers & Requests (Task 2.5): as `charlie`, counter Alice's HK$ 200 offer with HK$ 230. As `alice`, open the chat, press **Agree to Counter (1)** under Send, choose the offer ("HK$ 200 → HK$ 230") and press Agree, then Submit. | The form starts with `230`. A new Pending offer of HK$ 230 appears; the first offer stays "Countered". | |
 | AT-UC5-13 | Saved data | After any of the scenarios above, close the app and start it again. | The offers are still in the chats, and the lamp is still "Claim Pending". | |
+| AT-UC5-14 | A3, dates in the borrow form | Open the calculator, press Request Borrow. (a) Look at the dates. (b) Type the start date as `25 Nov 2026`, without pressing Enter, and press Submit. (c) In a new request, type the start date as `11/25/2026` and press Submit. | (a) The dates read like every other date in the app, such as "21 Nov 2026". (b) The request starts on 25 Nov 2026: a typed date counts even without Enter. (c) "Please enter both the start and the end of the borrow period, each with a date and a time." The form comes back with the start date empty and the hint "such as 21 Nov 2026". | |
 
 
 ## Chat deal actions (UC5, UC6 and Manage Offers & Requests; assumptions register 71)
 
-The offer cards in a chat only show history and status. The deal actions are buttons under Send, the same in both
-portals, and each appears only while it is that person's turn. The seller's buttons need the seller portal to
-give its chats its answers (`ChatView.setOnAnswerOffer`); scenarios marked *needs the seller's wiring* wait for that.
-The rules behind them are tested in `OfferActionTest`, `ConversationTest` and `ChatTextTest`.
+The offer cards in a chat only show history and status. The deal actions are buttons under Send, and each appears
+only while it is that person's turn. The buyer makes offers there (UC5). The seller answers offers only on Offers &
+Requests (Task 2.5), which the chat links to with the chat's offers marked. The link needs the seller portal to give
+its chats the hook (`ChatView.setOnRespondToOffers`); scenarios marked *needs the seller's wiring* wait for that.
+The rules behind them are tested in `OfferActionTest`, `ConversationTest`, `ChatTextTest` and `ScrollingTest`.
 
 | ID | Flow | Steps | Expected result | Result |
 |---|---|---|---|---|
@@ -81,12 +83,12 @@ The rules behind them are tested in `OfferActionTest`, `ConversationTest` and `C
 | AT-CHAT-03 | Buyer: the Agree dialog | Press Agree to Counter (1). | A dialog "Agree to a counter from Charlie Lee" lists "HK$ 220 → HK$ 260 · <time>" already chosen, with Agree on the left and Cancel on the right. | |
 | AT-CHAT-04 | Buyer: cancelling goes back to the list | Press Agree, then Cancel in the Make Offer form. | The Agree dialog opens again. Cancel closes it; nothing was submitted. | |
 | AT-CHAT-05 | Buyer: agreeing | Press Agree, then Submit in the form (it starts with 260). | "Your price offer … was submitted: HK$ 260." A new Pending HK$ 260 card appears; the countered one stays Countered, so Agree to Counter (1) remains. | |
-| AT-CHAT-06 | Seller: Answer Offers *(needs the seller's wiring)* | As `charlie`, open the chat of an offer that is waiting. | Under Send: **Answer Offers (n)**, n being the open offers (Pending and Countered). No offer card has a button. | |
-| AT-CHAT-07 | Seller: the answer dialog *(needs the seller's wiring)* | Press Answer Offers (n). | The open offers, newest first and the newest chosen, with their status badges. Accept, Decline and Counter on the left, Cancel on the right. The list scrolls after about four offers. | |
-| AT-CHAT-08 | Seller: a Countered offer can only be declined *(needs the seller's wiring)* | Choose a Countered offer in the list. | Only Decline and Cancel can be pressed, as on Offers & Requests. | |
-| AT-CHAT-09 | Seller: accepting from the chat *(needs the seller's wiring)* | Choose a Pending offer, press Accept and confirm. | The seller stays in the chat. The card says Accepted, the other open offers Declined, and the Answer button is gone. | |
-| AT-CHAT-10 | Seller: a cancelled confirmation *(needs the seller's wiring)* | Press Decline, then cancel the confirmation. | The answer dialog opens again; nothing changed. | |
-| AT-CHAT-11 | Seller: loans and giveaways *(needs the seller's wiring)* | As `diana`, open Bob's borrow request on the calculator, then a claim on the desk lamp. | **Answer Requests (1)**, whose Counter asks for dates; **Answer Claim**, whose dialog has no Counter. | |
+| AT-CHAT-06 | Seller: the link under Send *(needs the seller's wiring)* | As `charlie`, open the chat of an offer that is waiting (from Chats, or Offers & Requests → Open Chat). | Under Send: **Respond in Offers & Requests (n)**, n being the chat's open offers (Pending and Countered). No Accept, Decline or Counter anywhere in the chat; no offer card has a button. | |
+| AT-CHAT-07 | Seller: the link opens the offers *(needs the seller's wiring)* | Press Respond in Offers & Requests (n). | Offers & Requests opens, with its sidebar button active. The listing's card is in view, and the chat's open offers are marked light yellow, the same yellow as a chat search result. Offers from other chats are not marked. | |
+| AT-CHAT-08 | Seller: the mark stays until the screen changes *(needs the seller's wiring)* | Wait a few seconds. Then open My Listings, and come back to Offers & Requests from the sidebar. | The mark stays while the screen is open. Coming back from the sidebar, nothing is marked. | |
+| AT-CHAT-09 | Seller: answering, then back to the chat *(needs the seller's wiring)* | From AT-CHAT-07, Accept the marked offer and confirm. Then open the chat again from Chats. | "Offer accepted"; the list is shown again, without marks. In the chat, the card says Accepted, the listing's other open offers say Declined, and the link is gone. | |
+| AT-CHAT-10 | Seller: two open offers from one buyer *(needs the seller's wiring)* | After AT-CHAT-05 (Alice agreed to Charlie's counter, so her countered offer and her new offer are both open), as `charlie` open that chat and press Respond in Offers & Requests (2). | Both of Alice's offers are marked, and the newest is in view. The Countered one has only Decline enabled; the Pending one has Accept, Decline and Counter. | |
+| AT-CHAT-11 | Seller: loans and giveaways *(needs the seller's wiring)* | As `diana`, open Bob's borrow request on the calculator, then a claim on the desk lamp, and press the link in each. | The same label in both, Respond in Offers & Requests (1). The request is marked and has Counter, which asks for dates; the claim is marked and has no Counter. | |
 
 ## UC7 Manage My Deals (Task 1.6)
 
@@ -150,3 +152,67 @@ Rate Seller button; it is covered by `ReviewServiceTest`.
 | AT-UC10-09 | Automatic return while away (client answer #3) | As in AT-UC12-06, keep the app closed past the due date, then log in as `alice`. | No pop-up. The notification ends "You can rate the seller from My Deals.", and the deal has a Rate Seller button. | |
 | AT-UC10-10 | SR1 once per deal; two loans give two reviews (client answer #8) *(needs Task 2.5)* | Borrow the calculator, have `diana` accept, return it and review it; then borrow it again and return it. | The second loan has its own Rate Seller button and review; each deal is reviewed once. | |
 | AT-UC10-11 | SR3, no change after submitting | After submitting a review, look for a way to change or delete it. | There is none; the deal has no Rate Seller button any more. | |
+
+## UC11 View Deal History (Task 1.9)
+
+The client's answers fix two columns (`docs/client-answers.md`): the Deal Date is the completion date (#4), and an
+automatic return may be shown as Auto-returned (#1). A borrowed item is dated on its return day, and an automatic return
+on its due date. Filters combine: a deal is shown only if it matches every filter that is set (step 4). Scenarios 02-12
+use the practice data: `alice` already has the USB-C Hub (Diana Ng, bought yesterday) and the Umbrella (Charlie Lee,
+returned automatically two days ago).
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-UC11-01 | Basic flow, steps 1-2 | After a reset, as `bob`, open Deal History. | One row: Organic Chemistry Textbook · Charlie Lee · the date 18 days before the reset · Bought · Completed. The line above the table says "1 deal". | |
+| AT-UC11-02 | Step 2, SR2-SR4 | After `scripts\practice-data.cmd`, as `alice`, open Deal History. | Two rows, newest first: USB-C Hub · Diana Ng · yesterday · Bought · Completed; Umbrella · Charlie Lee · two days ago · Borrowed · Auto-returned. | |
+| AT-UC11-03 | SR1, a deal enters at once | On My Deals, mark the Desk Fan and then the Free Notebooks complete, and return the Camera Tripod. Open Deal History. | Three new rows at the top, dated today, newest first: Camera Tripod (Borrowed, Returned), Free Notebooks (Received, Completed), Desk Fan (Bought, Completed). | |
+| AT-UC11-04 | SR1, the timer while the screen is open | Close the app, reload the practice data and start the app. Within 5 minutes, as `alice`, open Deal History and wait without clicking until the HDMI Cable is due. | Within a second of its due time the HDMI Cable appears at the top: Charlie Lee · today · Borrowed · Auto-returned. | |
+| AT-UC11-05 | Step 4, date range | Choose yesterday's date as both From and To. | Only the USB-C Hub (a one-day range includes its day). | |
+| AT-UC11-06 | Step 4, category | Press Reset, then choose Others. | Only the Umbrella. Choosing All categories shows every row again. | |
+| AT-UC11-07 | Step 4, seller | Type `DIANA` in the seller box and press Enter. | Only Diana Ng's deals: upper and lower case don't matter. | |
+| AT-UC11-08 | Step 4, filters combine | Keep `DIANA` and choose Others. | No rows, and "No deals match. A deal appears here once it is completed." | |
+| AT-UC11-09 | A1 | Press Reset, type `zzz` in the seller box and press Enter. | "No deals match. A deal appears here once it is completed." and an empty table. | |
+| AT-UC11-10 | A2 | Choose a From date that is after the To date. Then move To to a date after From. | "The date range is invalid. Choose a start date on or before the end date." appears in red under the dates, with no pop-up, and the rows shown before stay. It goes away as soon as the range is valid, and the rows update. | |
+| AT-UC11-11 | Step 5, Reset | Set every filter, then press Reset. | Every filter is cleared and every completed deal is shown. | |
+| AT-UC11-12 | Step 2 order kept | Click the Deal Date column heading. | Nothing is re-sorted: the rows stay newest deal date first. | |
+
+## UC9 Report Listing (Task 1.4)
+
+Report Listing starts from the detail screen's button. A listing can be reported whenever the buyer can open its
+detail screen: any live listing, and any listing the buyer has a deal on, whatever its status (assumption 80). Only
+the admin sees reports, so the seller never learns who reported a listing (SR4). Run the scenarios in order after a
+reset: 02, 03, 07 and 09 use the report made in 01.
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-UC9-01 | Basic flow, steps 1-9 | As `bob`: Browse → *MacBook Pro Charger 61W* → View Details → Report Listing. Choose "Misleading description", type "Says 61W but the label shows 30W.", press Submit Report. | The form is headed "Report 'MacBook Pro Charger 61W' to the admin", lists the six reasons in SR1's order (Prohibited item, Scam or fraud, Misleading description, Offensive content, Spam or duplicate, Other) and has none chosen. After submitting: "Your report of 'MacBook Pro Charger 61W' was submitted. The admin will review the listing." The detail screen stays as it was. | |
+| AT-UC9-02 | Step 8, the admin is notified | Log in as `admin`, open Notification Board. | "Listing Reported": "'MacBook Pro Charger 61W' by Charlie Lee was reported (Misleading description) and needs moderation." The notification does not name `bob`. (VIEW in Manage Marketplace Listings shows the report with its reason and details once the admin's screen is wired.) | |
+| AT-UC9-03 | A1 | As `bob`, press Report Listing on the charger again. | "You have already reported this listing." No form opens. | |
+| AT-UC9-04 | A2, no reason | As `bob`, on the *IKEA Desk Lamp*: press Report Listing, type details, choose no reason, press Submit Report. | "Both a reason and details are required." The form comes back with the details still typed. | |
+| AT-UC9-05 | A2, empty details | In the same form, choose a reason, replace the details with only spaces, press Submit Report. | The same message. The form comes back with the reason still chosen. | |
+| AT-UC9-06 | A3 | In the form, press Cancel. Then press Report Listing again. | No message, and nothing is recorded. The form opens again, empty (not A1). | |
+| AT-UC9-07 | SR3 is per buyer | Log in as `alice` and report the charger, with any reason and details. | Accepted: another buyer may report the same listing. `admin` now has two "Listing Reported" notifications about it. | |
+| AT-UC9-08 | SR4 | Log in as `charlie`. Open Notification Board and every seller screen. | Nothing about the reports or who made them. | |
+| AT-UC9-09 | SR3 across a restart | Close the app and start it again. As `bob`, press Report Listing on the charger. | "You have already reported this listing." | |
+| AT-UC9-10 | A listing the buyer has a deal on (assumption 80) | As `bob`, open My Deals, and press View Listing on the completed *Organic Chemistry Textbook* (Sold). Press Report Listing. | The form opens: a buyer can report a listing they dealt on, even after it was sold. | |
+
+## UC4 View Notifications, admin: the accounts' history (Task 3.6; client question F4)
+
+The admin's Notification Board lists every change to a buyer's or seller's account, in category "Account Change", so
+it reads as the accounts' history (decided 24 Nov). A profile notice names the fields that changed, never their
+values. An admin's own profile, and a save that changes nothing, send nothing. Users are not notified of their own
+changes (the screen confirms them). The four admin actions (07-10) need the admin portal's wiring (Jack's
+`AdminUserService`). Run in order after a reset; each scenario ends by opening `admin`'s Notification Board.
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-UC4A-01 | New buyer account | Buyer portal → Register: username `nina`, full name `Nina Ng`, password and confirmation `Secure#123`. Then log in as `admin`. | "Account Change": "New buyer account: Nina Ng (@nina)." | |
+| AT-UC4A-02 | New seller account | Seller portal → Register `sunny`, `Sunny Lam`, `Secure#123`. Then as `admin`. | "New seller account: Sunny Lam (@sunny)." | |
+| AT-UC4A-03 | A buyer's own change | As `alice`: Manage Profile, full name `Alice Chan Tai`, new password and confirmation `New#Pass2`, Save. Open her Notification Board. Then as `admin`. | Alice sees "Profile updated" and no new notification. `admin`: "Alice Chan Tai (@alice) changed their profile: full name, password." The password does not appear. | |
+| AT-UC4A-04 | A seller's own change | As `charlie`: Manage Profile, change the bio, tick one more meet-up location, Save. Then as `admin`. | "Charlie Lee (@charlie) changed their profile: bio, meet-up locations." | |
+| AT-UC4A-05 | A save that changes nothing | As `bob`: Manage Profile, Save without changing anything. Then as `admin`. | "Profile updated" for Bob; no new Account Change notice for `admin`. | |
+| AT-UC4A-06 | An admin's own profile | As `admin`: Manage Profile, change the full name, Save. Open the Notification Board. | No Account Change notice about it. | |
+| AT-UC4A-07 | Admin edits an account *(needs the admin's wiring)* | As `admin`: Manage All Users → Edit `bob` → full name `Bob Wong Jr` → OK. | `bob` gets "An administrator updated your account details." `admin`: "@admin edited the buyer account of Bob Wong Jr (@bob)." | |
+| AT-UC4A-08 | Admin deactivates *(needs the admin's wiring)* | Deactivate `bob`, reason `Spam`. | "@admin deactivated the buyer account of Bob Wong Jr (@bob). Reason: Spam" | |
+| AT-UC4A-09 | Admin reactivates *(needs the admin's wiring)* | Activate `bob`. | "@admin reactivated the buyer account of Bob Wong Jr (@bob)." | |
+| AT-UC4A-10 | Admin deletes *(needs the admin's wiring)* | Delete `nina` (from 01), reason `Test account`. | "@admin deleted the buyer account of Nina Ng (@nina). Reason: Test account" | |

@@ -1,26 +1,20 @@
 package com.hkust.marketplace.ui;
 
 import com.hkust.marketplace.models.Category;
-import com.hkust.marketplace.models.Claim;
-import com.hkust.marketplace.models.GiveawayListing;
 import com.hkust.marketplace.models.ItemCondition;
-import com.hkust.marketplace.models.LendListing;
-import com.hkust.marketplace.models.ListingType;
 import com.hkust.marketplace.models.MeetupLocation;
 import com.hkust.marketplace.models.PriceOffer;
 import com.hkust.marketplace.models.SaleListing;
 import com.hkust.marketplace.services.ChatEntry;
 import com.hkust.marketplace.services.Conversation;
-import com.hkust.marketplace.services.OfferAction;
 import org.junit.jupiter.api.Test;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** Tests for the wording of the shared chat screens (UC6 step 2 and A2). */
+/** Tests for the wording of the shared chat screens (UC6 step 2 and A2) and their deal actions (assumptions register 71). */
 class ChatTextTest {
 
     private static final LocalDateTime TIME = LocalDateTime.of(2026, 11, 9, 14, 5);
@@ -78,22 +72,6 @@ class ChatTextTest {
     }
 
     @Test
-    void scrollPosition_putsTheLineInTheMiddle_andStaysBetweenTopAndBottom() {
-        // A history 1000 high seen through a window 200 high: 800 can be scrolled
-        assertEquals(0.5, ChatText.scrollPosition(480, 40, 1000, 200), 1e-9);  // line centred at 500
-        assertEquals(0.0, ChatText.scrollPosition(0, 40, 1000, 200), 1e-9);    // first line: cannot go above the top
-        assertEquals(1.0, ChatText.scrollPosition(960, 40, 1000, 200), 1e-9);  // last line: cannot go below the bottom
-        assertEquals(0.0, ChatText.scrollPosition(80, 40, 1000, 200), 1e-9);   // centred exactly at the top edge
-        assertEquals(0.125, ChatText.scrollPosition(180, 40, 1000, 200), 1e-9);
-    }
-
-    @Test
-    void scrollPosition_isTheTop_whenTheWholeHistoryIsVisible() {
-        assertEquals(0.0, ChatText.scrollPosition(50, 40, 200, 200), 1e-9);
-        assertEquals(0.0, ChatText.scrollPosition(50, 40, 120, 200), 1e-9);
-    }
-
-    @Test
     void searchSummary_countsTheMatches() {
         assertEquals("No messages contain 'lamp'.", ChatText.searchSummary("lamp", 0)); // A2 step 2
         assertEquals("1 message contains 'lamp'.", ChatText.searchSummary(" lamp ", 1));
@@ -103,58 +81,34 @@ class ChatTextTest {
     // ---------- Deal actions beside Send (assumptions register 71) ----------
 
     @Test
-    void theDealButtons_nameWhatIsWaiting_andHowMany() {
-        assertEquals("Answer Offers (2)", ChatText.answerButton(ListingType.SELL, 2));
-        assertEquals("Answer Requests (1)", ChatText.answerButton(ListingType.LEND, 1));
-        assertEquals("Answer Claim", ChatText.answerButton(ListingType.GIVEAWAY, 1)); // at most one claim waits
+    void theDealButtons_sayWhatIsWaiting_andHowMany() {
         assertEquals("Agree to Counter (1)", ChatText.agreeButton(1));
+        assertEquals("Agree to Counter (2)", ChatText.agreeButton(2));
+        // the seller's is a link: offers are answered only on Offers & Requests (Task 2.5)
+        assertEquals("Respond in Offers & Requests (1)", ChatText.respondButton(1));
+        assertEquals("Respond in Offers & Requests (3)", ChatText.respondButton(3));
     }
 
     @Test
-    void theOfferDialog_isTitledAndHeadedForTheViewer() {
-        Conversation sellerView = seenBy("sam");
+    void theAgreeDialog_isTitledAndHeadedWithTheSellerAndTheListing() {
         Conversation buyerView = seenBy("bea");
 
-        assertEquals("Answer Offers", ChatText.choiceTitle(sellerView));
-        assertEquals("Answer an offer from Bea Chan\n'Calculus Textbook'", ChatText.choiceHeading(sellerView, 1));
-        assertEquals("Answer an offer from Bea Chan\n'Calculus Textbook', newest first", ChatText.choiceHeading(sellerView, 2));
-        assertEquals("Agree to Counter", ChatText.choiceTitle(buyerView));
+        assertEquals("Agree to Counter", ChatText.AGREE_TO_COUNTER);
+        assertEquals("Agree", ChatText.AGREE);
         assertEquals("Agree to a counter from Sam Lee\n'Calculus Textbook'", ChatText.choiceHeading(buyerView, 1));
+        assertEquals("Agree to a counter from Sam Lee\n'Calculus Textbook', newest first",
+                ChatText.choiceHeading(buyerView, 2));
     }
 
     @Test
-    void theOfferDialog_namesTheKindOfOffer_byListingType() {
-        LendListing calculator = new LendListing("sam", "Calculator", Category.ELECTRONICS, ItemCondition.USED,
-                "A calculator", MeetupLocation.LIBRARY, Duration.ofDays(7));
-        GiveawayListing lamp = new GiveawayListing("sam", "Lamp", Category.FURNITURE, ItemCondition.USED,
-                "A lamp", MeetupLocation.LIBRARY);
-        Conversation loan = new Conversation(calculator, "bea", "Bea Chan", "Sam Lee", "sam", List.of());
-        Conversation gift = new Conversation(lamp, "bea", "Bea Chan", "Sam Lee", "sam", List.of());
-
-        assertEquals("Answer Requests", ChatText.choiceTitle(loan));
-        assertEquals("Answer a borrow request from Bea Chan\n'Calculator'", ChatText.choiceHeading(loan, 1));
-        assertEquals("Answer Claim", ChatText.choiceTitle(gift));
-        assertEquals("Answer a claim from Bea Chan\n'Lamp'", ChatText.choiceHeading(gift, 1));
-    }
-
-    @Test
-    void anOfferInTheDialog_showsWhatTheSellerAnswers_orWhatTheBuyerAgreesTo() {
+    void anOfferInTheAgreeDialog_showsTheBuyersTermsAndTheCounter() {
         PriceOffer countered = new PriceOffer("L1", "bea", 150);
         countered.markAdded("O1", TIME);
         countered.counter(170);
-        Claim claim = new Claim("L2", "bea");
-        claim.markAdded("O2", TIME);
+        PriceOffer pending = new PriceOffer("L1", "bea", 140);
+        pending.markAdded("O2", TIME);
 
-        assertEquals("Price offer: HK$ 150 · 09 Nov 2026 14:05", ChatText.choice(seenBy("sam"), countered));
-        assertEquals("HK$ 150 → HK$ 170 · 09 Nov 2026 14:05", ChatText.choice(seenBy("bea"), countered));
-        assertEquals("Claim · 09 Nov 2026 14:05", ChatText.choice(seenBy("sam"), claim));
-    }
-
-    @Test
-    void theDialogsButtons_sayWhatTheyDo() {
-        assertEquals("Accept", ChatText.actionLabel(OfferAction.ACCEPT));
-        assertEquals("Decline", ChatText.actionLabel(OfferAction.DECLINE));
-        assertEquals("Counter", ChatText.actionLabel(OfferAction.COUNTER));
-        assertEquals("Agree", ChatText.actionLabel(OfferAction.AGREE_TO_COUNTER));
+        assertEquals("HK$ 150 → HK$ 170 · 09 Nov 2026 14:05", ChatText.choice(countered));
+        assertEquals("HK$ 140 · 09 Nov 2026 14:05", ChatText.choice(pending)); // no counter: the terms alone
     }
 }

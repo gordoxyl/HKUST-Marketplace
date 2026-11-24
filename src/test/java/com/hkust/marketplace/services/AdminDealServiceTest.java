@@ -99,14 +99,14 @@ class AdminDealServiceTest {
         return request;
     }
 
-    private Offer declinedOffer(String seller, String buyer) {
-        PriceOffer offer = pendingOffer(seller, buyer, 90);
+    private Offer declinedOffer() {
+        PriceOffer offer = pendingOffer("sue", "bea", 90);
         offer.decline();
         return offer;
     }
 
-    private Offer counteredOffer(String seller, String buyer) {
-        PriceOffer offer = pendingOffer(seller, buyer, 90);
+    private Offer counteredOffer() {
+        PriceOffer offer = pendingOffer("sam", "ben", 90);
         offer.counter(120);
         return offer;
     }
@@ -134,8 +134,8 @@ class AdminDealServiceTest {
     @Test
     void task3_5_pendingCounteredAndDeclinedOffers_areNotListed() {
         pendingOffer("sam", "bea", 100);
-        counteredOffer("sam", "ben");
-        declinedOffer("sue", "bea");
+        counteredOffer();
+        declinedOffer();
         Offer deal = acceptedSale("sue", "ben", 60);
 
         assertSameDeals(service.findDeals(DealFilter.none()), deal);
@@ -144,8 +144,8 @@ class AdminDealServiceTest {
     @Test
     void task3_5_onlyNonDealOffers_returnsAnEmptyList() {
         pendingOffer("sam", "bea", 100);
-        counteredOffer("sam", "ben");
-        declinedOffer("sue", "bea");
+        counteredOffer();
+        declinedOffer();
 
         assertTrue(service.findDeals(DealFilter.none()).isEmpty());
     }
@@ -484,8 +484,8 @@ class AdminDealServiceTest {
     @Test
     void task3_5_viewDetails_ofANonDeal_isRefused() {
         Offer pending = pendingOffer("sam", "bea", 100);
-        Offer countered = counteredOffer("sam", "ben");
-        Offer declined = declinedOffer("sue", "bea");
+        Offer countered = counteredOffer();
+        Offer declined = declinedOffer();
 
         for (Offer notADeal : List.of(pending, countered, declined)) {
             ServiceException e = assertThrows(ServiceException.class,

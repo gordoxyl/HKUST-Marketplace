@@ -232,7 +232,7 @@ public class AdminDashboardController implements ContentHost {
 
         FlowPane filterBar = new FlowPane(10, 8, statusBox, categoryBox, typeBox, sellerField, from, to, apply, add);
         filterBar.setAlignment(Pos.CENTER_LEFT);
-        filterBar.getChildren().forEach(n -> ((javafx.scene.layout.Region)n).setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE));
+        filterBar.getChildren().forEach(n -> ((Region)n).setMinWidth(Region.USE_PREF_SIZE));
 
         FlowPane results = ListingCard.grid();
         VBox resultArea = new VBox(10);
@@ -409,8 +409,7 @@ public class AdminDashboardController implements ContentHost {
             locationBox.setValue(existing.getMeetupLocation());
             if (existing instanceof SaleListing s) priceField.setText(String.valueOf(s.getPrice()));
             if (existing instanceof LendListing l) {
-                durationField.setText(String.valueOf(l.getLendingDuration().toDays()));
-                unitBox.getSelectionModel().select("days");
+                durationField.setPromptText("Leave empty to keep " + Formats.duration(l.getLendingDuration()));
             }
         }
 
@@ -429,14 +428,15 @@ public class AdminDashboardController implements ContentHost {
         if (showDuration) form.getChildren().addAll(new Label("Lending duration (Lend only)"),
                 new HBox(8, durationField, unitBox));
 
-        form.getChildren().addAll(new Label("Photos"), photoBox); // Add photo UI to form
+        form.getChildren().addAll(new Label("Photos"), photoBox);
         dialog.getDialogPane().setContent(form);
 
         Optional<ButtonType> answer = dialog.showAndWait();
-        if (answer.isEmpty() || answer.get() != ButtonType.OK) return false;
+        if (answer.isEmpty() || answer.get() != ButtonType.OK) return false;  // cancel (A3)
 
         Double price = null;
         Duration duration = null;
+        // Parsing only; every rule is checked in the service
         try {
             if (!priceField.getText().isBlank()) price = Double.parseDouble(priceField.getText().strip());
             if (!durationField.getText().isBlank()) {
@@ -452,16 +452,16 @@ public class AdminDashboardController implements ContentHost {
             Dialogs.error("Not possible", "The price and the duration must be numbers.");
             return false;
         }
-
+        // A1 / A4 messages come from the service
         try {
             if (adding) {
                 listingService.addListing(sellerField.getText(), typeBox.getValue(), titleField.getText(),
                         descArea.getText(), categoryBox.getValue(), conditionBox.getValue(),
-                        locationBox.getValue(), price, duration, photoIds); // Pass photoIds
+                        locationBox.getValue(), price, duration, photoIds);
                 Dialogs.info("Listing added", "The listing is Live and the seller has been notified.");
             } else {
                 listingService.editListing(existing.getId(), titleField.getText(), descArea.getText(),
-                        categoryBox.getValue(), locationBox.getValue(), price, duration, photoIds); // Pass photoIds
+                        categoryBox.getValue(), locationBox.getValue(), price, duration, photoIds);
                 Dialogs.info("Listing updated", "The seller has been notified.");
             }
             return true;
@@ -500,8 +500,6 @@ public class AdminDashboardController implements ContentHost {
 
         Button applyBtn = new Button("Apply filters");
         applyBtn.getStyleClass().addAll("btn-primary", "btn-sm");
-
-        // replace: HBox filterBar = new HBox(...)
         FlowPane filterBar = new FlowPane(10, 8, searchField,
                 new Label("Role:"), roleBox,
                 new Label("Status:"), statusBox,
@@ -517,7 +515,6 @@ public class AdminDashboardController implements ContentHost {
         Runnable refresh = () -> {
             results.getChildren().clear();
 
-            // 1. Build service filter from Role and Status combos
             UserFilter filter = UserFilter.none();
             switch (roleBox.getValue()) {
                 case "Buyer"  -> filter = filter.withRole(UserRole.BUYER);
@@ -770,7 +767,7 @@ public class AdminDashboardController implements ContentHost {
         FlowPane filterBar = new FlowPane(10, 8, statusBox, typeBox, sellerField, buyerField, from, to, apply, export);
 
 
-        filterBar.getChildren().forEach(n -> ((javafx.scene.layout.Region)n).setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE));
+        filterBar.getChildren().forEach(n -> ((Region)n).setMinWidth(Region.USE_PREF_SIZE));
 
         filterBar.setAlignment(Pos.CENTER_LEFT);
 
@@ -842,7 +839,7 @@ public class AdminDashboardController implements ContentHost {
             chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV file", "*.csv"));
             File file = chooser.showSaveDialog(SceneManager.getPrimaryStage());
             if (file == null) {
-                return;                                                   // cancelled
+                return;
             }
             try {
                 String csv = dealService.exportCsv(currentDeals);         // the currently filtered deals
@@ -1009,14 +1006,13 @@ public class AdminDashboardController implements ContentHost {
 
             List<Review> reviews;
             try {
-                reviews = reputationService.findReviews(filter);
+                reviews = reputationService.findReviewsForSeller(seller.username(), filter);
             } catch (ServiceException ex) {
                 Dialogs.problem(ex);
                 return;
             }
-            // findReviews matches part of a username, so keep only this seller's own reviews
 
-            reviews = reputationService.findReviewsForSeller(seller.username(), filter);
+            DataStore store = DataStore.getInstance();
             if (reviews.isEmpty()) {
                 Label none = new Label("No results found.");              // spec A3
                 none.getStyleClass().add("text-muted");
@@ -1024,9 +1020,10 @@ public class AdminDashboardController implements ContentHost {
                 return;
             }
             for (Review r : reviews) {
-                results.getChildren().add(createReviewRow(r, DataStore.getInstance(), () -> refreshRef[0].run()));
+                results.getChildren().add(createReviewRow(r, store, () -> refreshRef[0].run()));
             }
         };
+        refreshRef[0] = refresh;
         apply.setOnAction(e -> refresh.run());
         refresh.run();
 
@@ -1059,6 +1056,7 @@ public class AdminDashboardController implements ContentHost {
             flagged.getStyleClass().addAll("badge", "badge-pending");
             info.getChildren().add(flagged);
         }
+        // not a status: its own flag
         if (r.isHidden()) {
             Label hidden = new Label("Hidden");
             hidden.getStyleClass().addAll("badge", "badge-rejected");

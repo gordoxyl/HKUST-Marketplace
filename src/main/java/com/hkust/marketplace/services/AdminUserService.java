@@ -169,8 +169,8 @@ public class AdminUserService {
             notifications.send(user.getUsername(), NotificationCategory.ACCOUNT_CHANGE,
                     "An administrator updated your account details.");
 
-            //notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,
-            //        AccountNotices.edited(user, admin));
+            notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,
+                    AccountNotices.edited(user, admin));
         });
     }
 
@@ -228,8 +228,8 @@ public class AdminUserService {
                     admin.getUsername(), username, "Deactivate account", cleanReason, null));
             notifications.send(username, NotificationCategory.ACCOUNT_CHANGE,
                     "Your account has been deactivated. Reason: " + cleanReason);
-            //notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,
-              //      AccountNotices.deactivated(user, admin, cleanReason));
+            notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,
+                    AccountNotices.deactivated(user, admin, cleanReason));
         });
     }
 
@@ -258,8 +258,8 @@ public class AdminUserService {
                     admin.getUsername(), username, "Activate account", null, null));
             notifications.send(username, NotificationCategory.ACCOUNT_CHANGE,
                     "Your account has been activated.");
-            //notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,
-              //      AccountNotices.activated(user, admin));
+            notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,
+                    AccountNotices.activated(user, admin));
         });
     }
 
@@ -285,8 +285,8 @@ public class AdminUserService {
             store.addAuditLogEntry(new AuditLogEntry(admin.getUsername(), username,
                     "Delete account", cleanReason, deleted.snapshot()));
 
-            //notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,
-             //       AccountNotices.deleted(user, admin, cleanReason));
+            notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,
+                    AccountNotices.deleted(user, admin, cleanReason));
 
             for (Offer offer : deleted.declinedOffers()) {
                 Listing listing = store.getListingOf(offer);

@@ -19,8 +19,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for Manage All User Accounts (Task 3.3): view and filter users (6.1),
- * edit user, deactivate and activate. Every method starts with the admin role check, and every
- * data change runs in one transaction. This class does not use the ui layer.
+ * edit user, deactivate, activate, and delete user (6.4). Every method starts with the admin
+ * role check, and every data change runs in one transaction. This class does not use the ui layer.
+ *
+ * <p>Techniques: equivalence classes (role, active state, blank/non-blank reason) and
+ * state-based testing (active vs inactive, existing vs deleted account).
  */
 class AdminUserServiceTest {
 
@@ -385,8 +388,8 @@ class AdminUserServiceTest {
     /**
      * A sale of the seller that the buyer bought and marked complete.
      */
-    private Offer completedDeal(String seller, String buyer, double price) {
-        SaleListing listing = Fixtures.live(Fixtures.sale(support.store, seller, price));
+    private Offer completedDeal(String buyer, double price) {
+        SaleListing listing = Fixtures.live(Fixtures.sale(support.store, "sam", price));
         Offer deal = support.store.addOffer(new PriceOffer(listing.getId(), buyer, price));
         DealRules rules = new DealRules(support.store);
         rules.accept(deal);
@@ -395,7 +398,7 @@ class AdminUserServiceTest {
     }
 
     private Review reviewed(String buyer, int rating) {
-        Offer deal = completedDeal("sam", buyer, 50);
+        Offer deal = completedDeal(buyer, 50);
         return support.store.addReview(new Review(deal.getId(), rating, "comment"));
     }
 
@@ -524,7 +527,7 @@ class AdminUserServiceTest {
     void manageUsers_task33_view_buyer_showsResidenceHall_noListingsOrRating_andSplitsDeals() {
         Buyer hal = new Buyer("hal", "Hal Hall", "hash", "Hall 3");
         support.store.addUser(hal);
-        Offer completed = completedDeal("sam", "hal", 100);
+        Offer completed = completedDeal("hal", 100);
         SaleListing other = support.liveSale();
         Offer open = offer(other, "hal", 40);
 
@@ -581,7 +584,7 @@ class AdminUserServiceTest {
 
     @Test
     void manageUsers_task33_view_seller_includesDealsAndOffersOnTheirListings() {
-        Offer completed = completedDeal("sam", "bea", 100);
+        Offer completed = completedDeal("bea", 100);
         SaleListing book = support.liveSale();
         Offer open = offer(book, "ben", 80);
 
@@ -639,42 +642,134 @@ class AdminUserServiceTest {
                 .anyMatch(n -> n.getCategory() == NotificationCategory.OFFER_UPDATE));
     }
 
-    /*
-        @Test
-        void manageUsers_task36_editUser_notifiesEveryAdmin() {
-            service.editUser("bea", "Beatrice New", null, null);
 
-            // both admins get exactly one ACCOUNT_CHANGE
-            assertEquals(1, support.store.getNotificationsFor("ada").stream()
-                    .filter(n -> n.getCategory() == NotificationCategory.ACCOUNT_CHANGE).count());
-            assertEquals(1, support.store.getNotificationsFor("ada2").stream()
-                    .filter(n -> n.getCategory() == NotificationCategory.ACCOUNT_CHANGE).count());
-        }
-    */
+
+
     @Test
     void manageUsers_task36_editUser_refusedAction_sendsNoAdminNotice() {
         assertThrows(ServiceException.class, () -> service.editUser("bea", "", null, null));
-        assertTrue(support.store.getNotificationsFor("ada").stream()
-                .noneMatch(n -> n.getCategory() == NotificationCategory.ACCOUNT_CHANGE));
+        assertNoAdminNotices();
     }
 
     @Test
-    void adminDoesNotGetNoticeWhenDeactivatingInactiveUser() {
+    void manageUsers_task36_deactivateUnknownUser_sendsNoAdminNotice() {
         assertThrows(ServiceException.class, () -> service.deactivateUser("nonexistent", "Not valid"));
         assertTrue(notificationsOf("ada", NotificationCategory.ACCOUNT_CHANGE).isEmpty());
         assertTrue(notificationsOf("ada2", NotificationCategory.ACCOUNT_CHANGE).isEmpty());
     }
-}
-/*
+
+
+
     @Test
-    void adminGetsNoticeWhenDeactivatingUser() {
+    void manageUsers_task36_editUser_sendsAdminNotice() {
+        service.editUser("bea", "Beatrice New", null, null);
+
+        String expected = "@ada edited the buyer account of Beatrice New (@bea).";
+        assertAdminNoticeDeliveredOnce(expected);
+    }
+
+    @Test
+    void manageUsers_task36_deactivateUser_sendsAdminNotice() {
         service.deactivateUser("bea", "Repeated policy violations");
 
-        assertTrue(notificationsOf("ada", NotificationCategory.ACCOUNT_CHANGE).stream()
-                .anyMatch(n -> n.getContent().contains("deactivated")));
-        assertTrue(notificationsOf("ada2", NotificationCategory.ACCOUNT_CHANGE).stream()
-                .anyMatch(n -> n.getContent().contains("deactivated")));
+        String expected = "@ada deactivated the buyer account of Buyer bea (@bea). "
+                + "Reason: Repeated policy violations";
+        assertAdminNoticeDeliveredOnce(expected);
+    }
+
+    @Test
+    void manageUsers_task36_activateUser_sendsAdminNotice() {
+        service.deactivateUser("bea", "temp");
+        service.activateUser("bea");
+        assertAdminNoticeDeliveredOnce("@ada reactivated the buyer account of Buyer bea (@bea).");
+    }
+
+    @Test
+    void manageUsers_task36_deleteUser_sendsAdminNotice() {
+        service.deleteUser("sam", "Policy violation");
+
+        String expected = "@ada deleted the seller account of Seller sam (@sam). "
+                + "Reason: Policy violation";
+        assertAdminNoticeDeliveredOnce(expected);
+    }
+
+    @Test
+    void manageUsers_task36_refusedDelete_sendsNoAdminNotice() {
+
+        assertThrows(ServiceException.class,
+                () -> service.deleteUser("nobody", "whatever"));
+
+        assertNoAdminNotices();
+    }
+
+    @Test
+    void manageUsers_task36_refusedActivate_sendsNoAdminNotice() {
+        assertThrows(ServiceException.class, () -> service.activateUser("nobody"));
+        assertNoAdminNotices();
+    }
+
+
+    // ---------- Task 3.8 N1: text search in findUsers ----------
+
+    @Test
+    void task3_8_findUsers_textMatchesUsername() {
+        List<User> result = service.findUsers(UserFilter.none().withText("sam"));
+
+        assertTrue(result.stream().anyMatch(u -> "sam".equals(u.getUsername())));
+        assertTrue(result.stream().noneMatch(u -> "bea".equals(u.getUsername())));
+    }
+
+    @Test
+    void task3_8_findUsers_textMatchesFullName() {
+        service.editUser("bea", "Bea Chan", null, null);
+
+        List<User> result = service.findUsers(UserFilter.none().withText("Chan"));
+
+        assertTrue(result.stream().anyMatch(u -> "bea".equals(u.getUsername())));
+    }
+
+    @Test
+    void task3_8_findUsers_textIsCaseInsensitiveAndTrimmed() {
+        List<User> lower = service.findUsers(UserFilter.none().withText("sam"));
+        List<User> upperSpaced = service.findUsers(UserFilter.none().withText("  SAM  "));
+
+        assertEquals(
+                lower.stream().map(User::getUsername).sorted().toList(),
+                upperSpaced.stream().map(User::getUsername).sorted().toList());
+        assertTrue(upperSpaced.stream().anyMatch(u -> "sam".equals(u.getUsername())));
+    }
+
+    @Test
+    void task3_8_findUsers_nullFilterOrEmptyText_returnsEveryNonAdminUser() {
+        List<User> noFilter = service.findUsers(null);
+        List<User> blankFilter = service.findUsers(UserFilter.none().withText(""));
+        List<User> spacedText = service.findUsers(UserFilter.none().withText("   "));
+
+        for (List<User> rs : List.of(noFilter, blankFilter, spacedText)) {
+            assertTrue(rs.stream().anyMatch(u -> "sam".equals(u.getUsername())));
+            assertTrue(rs.stream().anyMatch(u -> "sue".equals(u.getUsername())));
+            assertTrue(rs.stream().anyMatch(u -> "bea".equals(u.getUsername())));
+            assertTrue(rs.stream().anyMatch(u -> "ben".equals(u.getUsername())));
+            assertTrue(rs.stream().noneMatch(u -> u instanceof Admin),
+                    "admin accounts must not be listed");
+        }
+    }
+
+    private void assertAdminNoticeDeliveredOnce(String expectedText) {
+        for (String admin : List.of("ada", "ada2")) {
+            long count = notificationsOf(admin, NotificationCategory.ACCOUNT_CHANGE).stream()
+                    .filter(n -> expectedText.equals(n.getContent()))
+                    .count();
+            assertEquals(1, count,
+                    "admin " + admin + " should get exactly one notice: " + expectedText);
+        }
+    }
+
+    private void assertNoAdminNotices() {
+        for (String admin : List.of("ada", "ada2")) {
+            assertTrue(notificationsOf(admin, NotificationCategory.ACCOUNT_CHANGE).isEmpty(),
+                    "admin " + admin + " should get no ACCOUNT_CHANGE");
+        }
     }
 }
 
- */

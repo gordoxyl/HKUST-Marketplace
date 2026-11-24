@@ -59,9 +59,7 @@ public class AdminReputationService {
         AccessControl.requireAdmin();
         ReviewFilter f = filter == null ? ReviewFilter.none() : filter;
 
-        if (f.rating() != null && (f.rating() < Review.MIN_RATING || f.rating() > Review.MAX_RATING)) {
-            throw new ServiceException("The rating filter must be between 1 and 5.");
-        }
+        checkRating(f);
         String sellerText = normalise(f.seller());
 
         return store.read(() -> store.getAllReviews().stream()
@@ -116,16 +114,12 @@ public class AdminReputationService {
                     "A review of you by " + reviewer + " for '" + itemTitle
                             + "' was hidden by an administrator. Reason: " + cleanReason);
         });
-
-
     }
     /** Returns all reviews (including hidden) written about exactly {@code sellerUsername}. */
     public List<Review> findReviewsForSeller(String sellerUsername, ReviewFilter filter) {
         AccessControl.requireAdmin();
         ReviewFilter f = filter == null ? ReviewFilter.none() : filter;
-        if (f.rating() != null && (f.rating() < 1 || f.rating() > 5)) {
-            throw new ServiceException("The rating filter must be between 1 and 5.");
-        }
+        checkRating(f);
 
         return store.read(() -> store.getAllReviews().stream()
                 .filter(r -> store.getSellerUsername(r).equalsIgnoreCase(sellerUsername))
@@ -147,5 +141,11 @@ public class AdminReputationService {
             throw new ServiceException(message);
         }
         return reason.strip();
+    }
+
+    private static void checkRating(ReviewFilter f) {
+        if (f.rating() != null && (f.rating() < Review.MIN_RATING || f.rating() > Review.MAX_RATING)) {
+            throw new ServiceException("The rating filter must be between 1 and 5.");
+        }
     }
 }

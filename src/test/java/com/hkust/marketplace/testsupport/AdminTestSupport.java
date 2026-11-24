@@ -40,4 +40,6 @@ public class AdminTestSupport {
     public SaleListing liveSale() {
         return Fixtures.live(Fixtures.sale(store, "sam", 100));
     }
+
+    
 }

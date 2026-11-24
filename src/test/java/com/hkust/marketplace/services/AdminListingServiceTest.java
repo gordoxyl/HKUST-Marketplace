@@ -369,7 +369,7 @@ class AdminListingServiceTest {
 
     @Test
     void manageMarketplaceListings_A4_usernameExistsButIsBuyer_addChangesNothing() {
-        // bea 是 Buyer，不是 Seller
+
         ServiceException e = assertThrows(ServiceException.class, () -> service.addListing(
                 "bea", ListingType.SELL, "Book", "d", Category.TEXTBOOKS, ItemCondition.USED,
                 MeetupLocation.LIBRARY, 100.0, null, null));
@@ -486,7 +486,7 @@ class AdminListingServiceTest {
 
     @Test
     void manageMarketplaceListings_A1_addListingRefusedWhenNotAdmin() {
-        support.loginAsSeller(); // 不是 admin
+        support.loginAsSeller();
         assertThrows(ServiceException.class, () -> service.addListing(
                 "sam", ListingType.SELL, "Book", "d", Category.TEXTBOOKS, ItemCondition.USED,
                 MeetupLocation.LIBRARY, 100.0, null, null));

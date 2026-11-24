@@ -17,7 +17,11 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Tests for Manage All User Accounts 6.2 (deactivate) and 6.3 (activate). */
+/**
+ * Tests for Manage All User Accounts (Task 3.3): view and filter users (6.1),
+ * edit user, deactivate and activate. Every method starts with the admin role check, and every
+ * data change runs in one transaction. This class does not use the ui layer.
+ */
 class AdminUserServiceTest {
 
     private AdminTestSupport support;
@@ -357,7 +361,7 @@ class AdminUserServiceTest {
         ServiceException e = assertThrows(ServiceException.class, () -> service.deleteUser("bea", reason));
 
         assertEquals("A reason is required to delete an account.", e.getMessage());
-        assertNotNull(support.store.findUser("bea")); // 帳號沒被刪除
+        assertNotNull(support.store.findUser("bea"));
         assertTrue(support.store.getAuditLog().isEmpty());
     }
 
@@ -378,7 +382,9 @@ class AdminUserServiceTest {
 
     // ---------- helpers for Task 3.3 edit and view ----------
 
-    /** A sale of the seller that the buyer bought and marked complete. */
+    /**
+     * A sale of the seller that the buyer bought and marked complete.
+     */
     private Offer completedDeal(String seller, String buyer, double price) {
         SaleListing listing = Fixtures.live(Fixtures.sale(support.store, seller, price));
         Offer deal = support.store.addOffer(new PriceOffer(listing.getId(), buyer, price));
@@ -388,8 +394,8 @@ class AdminUserServiceTest {
         return deal;
     }
 
-    private Review reviewed(String seller, String buyer, int rating) {
-        Offer deal = completedDeal(seller, buyer, 50);
+    private Review reviewed(String buyer, int rating) {
+        Offer deal = completedDeal("sam", buyer, 50);
         return support.store.addReview(new Review(deal.getId(), rating, "comment"));
     }
 
@@ -562,9 +568,9 @@ class AdminUserServiceTest {
 
     @Test
     void manageUsers_task33_view_seller_ratingLeavesOutHiddenReviews() {
-        reviewed("sam", "bea", 5);
-        reviewed("sam", "ben", 3);
-        Review hidden = reviewed("sam", "bea", 1);
+        reviewed("bea", 5);
+        reviewed("ben", 3);
+        Review hidden = reviewed("bea", 1);
         support.store.transaction(() -> hidden.setHidden(true));
 
         RatingSummary rating = service.getUserDetails("sam").rating();
@@ -609,4 +615,66 @@ class AdminUserServiceTest {
         assertThrows(AccessDeniedException.class, () -> service.getUserDetails("sam"));
     }
 
+    @Test
+    void manageUsers_task33_deleteUser_D1_unknownUsername_isRefused() {
+        ServiceException e = assertThrows(ServiceException.class,
+                () -> service.deleteUser("nobody", "Spam"));
+
+        assertEquals("This account no longer exists.", e.getMessage());
+        assertTrue(support.store.getAuditLog().isEmpty());
+    }
+
+    @Test
+    void manageUsers_task33_deleteUser_D2_sellerWithOpenOffer_buyerGetsDeclinedNotice() {
+        Listing book = support.store.addListing(
+                new SaleListing("sam", "Book", Category.TEXTBOOKS, ItemCondition.USED,
+                        null, MeetupLocation.LIBRARY, 100.0));
+        book.approve();
+        Offer offer = support.store.addOffer(new PriceOffer(book.getId(), "bea", 90));
+
+        service.deleteUser("sam", "Policy violation");
+
+        assertEquals(OfferStatus.DECLINED, offer.getStatus());
+        assertTrue(support.store.getNotificationsFor("bea").stream()
+                .anyMatch(n -> n.getCategory() == NotificationCategory.OFFER_UPDATE));
+    }
+
+    /*
+        @Test
+        void manageUsers_task36_editUser_notifiesEveryAdmin() {
+            service.editUser("bea", "Beatrice New", null, null);
+
+            // both admins get exactly one ACCOUNT_CHANGE
+            assertEquals(1, support.store.getNotificationsFor("ada").stream()
+                    .filter(n -> n.getCategory() == NotificationCategory.ACCOUNT_CHANGE).count());
+            assertEquals(1, support.store.getNotificationsFor("ada2").stream()
+                    .filter(n -> n.getCategory() == NotificationCategory.ACCOUNT_CHANGE).count());
+        }
+    */
+    @Test
+    void manageUsers_task36_editUser_refusedAction_sendsNoAdminNotice() {
+        assertThrows(ServiceException.class, () -> service.editUser("bea", "", null, null));
+        assertTrue(support.store.getNotificationsFor("ada").stream()
+                .noneMatch(n -> n.getCategory() == NotificationCategory.ACCOUNT_CHANGE));
+    }
+
+    @Test
+    void adminDoesNotGetNoticeWhenDeactivatingInactiveUser() {
+        assertThrows(ServiceException.class, () -> service.deactivateUser("nonexistent", "Not valid"));
+        assertTrue(notificationsOf("ada", NotificationCategory.ACCOUNT_CHANGE).isEmpty());
+        assertTrue(notificationsOf("ada2", NotificationCategory.ACCOUNT_CHANGE).isEmpty());
+    }
 }
+/*
+    @Test
+    void adminGetsNoticeWhenDeactivatingUser() {
+        service.deactivateUser("bea", "Repeated policy violations");
+
+        assertTrue(notificationsOf("ada", NotificationCategory.ACCOUNT_CHANGE).stream()
+                .anyMatch(n -> n.getContent().contains("deactivated")));
+        assertTrue(notificationsOf("ada2", NotificationCategory.ACCOUNT_CHANGE).stream()
+                .anyMatch(n -> n.getContent().contains("deactivated")));
+    }
+}
+
+ */

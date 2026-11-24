@@ -140,7 +140,15 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 
 ---
 
-## Tooling notes (not code bugs, so no test)
+## R12 — Edit user failed for every seller
+
+**Date found:** 2026-11-23  
+**Found by:** Gordon's independent driver (case E9)  
+**Symptom:** `editUser` threw `NullPointerException` for any seller with preferred meet-up locations because `locations.stream().anyMatch(Objects::isNull)` was missing a null-list guard.  
+**Root cause:** `AccountValidator.validateLocations` assumed the list was non-null.  
+**Fix:** added `if (locations == null) return;` before the stream.  
+**Covered by:** `manageUsers_task33_edit_seller_savesBio_andLocationsInOrderWithoutDuplicates`  
+**Commit:** e74efce
 
 ### T1: `mvnw test` passed on outdated compiled tests
 

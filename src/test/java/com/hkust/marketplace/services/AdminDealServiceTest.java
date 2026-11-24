@@ -504,7 +504,7 @@ class AdminDealServiceTest {
 
         assertEquals(CSV_HEADER, lines[0]);
         assertEquals(2, lines.length);
-        // 改成用 DAY0 動態產生
+
         assertEquals("Book,bea,sam,Sale," + DAY0.format(CSV_FMT) + ",,In progress", lines[1]);
     }
 

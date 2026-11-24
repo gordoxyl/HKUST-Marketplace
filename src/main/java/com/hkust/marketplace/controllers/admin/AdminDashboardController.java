@@ -28,24 +28,22 @@ import com.hkust.marketplace.ui.LiveUpdates;
 import java.util.Optional;
 
 
-//createPendingCard,showReview(),initialize(),refreshCurrentScreen()
+
 import com.hkust.marketplace.services.AdminUserService;
 import com.hkust.marketplace.services.UserFilter;
 import com.hkust.marketplace.ui.Formats;
 
-//showUsers(), createUserRow()
+
 import com.hkust.marketplace.services.UserDetails;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.TextArea;
 import java.util.stream.Collectors;
 
-//showAllListings
 import com.hkust.marketplace.services.ListingDetails;
 import java.time.Duration;
-import java.time.LocalDate;
 import java.time.LocalTime;
 
-//showDeals
+
 import com.hkust.marketplace.services.AdminDealService;
 import com.hkust.marketplace.services.DealDetails;
 import com.hkust.marketplace.services.DealFilter;
@@ -55,12 +53,18 @@ import javafx.stage.FileChooser;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.time.LocalTime;
 
-//showRatings
+
+
 import com.hkust.marketplace.services.AdminReputationService;
 import com.hkust.marketplace.services.ReviewFilter;
 import com.hkust.marketplace.services.SellerRating;
+
+
+
+
+import com.hkust.marketplace.services.PhotoService;
+import java.util.ArrayList;
 
 
 public class AdminDashboardController implements ContentHost {
@@ -76,13 +80,14 @@ public class AdminDashboardController implements ContentHost {
     private final AdminDealService dealService = new AdminDealService();
     private List<DealRecord> currentDeals = List.of();   // the list the Export button saves
     private final AdminReputationService reputationService = new AdminReputationService();
+    private final PhotoService photoService = new PhotoService(DataStore.getInstance());
 
     @FXML
     public void initialize() {
         showGreeting();
         currentActiveBtn = btnReview;
         // Reloads the open screen when the borrowing timer (UC12) commits a data change.
-        // Remove this line if LiveUpdates is not yet in main.
+
         LiveUpdates.setOnDataChanged(() -> contentPane.getScene() != null, this::refreshCurrentScreen);
         showReview();
     }
@@ -225,8 +230,9 @@ public class AdminDashboardController implements ContentHost {
         Button add = new Button("+ Add Listing");
         add.getStyleClass().addAll("btn-gold", "btn-sm");
 
-        HBox filterBar = new HBox(10, statusBox, categoryBox, typeBox, sellerField, from, to, apply, add);
+        FlowPane filterBar = new FlowPane(10, 8, statusBox, categoryBox, typeBox, sellerField, from, to, apply, add);
         filterBar.setAlignment(Pos.CENTER_LEFT);
+        filterBar.getChildren().forEach(n -> ((javafx.scene.layout.Region)n).setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE));
 
         FlowPane results = ListingCard.grid();
         VBox resultArea = new VBox(10);
@@ -239,7 +245,7 @@ public class AdminDashboardController implements ContentHost {
             ListingFilter filter = ListingFilter.none();
             String status = statusBox.getValue();
             if ("Reported".equals(status)) {
-                filter = filter.withReportedOnly(true);               // not a status: its own flag
+                filter = filter.withReportedOnly(true);
             } else {
                 for (ListingStatus s : ListingStatus.values()) {
                     if (s.getDisplayName().equals(status)) filter = filter.withStatus(s);
@@ -248,7 +254,7 @@ public class AdminDashboardController implements ContentHost {
             if (categoryBox.getValue() instanceof Category c) filter = filter.withCategory(c);
             if (typeBox.getValue() instanceof ListingType t) filter = filter.withType(t);
             filter = filter.withSeller(sellerField.getText());
-            // If your ListingFilter uses LocalDate, pass from.getValue() and to.getValue() directly
+
             filter = filter.withDateRange(from.getValue(), to.getValue());
 
             List<Listing> found;
@@ -371,10 +377,41 @@ public class AdminDashboardController implements ContentHost {
         ComboBox<String> unitBox = new ComboBox<>(FXCollections.observableArrayList("seconds", "minutes", "hours", "days"));
         unitBox.getSelectionModel().select("days");
 
+        // ----- Photo UI -----
+        List<String> photoIds = new ArrayList<>();
+        if (!adding && existing.getPhotos() != null) {
+            photoIds.addAll(existing.getPhotos());
+        }
+        Label photoStatus = new Label(photoIds.isEmpty() ? "No photos selected" : photoIds.size() + " photo(s) attached");
+        Button selectPhotosBtn = new Button("Select Photos (Max 6)");
+        selectPhotosBtn.setOnAction(ev -> {
+            FileChooser chooser = new FileChooser();
+            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Images", "*.png", "*.jpg", "*.jpeg"));
+            List<File> files = chooser.showOpenMultipleDialog(dialog.getOwner());
+            if (files != null) {
+                photoIds.clear();
+                for (File f : files) {
+                    if (photoIds.size() >= Listing.MAX_PHOTOS) break;
+                    try {
+                        photoIds.add(photoService.importPhoto(f.toPath()));
+                    } catch (ServiceException ex) {
+                        Dialogs.problem(ex);
+                    }
+                }
+                photoStatus.setText(photoIds.size() + " photo(s) attached.");
+            }
+        });
+        HBox photoBox = new HBox(10, selectPhotosBtn, photoStatus);
+        photoBox.setAlignment(Pos.CENTER_LEFT);
+
         if (!adding) {
             categoryBox.setValue(existing.getCategory());
             locationBox.setValue(existing.getMeetupLocation());
             if (existing instanceof SaleListing s) priceField.setText(String.valueOf(s.getPrice()));
+            if (existing instanceof LendListing l) {
+                durationField.setText(String.valueOf(l.getLendingDuration().toDays()));
+                unitBox.getSelectionModel().select("days");
+            }
         }
 
         VBox form = new VBox(8);
@@ -385,17 +422,19 @@ public class AdminDashboardController implements ContentHost {
         }
         form.getChildren().addAll(new Label("Title *"), titleField, new Label("Description"), descArea,
                 new Label("Category *"), categoryBox, new Label("Meet-up location *"), locationBox);
+
         boolean showPrice = adding || existing instanceof SaleListing;
         boolean showDuration = adding || existing instanceof LendListing;
         if (showPrice) form.getChildren().addAll(new Label("Price (Sell only)"), priceField);
         if (showDuration) form.getChildren().addAll(new Label("Lending duration (Lend only)"),
                 new HBox(8, durationField, unitBox));
+
+        form.getChildren().addAll(new Label("Photos"), photoBox); // Add photo UI to form
         dialog.getDialogPane().setContent(form);
 
         Optional<ButtonType> answer = dialog.showAndWait();
-        if (answer.isEmpty() || answer.get() != ButtonType.OK) return false;   // cancel (A3)
+        if (answer.isEmpty() || answer.get() != ButtonType.OK) return false;
 
-        // Parsing only; every rule is checked in the service
         Double price = null;
         Duration duration = null;
         try {
@@ -418,16 +457,16 @@ public class AdminDashboardController implements ContentHost {
             if (adding) {
                 listingService.addListing(sellerField.getText(), typeBox.getValue(), titleField.getText(),
                         descArea.getText(), categoryBox.getValue(), conditionBox.getValue(),
-                        locationBox.getValue(), price, duration, null);
+                        locationBox.getValue(), price, duration, photoIds); // Pass photoIds
                 Dialogs.info("Listing added", "The listing is Live and the seller has been notified.");
             } else {
                 listingService.editListing(existing.getId(), titleField.getText(), descArea.getText(),
-                        categoryBox.getValue(), locationBox.getValue(), price, duration, null);
+                        categoryBox.getValue(), locationBox.getValue(), price, duration, photoIds); // Pass photoIds
                 Dialogs.info("Listing updated", "The seller has been notified.");
             }
             return true;
         } catch (ServiceException ex) {
-            Dialogs.problem(ex);                                       // A1 / A4 messages come from the service
+            Dialogs.problem(ex);
             return false;
         }
     }
@@ -441,6 +480,12 @@ public class AdminDashboardController implements ContentHost {
         root.setPadding(new Insets(4));
 
         // ----- filter bar -----
+        DatePicker fromDate = new DatePicker();
+        fromDate.setPromptText("Reg. From");
+        DatePicker toDate = new DatePicker();
+        toDate.setPromptText("Reg. To");
+
+
         TextField searchField = new TextField();
         searchField.setPromptText("Search username or name...");
         searchField.setPrefWidth(200);
@@ -456,9 +501,12 @@ public class AdminDashboardController implements ContentHost {
         Button applyBtn = new Button("Apply filters");
         applyBtn.getStyleClass().addAll("btn-primary", "btn-sm");
 
-        HBox filterBar = new HBox(10, searchField,
+        // replace: HBox filterBar = new HBox(...)
+        FlowPane filterBar = new FlowPane(10, 8, searchField,
                 new Label("Role:"), roleBox,
                 new Label("Status:"), statusBox,
+                new Label("Reg. From:"), fromDate,
+                new Label("Reg. To:"), toDate,
                 applyBtn);
         filterBar.setAlignment(Pos.CENTER_LEFT);
 
@@ -469,7 +517,7 @@ public class AdminDashboardController implements ContentHost {
         Runnable refresh = () -> {
             results.getChildren().clear();
 
-            // Build service filter from Role and Status combos
+            // 1. Build service filter from Role and Status combos
             UserFilter filter = UserFilter.none();
             switch (roleBox.getValue()) {
                 case "Buyer"  -> filter = filter.withRole(UserRole.BUYER);
@@ -480,22 +528,25 @@ public class AdminDashboardController implements ContentHost {
                 case "Deactivated" -> filter = filter.withActive(false);
             }
 
+
+            filter = filter.withText(searchField.getText());
+
+
+            if (fromDate.getValue() != null || toDate.getValue() != null) {
+                filter = filter.withRegistrationRange(
+                        fromDate.getValue() == null ? null : fromDate.getValue().atStartOfDay(),
+                        toDate.getValue() == null ? null : toDate.getValue().atTime(LocalTime.MAX));
+            }
+
+
             List<User> users;
             try {
-                users = userService.findUsers(filter);
+                users = userService.findUsers(filter); // no second stream needed
             } catch (ServiceException ex) {
                 Dialogs.problem(ex);
                 return;
             }
 
-            // Username / full-name text search is applied client-side: UserFilter has no text field
-            String query = searchField.getText().strip().toLowerCase(java.util.Locale.ROOT);
-            if (!query.isEmpty()) {
-                users = users.stream()
-                        .filter(u -> u.getUsername().contains(query)
-                                || u.getFullName().toLowerCase(java.util.Locale.ROOT).contains(query))
-                        .toList();
-            }
 
             if (users.isEmpty()) {
                 Label none = new Label("No results found.");    // spec A3
@@ -680,6 +731,8 @@ public class AdminDashboardController implements ContentHost {
     }
 
 
+    private static final double COL_ACTIONS_MIN     = 100;
+    private static final double COL_RETURN_DATE_MIN = 160;
 
     @FXML
     private void showDeals() {
@@ -714,7 +767,11 @@ public class AdminDashboardController implements ContentHost {
         Button export = new Button("Export CSV");
         export.getStyleClass().addAll("btn-gold", "btn-sm");
 
-        HBox filterBar = new HBox(10, statusBox, typeBox, sellerField, buyerField, from, to, apply, export);
+        FlowPane filterBar = new FlowPane(10, 8, statusBox, typeBox, sellerField, buyerField, from, to, apply, export);
+
+
+        filterBar.getChildren().forEach(n -> ((javafx.scene.layout.Region)n).setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE));
+
         filterBar.setAlignment(Pos.CENTER_LEFT);
 
         // ----- table (spec step 3) -----
@@ -725,14 +782,19 @@ public class AdminDashboardController implements ContentHost {
         table.getColumns().add(column("Seller", DealRecord::sellerUsername));
         table.getColumns().add(column("Deal type", r -> dealTypeName(r.dealType())));
         table.getColumns().add(column("Start date", r -> Formats.dateTime(r.startDate())));
-        table.getColumns().add(column("Return/Complete date", r -> Formats.dateTime(r.completedDate())));
+        TableColumn<DealRecord, String> returnCol = column("Return/Complete date",
+                r -> Formats.dateTime(r.completedDate()));
+        returnCol.setMinWidth(COL_RETURN_DATE_MIN);
+        table.getColumns().add(returnCol);
         table.getColumns().add(column("Status", r -> r.state().getDisplayName()));
 
         TableColumn<DealRecord, Void> actions = new TableColumn<>("Actions");
+        actions.setMinWidth(COL_ACTIONS_MIN);
         actions.setCellFactory(col -> new TableCell<>() {
             private final Button view = new Button("View Details");
             {
                 view.getStyleClass().addAll("btn-outline", "btn-sm");
+                view.setMinWidth(Region.USE_PREF_SIZE);
                 view.setOnAction(e -> showDealDetails(getTableView().getItems().get(getIndex())));
             }
             @Override
@@ -934,6 +996,7 @@ public class AdminDashboardController implements ContentHost {
         VBox results = new VBox(10);
         root.getChildren().addAll(filterBar, results);
 
+        Runnable[] refreshRef = new Runnable[1];
         Runnable refresh = () -> {
             results.getChildren().clear();
             ReviewFilter filter = ReviewFilter.none().withSeller(seller.username());
@@ -952,9 +1015,8 @@ public class AdminDashboardController implements ContentHost {
                 return;
             }
             // findReviews matches part of a username, so keep only this seller's own reviews
-            DataStore store = DataStore.getInstance();                   // read-only display lookups
-            reviews = reviews.stream()
-                    .filter(r -> store.getSellerUsername(r).equalsIgnoreCase(seller.username())).toList();
+
+            reviews = reputationService.findReviewsForSeller(seller.username(), filter);
             if (reviews.isEmpty()) {
                 Label none = new Label("No results found.");              // spec A3
                 none.getStyleClass().add("text-muted");
@@ -962,7 +1024,7 @@ public class AdminDashboardController implements ContentHost {
                 return;
             }
             for (Review r : reviews) {
-                results.getChildren().add(createReviewRow(r, store, () -> showSellerReviews(seller)));
+                results.getChildren().add(createReviewRow(r, DataStore.getInstance(), () -> refreshRef[0].run()));
             }
         };
         apply.setOnAction(e -> refresh.run());
@@ -1026,13 +1088,13 @@ public class AdminDashboardController implements ContentHost {
 
     @FXML
     private void showNotifications() {
-        setActive(btnNotifications, "Notification Board");   // was "Admin Notifications"
+        setActive(btnNotifications, "Notification Board");
         show("Notification Board", new NotificationBoard(new NotificationService()));
     }
 
     @FXML
     private void showProfile() {
-        setActive(btnProfile, "Manage Profile");             // was "My Profile"
+        setActive(btnProfile, "Manage Profile");
         show("Manage Profile", new ProfileView(new ProfileService(), this::showGreeting));
     }
     @FXML

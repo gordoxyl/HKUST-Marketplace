@@ -3,6 +3,7 @@ package com.hkust.marketplace.services;
 import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.models.Buyer;
 import com.hkust.marketplace.models.MeetupLocation;
+import com.hkust.marketplace.models.NotificationCategory;
 import com.hkust.marketplace.models.Seller;
 import com.hkust.marketplace.models.User;
 import com.hkust.marketplace.models.UserRole;
@@ -16,13 +17,15 @@ import java.util.function.BiFunction;
  * (UC1 Register as Buyer, Register as Seller, UC2 Log In).
  * Admins cannot register (Task 3), so there is no method for it.
  *
- * Passwords are stored and checked only as hashes, via {@link PasswordHasher}.
+ * Passwords are stored and checked only as hashes, via {@link PasswordHasher}. Every new account is
+ * announced to the admins (Task 3.6; {@link AccountNotices#created}).
  */
 public class AuthService {
 
     private static final String USERNAME_TAKEN = "This username is already in use.";
 
     private final DataStore dataService;
+    private final NotificationService notifications;
 
     public AuthService() {
         this(DataStore.getInstance());
@@ -30,6 +33,7 @@ public class AuthService {
 
     public AuthService(DataStore dataService) {
         this.dataService = dataService;
+        this.notifications = new NotificationService(dataService);
     }
 
     /**
@@ -85,11 +89,16 @@ public class AuthService {
         if (error != null) return error;
 
         User user = createAccount.apply(cleanUsername, PasswordHasher.hash(password));
-        // addUser checks the username again, in case someone took it while the password was hashed
-        if (!dataService.addUser(user)) {
-            return USERNAME_TAKEN;
-        }
-        return null;
+        // addUser checks the username again, in case someone took it while the password was hashed.
+        // The account and the admins' notice (Task 3.6) are saved together, or neither is.
+        boolean added = dataService.transaction(() -> {
+            if (!dataService.addUser(user)) {
+                return false;
+            }
+            notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE, AccountNotices.created(user));
+            return true;
+        });
+        return added ? null : USERNAME_TAKEN;
     }
 
     /**

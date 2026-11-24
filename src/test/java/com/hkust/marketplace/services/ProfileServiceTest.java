@@ -215,4 +215,49 @@ class ProfileServiceTest {
         assertTrue(PasswordHasher.verify(NEW_PASSWORD, charlie.getPasswordHash()));
         assertFalse(PasswordHasher.verify(SeedData.DEMO_PASSWORD, charlie.getPasswordHash()));
     }
+
+    // ---------- Task 3.6: the admins are told which fields changed (client question F4) ----------
+
+    /** What admin ada's Notification Board says about user accounts. */
+    private List<String> adminNotices() {
+        return store.getNotificationsFor("ada").stream()
+                .filter(n -> n.getCategory() == NotificationCategory.ACCOUNT_CHANGE)
+                .map(Notification::getContent)
+                .toList();
+    }
+
+    @Test
+    void aBuyersChange_tellsTheAdminsWhichFieldsChanged_neverTheValues() {
+        Fixtures.admin(store, "ada");
+        SessionManager.login(bea);
+
+        profiles.updateProfile("Bea Chan", NEW_PASSWORD, NEW_PASSWORD);
+
+        assertEquals(List.of("Bea Chan (@bea) changed their profile: full name, password."), adminNotices());
+        assertFalse(adminNotices().get(0).contains(NEW_PASSWORD));
+    }
+
+    @Test
+    void aSellersChange_namesOnlyTheFieldsThatChanged() {
+        Fixtures.admin(store, "ada");
+        SessionManager.login(sam);
+
+        // the same name with spaces around it is no change (A1 strips it); the bio and locations are new
+        profiles.updateSellerProfile(" Sam Seller ", "", "", "New bio", List.of(MeetupLocation.LIBRARY));
+
+        assertEquals(List.of("Sam Seller (@sam) changed their profile: bio, meet-up locations."), adminNotices());
+    }
+
+    @Test
+    void noChange_aRefusedChange_andAnAdminsOwnProfile_tellNoAdmin() {
+        Admin ada = Fixtures.admin(store, "ada");
+        SessionManager.login(sam);
+        profiles.updateSellerProfile("Sam Seller", "", "", "Old bio", List.of());           // the same values again
+        assertThrows(ServiceException.class, () -> profiles.updateProfile("   ", "", "")); // A1: refused
+        SessionManager.login(ada);
+        profiles.updateProfile("Ada Admin", "", "");                                       // Task 3.4: an admin's own
+
+        assertTrue(adminNotices().isEmpty());
+        assertEquals("Ada Admin", ada.getFullName());
+    }
 }

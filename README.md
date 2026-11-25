@@ -332,7 +332,7 @@ The build **fails** if any test fails, or if **branch coverage drops below 65%**
 - **Everything**, screens included: the strict reading. The screen tests keep the screens covered; new screen code without tests lowers this figure.
 - **The measured code**: the models, data, services and utils, where all the logic lives. It leaves out the JavaFX screen controllers, `MarketplaceApp`, `SceneManager` and the dev-only `DevLogin` (the excluded list is `jacoco.ui.excludes` in `pom.xml`). Screens hold no logic of their own: they read the input, call a tested service and show the result. The screen tests open every page, and the manual acceptance tests check the flows. That only stays true if **screens stay thin**: any check, rule or calculation goes into a service with tests, never into a controller.
 
-Figures on 25 Nov 2026, with all three portals merged (PR #20, #21, #23) and the shared UI changes: 1297 tests; measured code **96.7% branch** (97.8% line); everything, screens included, **80.6% branch** (83.3% line). By package: services 96.8%, models 98.7%, data 92.4%, shared screens (`ui`) 92.2%, buyer screens 93.5%. The seller's and admin's screens are at 16.2% and 20.7%: the screen tests only open their pages, and their logic is in their tested services.
+Figures on 25 Nov 2026, with all three portals and the shared UI changes merged (PR #20 to #25): 1297 tests; measured code **96.7% branch** (97.8% line); everything, screens included, **80.6% branch** (81.8% line). By package: services 96.8%, models 98.7%, data 92.4%, shared screens (`ui`) 92.2%, buyer screens 93.5%. The seller's and admin's screens are at 16.2% and 21.1%: the screen tests only open their pages, and their logic is in their tested services.
 
 ## Troubleshooting
 

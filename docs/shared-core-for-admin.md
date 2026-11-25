@@ -315,29 +315,31 @@ void editOpensTheListingForm() { // app = OffScreenApp.start() in @BeforeAll, ap
 ```
 To fill in and submit a dialog instead, give its answer before the step: `app.answer("Edit listing", form -> form.type(...).press(...))`. The screens use the app's store, which in a test run is a temporary folder with the demo data, shared by all screen tests (storage manual §9.8). Do not depend on what another test changed; a test that changes data adds its own with `testsupport/ScreenData`. Examples to copy: `controllers/buyer/MakeOfferScreensTest`, `MyDealsScreensTest`.
 
-## 9. Known gaps on the admin side (as of 2026-11-25, evening)
+## 9. Known gaps on the admin side (as of 2026-11-25, night)
 
 Tasks 3.1 to 3.8 are all merged. Every admin screen calls its service: `AdminListingService` (PR #10), and
 `AdminUserService`, `AdminDealService` and `AdminReputationService` (PR #17). PR #23 (29193ec) added photos in Add / Edit
 listing, the registration-date filter and the text search on Manage Users, the four Task 3.6 notices to every admin,
 `AdminReputationService.findReviewsForSeller`, their tests, the regression-log entries R12-R14 and the admin acceptance
-scenarios.
+scenarios. PR #24 (83e9b52) made the admin screens work like the buyer's and seller's: View listing, Add / Edit listing,
+View and Edit user and the deal details open inside the app with "← Back to …", and a refused save keeps the form. The
+date pickers use the shared converter, the filters say Search and Reset, deal types read Sell / Lend / Giveaway, the page
+titles match the sidebar, the compiler warnings are gone, and the acceptance scenarios were corrected.
 
 Follow-ups, none of them blocking the build:
-- **The screens' pattern** (the task list's "consistent interface and interaction pattern"): View listing, View user and
-  deal details are text popups, and Add / Edit listing and Edit user are separate windows that close on a refused save
-  (spec A1 / A4 resume in the form). Open them inside the app with a Back link, as the buyer's and seller's screens do;
-  §10 shows View listing with `ListingOverview`.
-- **The date pickers** don't use `Formats.datePickerConverter()`, so a picked date shows in the computer's format.
-- **Wording:** roles in capitals (use `UserRole.getDisplayName()`), "Sale / Loan" beside a filter that says "Sell / Lend",
-  "Apply filters" where the buyer's screens say "Search" and "Reset", a hand-made Back link, and sidebar labels that
-  differ from their pages' titles.
-- **Code:** four compiler warnings from `addAll(X.values())` without the `(Object[])` cast (use
-  `addAll(List.of(X.values()))`); the price is parsed with `Double.parseDouble` instead of `Amounts.parse`; the photo
-  limit message hard-codes "6"; runs of 2+ blank lines; `createReviewRow` reads `DataStore` itself.
-- **Acceptance scenarios:** the section "UC4 View Notifications, admin: account changes by the admin" repeats AT-UC4A-07
-  to 10, which "the accounts' history" already has; AT-UC3U-01/02 use `sam`, who isn't in the demo data; AT-UC3A-02
-  expects an Audit Log entry that approving and rejecting don't make; AT-UC3A-01 says "Sale" where the filter says "Sell".
+- **Two regressions from PR #24, to fix first** (one line each; to log as R16 and R17):
+  - editing a lend listing, the empty duration field's hint shows whole days ("e.g. 1" for a 36-hour loan) instead of
+    "Leave empty to keep 1 day 12 hours", which invites R14's outcome;
+  - on Edit and Add listing, the unit box shows "…" instead of "days": `unitBox.setPrefWidth(100)` is too narrow with
+    the app's styles.
+- **The shared UI** (§10): the unread dot; View listing through `ListingOverview` instead of its own copy of the photos,
+  fields and description; roles through `UserRole.getDisplayName()` instead of the hand-made mapping.
+- **Smaller:** Edit listing shows a Condition box that starts empty and is ignored (spec 5.4.2 doesn't make Condition
+  editable); Remove on the listing's detail screen doesn't confirm first, as Remove on the card does; Back from a detail
+  screen builds the list again, so its filters reset; AT-UC4A-12 still says OK where the form says Save.
+- **Optional:** parse the price in `AdminListingService` (the barricade) rather than in the screen; `createReviewRow`
+  could get its data from the service; runs of 2+ blank lines remain in `AdminUserServiceTest`, `AdminListingServiceTest`,
+  `AdminUserService` and `AdminTestSupport`.
 - **Already right:** at the app's window size, no admin page cuts a button or label short (`PortalScreensTest`).
 
 ## 10. Added on 25 Nov 2026: the shared UI changes, and what the admin portal adds
@@ -352,12 +354,14 @@ Five UI changes were made in the shared core, the same in every portal (assumpti
 
   An admin's own account action notifies every admin, the one who acted included (F4); the update in `show(...)`
   shows it on the dot at the next screen.
-- **View listing inside the app (spec 5.1)**, as the buyer's listing screen is, with the shared `ListingOverview`:
+- **View listing (spec 5.1)** already opens inside the app (PR #24). Replace its own copy of the photos, heading,
+  fields and description with the shared `ListingOverview`, as the buyer's listing screen does:
   - `new ListingOverview(ListingSummary.of(listing, UserRole.ADMIN, store), store)` gives the photos, the title with
     the badge and price, every field and the description;
   - below it, "Reports (n)" with each report's reason and details in `ListingOverview.card(...)`, then Edit and Remove;
   - show it with `show(listing.getTitle(), new SubScreen("Back to All Listings", back, page))`, where `back` shows
     the same All Listings screen again, so its filters stay.
-- **Roles:** show them with `UserRole.getDisplayName()` on the Manage Users cards and in the user details.
+- **Roles:** show them with `UserRole.getDisplayName()` on the Manage Users cards and in the user details, instead of
+  the hand-made `== UserRole.BUYER ? "Buyer" : "Seller"`.
 - **Check:** log in as `admin` after a reset: the dot says 1; AT-UC4-08; View on a listing with photos opens inside
   the app, with the photos and Back to All Listings.

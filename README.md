@@ -138,14 +138,14 @@ The app keeps its data between runs in the `marketplace-data` folder, which is c
 
 All passwords meet the password rules: at least 8 characters, with at least one uppercase letter, one lowercase letter, one digit and one special ASCII character (such as `! @ # $ %`). Usernames and passwords may contain only ASCII characters.
 
-## Features Implemented (UI Only)
+## Features Implemented
 
 ### Shared
 - Welcome screen with role selection (Buyer / Seller / Admin)
 - HKUST branding (logo + colour palette: deep blue `#003974` + gold `#A68137`)
 - Modern card-based UI, icons (Ikonli), consistent sidebars & top bars
   - **⚠️ Outdated for our team:** Ikonli is not in `pom.xml` and is not used by the code.
-- In-memory data (no database / no network); see [Shared Core](#shared-core-read-before-building-a-feature)
+- All data in one store, saved to an encrypted file on this computer after every change (no database server, no network); see [Saved Data](#saved-data) and [Shared Core](#shared-core-read-before-building-a-feature)
 
 ### Buyer Portal
 - Registration, Login
@@ -159,8 +159,13 @@ All passwords meet the password rules: at least 8 characters, with at least one 
 - Chats, Notifications, Profile
 
 ### Seller Portal
-- Registration, Login, Create Listing, My Listings
-- Seller Stats (charts), Reviews & Feedback, Chats, Notifications, Profile
+- Registration, Login
+- **Create Listing (Task 2.3, done):** Sell, Lend or Give Away, with category, condition, description, meet-up location, a price or a lending duration (5 seconds or more), and up to 6 photos; submitted for the admin's review
+- **My Listings (Task 2.4, done):** every listing with its status; edit and delete. An edited Live listing with no open offers stays Live (client answer #5). Any other edit goes back for review, and open offers are declined with their buyers told
+- **Offers & Requests (Task 2.5, done):** every offer, borrow request and claim on the seller's listings; accept, decline, or counter with a price or a borrow period (to the second); open the linked chat. A chat's "Respond in Offers & Requests (n)" opens this screen with that chat's offers marked
+- **Seller Stats (Task 2.8, done):** views, offers received, completed deals and rating; a bar chart of views and offers per listing, and a pie chart of completed deals by type
+- **Reviews & Feedback (Task 2.9, done):** every review with its writer, listing and date; reply once (the buyer is notified) and flag an inappropriate review for the admin
+- Chats, Notifications, Profile
 
 ### Admin Portal
 - Login only (seeded), Listing Review (approve/reject)
@@ -316,7 +321,7 @@ The build **fails** if any test fails, or if **branch coverage drops below 65%**
 - **Everything**, screens included: the strict reading. The screen tests keep the screens covered; new screen code without tests lowers this figure.
 - **The measured code**: the models, data, services and utils, where all the logic lives. It leaves out the JavaFX screen controllers, `MarketplaceApp`, `SceneManager` and the dev-only `DevLogin` (the excluded list is `jacoco.ui.excludes` in `pom.xml`). Screens hold no logic of their own: they read the input, call a tested service and show the result. The screen tests open every page, and the manual acceptance tests check the flows. That only stays true if **screens stay thin**: any check, rule or calculation goes into a service with tests, never into a controller.
 
-Figures on 25 Nov 2026: measured code **96.5% branch** (97.5% line); everything, screens included, **81.2% branch** (84.0% line). By package: services 96.5%, models 98.7%, data 92.4%, buyer screens 93.8%.
+Figures on 25 Nov 2026, after the buyer's and the seller's merges (PR #20, #21): 1254 tests; measured code **96.6% branch** (97.7% line); everything, screens included, **80.6% branch** (83.1% line). By package: services 96.6%, models 98.7%, data 92.4%, buyer screens 93.8%.
 
 ## Troubleshooting
 

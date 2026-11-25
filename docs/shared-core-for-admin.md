@@ -39,16 +39,16 @@ the client (TA) answered differently: `docs/client-answers.md` wins over the spe
 
 ## 2. What is already done for the admin
 
-| Admin use case (task) | Already provided | Still yours |
+| Admin use case (task) | Already provided (shared core) | Status on `main` (25 Nov 2026) |
 |---|---|---|
-| Login (3.1) | `AuthService.login(username, password, UserRole.ADMIN)`; seeded `admin` / `Admin@1234` | nothing |
-| Own profile (3.4) | `ProfileService.updateProfile`, shared `ui/ProfileView`, wired | nothing |
-| Notification board (3.6) | `NotificationService`, shared `ui/NotificationBoard`, wired | send the right notifications |
-| Listing Review (3.2) | `Listing.approve()/reject()`, `ListingActionRecord`, `ui/ListingCard` (admin view) | service; dashboard currently does it inline |
-| Manage All Listings (3.7) | `Listing.remove()`, setters, `store.addListing`, `DealRules.declineOpenOffers`, `PhotoService` | service + edit/add forms (placeholders now) |
-| Users (3.3) | `User.setActive`, **`store.deleteAccount`**, `AuditLogEntry`, `store.addAuditLogEntry` | service; "Delete" currently only deactivates |
-| Seller Ratings (3.8) | `getReviewsForSellerIncludingHidden`, `Review.setHidden`, rating/stat queries, `getReviewerName` (writer's name, "Deleted User" for a deleted buyer) | service + screen |
-| All Deals Record (3.5) | `store.getAllOffers`, `store.getListingOf`, `ui/OfferText` | filters, export; table shows dummy rows now. Start Date (client answer #4): a loan's agreed borrow start (`BorrowRequest.getProposedStartDate()` of the accepted request), otherwise `getAcceptedDate()` |
+| Login (3.1) | `AuthService.login(username, password, UserRole.ADMIN)`; seeded `admin` / `Admin@1234` | done |
+| Own profile (3.4) | `ProfileService.updateProfile`, shared `ui/ProfileView`, wired | done |
+| Notification board (3.6) | `NotificationService`, shared `ui/NotificationBoard`, wired; `services/AccountNotices` | board done. The accounts' history: new accounts and users' own profile changes are sent (shared core). The notices of the admin's own edit, deactivate, reactivate and delete are in the pending branch (§9) |
+| Listing Review (3.2) | `Listing.approve()/reject()`, `ListingActionRecord`, `ui/ListingCard` (admin view) | done (`AdminListingService.approveListing` / `rejectListing`, reason through `Dialogs.askReason`) |
+| Manage All Listings (3.7) | `Listing.remove()`, setters, `store.addListing`, `DealRules.declineOpenOffers`, `PhotoService` | done (`AdminListingService`: edit, add, remove with a reason, open offers declined); photos in Add / Edit are in the pending branch (§9) |
+| Users (3.3) | `User.setActive`, **`store.deleteAccount`**, `AuditLogEntry`, `store.addAuditLogEntry` | done (`AdminUserService`: details, edit, deactivate, activate, delete with the Audit Log entry); the registration-date filter and the text search inside `findUsers` are in the pending branch (§9) |
+| Seller Ratings (3.8) | `getReviewsForSellerIncludingHidden`, `Review.setHidden`, rating/stat queries, `getReviewerName` (writer's name, "Deleted User" for a deleted buyer) | done (`AdminReputationService`: ratings, reviews with filters, hide with a reason) |
+| All Deals Record (3.5) | `store.getAllOffers`, `store.getListingOf`, `ui/OfferText` | done (`AdminDealService`: filters, details, CSV export). Start Date (client answer #4): a loan's agreed borrow start (`BorrowRequest.getProposedStartDate()` of the accepted request), otherwise `getAcceptedDate()` |
 
 `controllers/admin/AdminDashboardController` implements `ContentHost` (`show(title, node)`), has
 `showGreeting()`, and already uses the shared board, profile and listing card. The admin has no chat.
@@ -307,12 +307,26 @@ void editOpensTheListingForm() { // app = OffScreenApp.start() in @BeforeAll, ap
 ```
 To fill in and submit a dialog instead, give its answer before the step: `app.answer("Edit listing", form -> form.type(...).press(...))`. The screens use the app's store, which in a test run is a temporary folder with the demo data, shared by all screen tests (storage manual §9.8). Do not depend on what another test changed; a test that changes data adds its own with `testsupport/ScreenData`. Examples to copy: `controllers/buyer/MakeOfferScreensTest`, `MyDealsScreensTest`.
 
-## 9. Known gaps on the admin side (as of 2026-11-17)
+## 9. Known gaps on the admin side (as of 2026-11-25)
 
-`AdminListingService` (approve, reject, edit, remove, add, filtered list, details) is merged (PR #10), but no
-screen calls it yet:
-- Listing Review: approve/reject still run inline in the controller, with raw `Alert`s instead of `Dialogs`.
-- Manage All Listings: Edit and Add are placeholders; Remove does not decline open offers, record a
-  `ListingActionRecord`, ask for a reason, or notify. Wiring it to `AdminListingService` fixes all of this.
-- Users: Deactivate does not decline offers, write the Audit Log or notify; Delete only deactivates.
-- All Deals shows dummy rows; no export. Seller Ratings: hide has no reason, Audit Log entry or notifications.
+On `main`, every admin screen calls its service: `AdminListingService` (PR #10), and `AdminUserService`, `AdminDealService` and `AdminReputationService` (PR #17).
+
+**Pending:** `feature-admin-part2-withFixes` (dbc1c41) builds and passes every test, and its fixes were checked through the screens. It merges once one small docs commit is in:
+- **What it adds:**
+  - photos in Add / Edit listing;
+  - the registration-date filter on Manage Users;
+  - the text search inside `AdminUserService.findUsers`;
+  - the four Task 3.6 notices (`AccountNotices.edited / deactivated / activated / deleted`, to every admin);
+  - `AdminReputationService.findReviewsForSeller`;
+  - tests for all of these;
+  - the regression-log entries R12-R14;
+  - the admin acceptance scenarios.
+- **Before it merges:**
+  - delete the empty file `docs/screenshots`, which blocks the `docs/screenshots/` folder;
+  - in `docs/regression-log.md`, put back the heading `## Tooling notes (not code bugs, so no test)` before T1, and fill in R13's and R14's `<date>` and `<AT-ID>` (AT-UC4A-11, AT-UC4A-12);
+  - if it merges after the seller's work, keep both sections where `docs/acceptance-tests.md` conflicts.
+- **Follow-ups after it merges** (none blocking):
+  - move the comment `// not a status: its own flag` back to `filter.withReportedOnly(true)`;
+  - tell the admin when more than 6 photos were chosen, instead of dropping them silently;
+  - remove the runs of 2+ blank lines;
+  - read the review row's data from the service rather than `DataStore` (`createReviewRow`).

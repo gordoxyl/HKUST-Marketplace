@@ -49,6 +49,7 @@ public class AdminDashboardController implements ContentHost {
         currentActiveBtn = btnReview;
         LiveUpdates.setOnDataChanged(() -> contentPane.getScene() != null, this::refreshCurrentScreen);
         showReview();
+        NotificationDot.attach(btnNotifications, new NotificationService());
     }
 
     private void refreshCurrentScreen() {
@@ -69,12 +70,14 @@ public class AdminDashboardController implements ContentHost {
         btn.getStyleClass().add("sidebar-btn-active");
         currentActiveBtn = btn;
         pageTitle.setText(title);
+        NotificationDot.update();
     }
 
     @Override
     public void show(String title, Node content) {
         pageTitle.setText(title);
         contentPane.getChildren().setAll(content);
+        NotificationDot.update();
     }
 
     // ==========================================
@@ -419,7 +422,6 @@ public class AdminDashboardController implements ContentHost {
         TextField durationField = new TextField();
         ComboBox<String> unitBox = new ComboBox<>(FXCollections.observableArrayList("seconds", "minutes", "hours", "days"));
         unitBox.getSelectionModel().select("days");
-        unitBox.setPrefWidth(100);
 
         // Photos
         List<String> photoIds = new ArrayList<>();
@@ -457,7 +459,7 @@ public class AdminDashboardController implements ContentHost {
             locationBox.setValue(existing.getMeetupLocation());
             if (existing instanceof SaleListing s) priceField.setText(String.valueOf(s.getPrice()));
             if (existing instanceof LendListing l) {
-                durationField.setPromptText("e.g. " + l.getLendingDuration().toDays()); // Widen prompt
+                durationField.setPromptText("Leave empty to keep " + Formats.duration(l.getLendingDuration()));
             }
         }
 

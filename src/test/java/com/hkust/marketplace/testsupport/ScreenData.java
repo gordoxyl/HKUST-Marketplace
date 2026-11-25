@@ -31,6 +31,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Data of a screen test's own, added to the app's store that the screens use
@@ -121,7 +122,9 @@ public final class ScreenData {
      * would. The file is in the run's data folder (storage manual §3).
      */
     public void damagePhotoFile(String photoId) {
-        Path file = Path.of(System.getProperty(DataStore.DATA_FOLDER_PROPERTY), "marketplace-photos", photoId + ".img");
+        String folder = Objects.requireNonNull(System.getProperty(DataStore.DATA_FOLDER_PROPERTY),
+                "the test run's data folder, which TestDataFolder sets");
+        Path file = Path.of(folder, "marketplace-photos", photoId + ".img");
         try {
             Files.write(file, "damaged".getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
@@ -194,15 +197,20 @@ public final class ScreenData {
 
     // ---------- Time ----------
 
-    /** Waits until the store's clock is past the moment, as the real time a short loan needs to end. */
+    /**
+     * Waits until the store's clock is past the moment, as the real time a short loan needs to
+     * end. How long that is is known now, so it is one wait.
+     */
     public void waitUntilAfter(LocalDateTime moment) {
-        while (!store.now().isAfter(moment)) {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new AssertionError("Interrupted while waiting for " + moment, e);
-            }
+        long millis = Duration.between(store.now(), moment).toMillis() + 10; // just past it, whatever the clock's step
+        if (millis <= 0) {
+            return;
+        }
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while waiting for " + moment, e);
         }
     }
 }

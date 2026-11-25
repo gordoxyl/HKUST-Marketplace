@@ -5,6 +5,7 @@ import com.hkust.marketplace.ui.LiveUpdates;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
 import javafx.application.Platform;
+import javafx.beans.InvalidationListener;
 import javafx.collections.ListChangeListener;
 import javafx.scene.Node;
 import javafx.scene.Parent;
@@ -274,26 +275,41 @@ public final class OffScreenApp {
 
     /** How many photo frames on the window show their photo. Photos load in the background. */
     public int photosShown() {
-        return read(() -> (int) all(root()).stream()
-                .filter(node -> node.getStyleClass().contains("listing-card-thumbnail") && isShown(node))
-                .filter(frame -> all(frame).stream().anyMatch(inner -> inner instanceof ImageView image && image.getImage() != null))
-                .count());
+        return read(() -> (int) photoFrames().stream().filter(OffScreenApp::showsItsPhoto).count());
     }
 
-    /** Waits until a photo frame shows its photo. */
+    /**
+     * Waits until a photo frame on the window shows its photo: every frame is watched, and the
+     * wait ends as soon as a photo loaded in the background is put into one.
+     */
     public void waitForAPhoto() {
-        long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
-        while (photosShown() == 0) {
-            if (System.nanoTime() > end) {
-                throw new AssertionError("After " + TIMEOUT_SECONDS + " seconds no photo is shown");
+        CompletableFuture<Void> shown = new CompletableFuture<>();
+        call("Watching the photo frames", () -> {
+            for (Parent frame : photoFrames()) {
+                frame.getChildrenUnmodifiable().addListener((InvalidationListener) children -> {
+                    if (showsItsPhoto(frame)) {
+                        shown.complete(null);
+                    }
+                });
+                if (showsItsPhoto(frame)) {
+                    shown.complete(null);
+                }
             }
-            try {
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new AssertionError("Interrupted while waiting for photos", e);
-            }
-        }
+            return null;
+        });
+        await("Waiting for a photo", shown);
+    }
+
+    private List<Parent> photoFrames() {
+        return all(root()).stream()
+                .filter(node -> node.getStyleClass().contains("listing-card-thumbnail") && isShown(node))
+                .filter(Parent.class::isInstance)
+                .map(Parent.class::cast)
+                .toList();
+    }
+
+    private static boolean showsItsPhoto(Parent frame) {
+        return frame.getChildrenUnmodifiable().stream().anyMatch(node -> node instanceof ImageView image && image.getImage() != null);
     }
 
     /** The dialogs shown since the last {@link #reset()}, in order, as "title: message". */
@@ -368,6 +384,11 @@ public final class OffScreenApp {
                 result.completeExceptionally(failure);
             }
         });
+        return await(step, result);
+    }
+
+    /** The result, once there is one; the test fails if the step failed or took too long. */
+    private static <T> T await(String step, CompletableFuture<T> result) {
         try {
             return result.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (ExecutionException e) {

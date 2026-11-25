@@ -297,10 +297,13 @@ Demo logins: admin `admin` / `Admin@1234`; sellers `charlie`, `diana`; buyers `a
 
 **Screen tests (24 Nov 2026).** On every build, `controllers/PortalScreensTest.adminPortal_everyPageOpens` logs in as `admin` on the welcome screen and presses every sidebar button except Logout. It fails if a page throws while opening, opens any dialog, has a blank title, or has the same title as another page. Adding or renaming pages needs no change to it. To test a page's own buttons, add a class like `controllers/buyer/BuyerScreensTest` in `controllers/admin`:
 ```java
-app.logIn("Enter as Admin", "admin", SeedData.ADMIN_PASSWORD); // app = OffScreenApp.start() in @BeforeAll, app.reset() in @AfterEach
-app.press("All Listings");
-app.press("Edit", "IKEA Desk Lamp");    // the "Edit" button on the card that shows this text
-assertEquals(1, app.dialogs().size());  // every dialog is answered Cancel, or its only button
+@Test
+void editOpensTheListingForm() { // app = OffScreenApp.start() in @BeforeAll, app.reset() in @AfterEach
+    app.logIn("Enter as Admin", "admin", SeedData.ADMIN_PASSWORD);
+    app.press("All Listings");
+    app.press("Edit", "IKEA Desk Lamp");    // the "Edit" button on the card that shows this text
+    assertEquals(1, app.dialogs().size());  // every dialog is answered Cancel, or its only button
+}
 ```
 To fill in and submit a dialog instead, give its answer before the step: `app.answer("Edit listing", form -> form.type(...).press(...))`. The screens use the app's store, which in a test run is a temporary folder with the demo data, shared by all screen tests (storage manual §9.8). Do not depend on what another test changed; a test that changes data adds its own with `testsupport/ScreenData`. Examples to copy: `controllers/buyer/MakeOfferScreensTest`, `MyDealsScreensTest`.
 

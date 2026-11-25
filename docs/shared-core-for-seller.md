@@ -191,11 +191,15 @@ public interface RespondToOffers {
      */
     void respond(List<Offer> waiting);
 }
-public void setOnRespondToOffers(RespondToOffers respond)
+public void setOnRespondToOffers(RespondToOffers respond) {
+    // the seller's link to Offers & Requests, shown while the chat has open offers
+}
 
 // in ui/Scrolling (shared core; the chat search uses it too)
 public static final String JUMP_HIGHLIGHT = "jump-highlight";   // the mark: light yellow, in styles.css
-public static void bringIntoView(ScrollPane pane, Node node)   // lays the screen out, then centres the node as far as the content allows
+public static void bringIntoView(javafx.scene.control.ScrollPane pane, javafx.scene.Node node) {
+    // lays the screen out, then centres the node as far as the content allows
+}
 ```
 
 - **What the chat guarantees:**
@@ -307,10 +311,13 @@ Examples to copy: `DealRulesTest`, `ChatServiceTest`, `ProfileServiceTest`. Demo
 
 **Screen tests (24 Nov 2026).** On every build, `controllers/PortalScreensTest.sellerPortal_everyPageOpens` logs in as `charlie` on the welcome screen and presses every sidebar button except Logout. It fails if a page throws while opening, opens any dialog, has a blank title, or has the same title as another page. Adding or renaming pages needs no change to it. To test a page's own buttons, add a class like `controllers/buyer/BuyerScreensTest` in `controllers/seller`:
 ```java
-app.logIn("Enter as Seller", "diana", SeedData.DEMO_PASSWORD); // app = OffScreenApp.start() in @BeforeAll, app.reset() in @AfterEach
-app.press("Offers & Requests");
-app.press("Decline", "Graphing Calculator TI-84"); // the "Decline" button on the card that shows this text (Bob's borrow request)
-assertEquals(1, app.dialogs().size());             // the confirmation, answered Cancel: every dialog gets Cancel, or its only button
+@Test
+void declineAsksFirst() { // app = OffScreenApp.start() in @BeforeAll, app.reset() in @AfterEach
+    app.logIn("Enter as Seller", "diana", SeedData.DEMO_PASSWORD);
+    app.press("Offers & Requests");
+    app.press("Decline", "Graphing Calculator TI-84"); // the "Decline" button on the card that shows this text (Bob's borrow request)
+    assertEquals(1, app.dialogs().size());             // the confirmation, answered Cancel: every dialog gets Cancel, or its only button
+}
 ```
 To fill in and submit a dialog instead, give its answer before the step: `app.answer("Decline borrow request", form -> form.press("OK"))`. The screens use the app's store, which in a test run is a temporary folder with the demo data, shared by all screen tests (storage manual §9.8). Do not depend on what another test changed; a test that changes data adds its own with `testsupport/ScreenData`. Examples to copy: `controllers/buyer/MakeOfferScreensTest`, `MyDealsScreensTest`.
 

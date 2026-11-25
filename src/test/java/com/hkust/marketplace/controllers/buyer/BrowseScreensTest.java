@@ -60,6 +60,7 @@ class BrowseScreensTest {
 
     private static byte[] samplePhoto() {
         try (InputStream logo = BrowseScreensTest.class.getResourceAsStream("/images/hkust_logo.png")) {
+            assertNotNull(logo, "the sample photo is the app's logo, in src/main/resources/images");
             return logo.readAllBytes();
         } catch (IOException e) {
             throw new AssertionError("The sample photo could not be read", e);

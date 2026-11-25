@@ -14,9 +14,8 @@ import com.hkust.marketplace.models.Seller;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Locale;
+import java.util.OptionalDouble;
 
 /**
  * Task 2.5 Manage Offers &amp; Requests: the seller's inbox of the price offers, borrow
@@ -38,8 +37,9 @@ import java.util.Locale;
  */
 public class SellerOfferService {
 
-    private static final DateTimeFormatter DATE_TIME =
-            DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", Locale.ENGLISH);
+    /** Manage Offers &amp; Requests A4: the same message for a non-number and for a non-positive price. */
+    private static final String COUNTER_PRICE_MESSAGE =
+            "The counter price must be a positive amount, such as 150 or 99.50.";
 
     private final DataStore store;
     private final DealRules rules;
@@ -103,6 +103,34 @@ public class SellerOfferService {
      */
     public void counterPrice(String offerId, double price) {
         Seller seller = AccessControl.requireSeller();
+        requireCounterPrice(price);
+        counterPrice(seller, offerId, price);
+    }
+
+    /**
+     * The same, with the price exactly as the seller typed it. The text is untrusted input, so
+     * it is parsed at the barricade with {@link Amounts#parse}: digits with up to two decimals,
+     * such as "150" or "99.50". Anything else - "abc", "1e3", "-5", "1,000" - is refused with
+     * the same message as a non-positive price (Manage Offers &amp; Requests A4).
+     * @throws ServiceException if the typed text is not a plain positive amount
+     */
+    public void counterPrice(String offerId, String typedPrice) {
+        Seller seller = AccessControl.requireSeller();
+        OptionalDouble amount = Amounts.parse(typedPrice);
+        if (amount.isEmpty() || amount.getAsDouble() <= 0) {
+            throw new ServiceException(COUNTER_PRICE_MESSAGE);
+        }
+        counterPrice(seller, offerId, amount.getAsDouble());
+    }
+
+    private static void requireCounterPrice(double price) {
+        if (!(price > 0) || Double.isInfinite(price)) {
+            throw new ServiceException(COUNTER_PRICE_MESSAGE);
+        }
+    }
+
+    /** The rules shared by both counterPrice forms, after the price itself was checked. */
+    private void counterPrice(Seller seller, String offerId, double price) {
         Offer offer = requireOwnedOffer(offerId, seller);
         if (offer instanceof Claim) {
             throw new ServiceException("Claims cannot be countered.");
@@ -111,9 +139,6 @@ public class SellerOfferService {
             throw new ServiceException("Only a price offer can be countered with a price.");
         }
         requirePending(offer);
-        if (!(price > 0) || Double.isInfinite(price)) {
-            throw new ServiceException("The counter price must be a positive amount, such as 150 or 99.50.");
-        }
         store.transaction(() -> {
             Listing listing = store.getListingOf(offer);
             priceOffer.counter(price);
@@ -145,7 +170,8 @@ public class SellerOfferService {
             request.counter(start, end);
             notifications.send(offer.getBuyerUsername(), NotificationCategory.OFFER_UPDATE,
                     seller.getFullName() + " countered your borrow request for '" + listing.getTitle()
-                            + "' with " + DATE_TIME.format(start) + " – " + DATE_TIME.format(end) + ".");
+                            + "' with " + BorrowRequest.formatBorrowTime(start) + " – "
+                            + BorrowRequest.formatBorrowTime(end) + ".");
         });
     }
 

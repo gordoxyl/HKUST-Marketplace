@@ -329,6 +329,11 @@
     -fx-font-size: 13px;
     -fx-font-weight: bold;
 }
+/* The bigger star row on the seller's Reviews & Feedback (controllers/seller/SellerDashboardController) */
+.review-stars-large {
+    -fx-text-fill: #A68137;
+    -fx-font-size: 16px;
+}
 
 /* ---------- Chat (ui/ChatView, ui/ChatList; UC6) ---------- */
 .chat-history {
@@ -388,6 +393,30 @@
 }
 .chat-result:hover {
     -fx-background-color: #e8f0f8;
+}
+
+/* ---------- Seller portal (controllers/seller/SellerDashboardController) ---------- */
+/* One buyer's offer on Offers & Requests (Task 2.5): a line above each row */
+.offer-row {
+    -fx-border-color: #e8f0f8;
+    -fx-border-width: 1 0 0 0;
+}
+/* The number on a Seller Stats card (Task 2.8), with a colour per card */
+.stat-value {
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+}
+.stat-navy {
+    -fx-text-fill: #003974;
+}
+.stat-gold {
+    -fx-text-fill: #A68137;
+}
+.stat-green {
+    -fx-text-fill: #2e7d32;
+}
+.stat-blue {
+    -fx-text-fill: #1565c0;
 }
 
 /* ---------- Misc ---------- */

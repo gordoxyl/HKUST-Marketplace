@@ -117,7 +117,7 @@ class SellerListingServiceTest {
     // ---------- Manage Listings 3.1: edit ----------
 
     @Test
-    void editingALiveListing_changesTheFields_andSendsItBackForReview() {
+    void editingALiveListingWithNoOffers_changesTheFields_andKeepsItLive() {
         SaleListing listing = liveSale();
 
         Listing edited = editSale(listing, "  Advanced Calculus  ", 250);
@@ -129,8 +129,9 @@ class SellerListingServiceTest {
         assertEquals("An updated description", listing.getDescription());
         assertEquals(MeetupLocation.SPORTS_HALL, listing.getMeetupLocation());
         assertEquals(250, ((SaleListing) listing).getPrice());
-        assertEquals(ListingStatus.PENDING_REVIEW, listing.getStatus()); // 3.1.6
+        assertEquals(ListingStatus.LIVE, listing.getStatus()); // client answer #5: no review needed
         assertEquals(Fixtures.START, listing.getPostedDate()); // the posting date does not change
+        assertTrue(store.getNotificationsFor("sam").isEmpty()); // and nobody is told it waits for review
     }
 
     @Test
@@ -152,7 +153,7 @@ class SellerListingServiceTest {
 
         assertEquals("Graphing Calculator", calculator.getTitle());
         assertEquals(Duration.ofDays(3), calculator.getLendingDuration());
-        assertEquals(ListingStatus.PENDING_REVIEW, calculator.getStatus());
+        assertEquals(ListingStatus.LIVE, calculator.getStatus()); // client answer #5
     }
 
     @Test
@@ -163,7 +164,7 @@ class SellerListingServiceTest {
                 "Works", MeetupLocation.SPORTS_HALL, List.of());
 
         assertEquals("Desk Lamp", lamp.getTitle());
-        assertEquals(ListingStatus.PENDING_REVIEW, lamp.getStatus());
+        assertEquals(ListingStatus.LIVE, lamp.getStatus()); // client answer #5
     }
 
     @Test
@@ -248,6 +249,7 @@ class SellerListingServiceTest {
 
         assertEquals(OfferStatus.DECLINED, bea.getStatus());
         assertEquals(OfferStatus.DECLINED, ben.getStatus());
+        assertEquals(ListingStatus.PENDING_REVIEW, listing.getStatus()); // an edit that declines offers waits for review
         assertTrue(store.getNotificationsFor("bea").stream().anyMatch(n ->
                 n.getCategory() == NotificationCategory.OFFER_UPDATE
                         && n.getContent().contains("declined because the seller changed the listing")));
@@ -265,6 +267,7 @@ class SellerListingServiceTest {
         editSale(listing, "Book", 120);
 
         assertEquals(OfferStatus.DECLINED, offer.getStatus());
+        assertEquals(ListingStatus.PENDING_REVIEW, listing.getStatus());
     }
 
     // ---------- Photos ----------
@@ -311,9 +314,11 @@ class SellerListingServiceTest {
     @Test
     void savingAnEdit_tellsTheAdminAndTheSellerThatItWaitsForReview() {
         Fixtures.admin(store, "ada");
-        SaleListing listing = liveSale();
+        SaleListing listing = Fixtures.moveTo(Fixtures.sale(store, "sam", 100), ListingStatus.REJECTED);
 
         editSale(listing, "Advanced Calculus", 250);
+
+        assertEquals(ListingStatus.PENDING_REVIEW, listing.getStatus());
 
         assertTrue(store.getNotificationsFor("ada").stream().anyMatch(n ->
                 n.getCategory() == NotificationCategory.LISTING_SUBMITTED

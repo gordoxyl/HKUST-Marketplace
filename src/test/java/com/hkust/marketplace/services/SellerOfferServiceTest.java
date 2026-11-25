@@ -219,6 +219,9 @@ class SellerOfferServiceTest {
         assertEquals(start, request.getCounterStartDate());
         assertEquals(end, request.getCounterEndDate());
         assertTrue(buyerNews("bea").contains("countered your borrow request for 'Calculator'"));
+        // Regression R9: the buyer reads the times to the second, not to the minute
+        assertTrue(buyerNews("bea").contains(BorrowRequest.formatBorrowTime(start)
+                + " – " + BorrowRequest.formatBorrowTime(end)));
     }
 
     @Test
@@ -257,6 +260,32 @@ class SellerOfferServiceTest {
         }
         assertEquals(OfferStatus.PENDING, offer.getStatus());
         assertNull(offer.getCounterPrice());
+    }
+
+    @Test
+    void aTypedCounterPrice_mustBeAPlainPositiveAmount() {
+        SaleListing listing = liveSale();
+        PriceOffer offer = (PriceOffer) priceOffer(listing, "bea", 80);
+
+        // Equivalence partitions: nothing, not a number, and zero or below
+        for (String bad : new String[]{null, "", "   ", "abc", "1e3", "-5", "1,000", "99.999"}) {
+            assertEquals("The counter price must be a positive amount, such as 150 or 99.50.",
+                    assertThrows(ServiceException.class,
+                            () -> service.counterPrice(offer.getId(), bad)).getMessage());
+        }
+        assertEquals("The counter price must be a positive amount, such as 150 or 99.50.",
+                assertThrows(ServiceException.class,
+                        () -> service.counterPrice(offer.getId(), "0")).getMessage());
+        assertEquals(OfferStatus.PENDING, offer.getStatus());
+        assertNull(offer.getCounterPrice());
+
+        // Boundary and a plain amount with cents
+        service.counterPrice(offer.getId(), "175");
+        assertEquals(175, offer.getCounterPrice());
+
+        PriceOffer other = (PriceOffer) priceOffer(listing, "ben", 60);
+        service.counterPrice(other.getId(), "99.50");
+        assertEquals(99.50, other.getCounterPrice());
     }
 
     @Test

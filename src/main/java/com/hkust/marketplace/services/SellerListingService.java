@@ -5,6 +5,7 @@ import com.hkust.marketplace.models.Category;
 import com.hkust.marketplace.models.ItemCondition;
 import com.hkust.marketplace.models.LendListing;
 import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.ListingStatus;
 import com.hkust.marketplace.models.ListingType;
 import com.hkust.marketplace.models.MeetupLocation;
 import com.hkust.marketplace.models.NotificationCategory;
@@ -32,10 +33,14 @@ import java.util.function.Consumer;
  *       buyer why ({@link DealRules#declineOpenOffers}).</li>
  * </ul>
  *
- * <p>Saving an edit sends the listing back to Pending Review ({@link Listing#resubmit()}) and
- * tells the admin, exactly like a newly posted listing; deleting keeps the record with status
- * Removed ({@link Listing#withdraw()}), as Manage Listings 3.2.4 requires. The type of a
- * listing never changes after it is posted, so each update method only accepts its own type.
+ * <p>Saving an edit normally sends the listing back to Pending Review ({@link
+ * Listing#resubmit()}) and tells the admin, exactly like a newly posted listing. The exception
+ * is the client's answer #5 of 16 Nov: an edit of a <b>Live</b> listing with <b>no open
+ * offers</b> keeps it Live, so the seller's small corrections do not wait for review again. A
+ * Live listing whose edit declines open offers is resubmitted, as are Rejected and Pending
+ * Review listings. Deleting keeps the record with status Removed ({@link Listing#withdraw()}),
+ * as Manage Listings 3.2.4 requires. The type of a listing never changes after it is posted,
+ * so each update method only accepts its own type.
  */
 public class SellerListingService {
 
@@ -163,18 +168,25 @@ public class SellerListingService {
         List<String> photoIds = importPhotos(newPhotoFiles);
         return store.transaction(() -> {
             Listing listing = requireEditable(listingId, seller, type);
+            boolean wasLive = listing.getStatus() == ListingStatus.LIVE;
+            boolean hadOpenOffers = store.getOffersForListing(listingId).stream().anyMatch(Offer::isOpen);
             change.accept(listing);
             if (!photoIds.isEmpty()) {
                 listing.setPhotos(photoIds);
             }
-            rules.declineOpenOffers(listing, NotificationCategory.OFFER_UPDATE,
-                    "the seller changed the listing");
-            listing.resubmit();
-            notifications.sendToAdmins(NotificationCategory.LISTING_SUBMITTED,
-                    seller.getFullName() + " updated '" + listing.getTitle()
-                            + "' and submitted it for review.");
-            notifications.send(seller.getUsername(), NotificationCategory.LISTING_SUBMITTED,
-                    "Your changes to '" + listing.getTitle() + "' are pending review.");
+            if (hadOpenOffers) { // A3: the buyers whose offers the edit declines are told
+                rules.declineOpenOffers(listing, NotificationCategory.OFFER_UPDATE,
+                        "the seller changed the listing");
+            }
+            // Client answer #5: a Live listing with no open offers stays Live; anything else waits for review.
+            if (!wasLive || hadOpenOffers) {
+                listing.resubmit();
+                notifications.sendToAdmins(NotificationCategory.LISTING_SUBMITTED,
+                        seller.getFullName() + " updated '" + listing.getTitle()
+                                + "' and submitted it for review.");
+                notifications.send(seller.getUsername(), NotificationCategory.LISTING_SUBMITTED,
+                        "Your changes to '" + listing.getTitle() + "' are pending review.");
+            }
             return listing;
         });
     }

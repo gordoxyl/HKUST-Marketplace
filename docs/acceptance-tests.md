@@ -218,3 +218,83 @@ changes (the screen confirms them). The four admin actions (07-10) need the admi
 | AT-UC4A-08 | Admin deactivates *(needs the admin's wiring)* | Deactivate `bob`, reason `Spam`. | "@admin deactivated the buyer account of Bob Wong Jr (@bob). Reason: Spam" | |
 | AT-UC4A-09 | Admin reactivates *(needs the admin's wiring)* | Activate `bob`. | "@admin reactivated the buyer account of Bob Wong Jr (@bob)." | |
 | AT-UC4A-10 | Admin deletes *(needs the admin's wiring)* | Delete `nina` (from 01), reason `Test account`. | "@admin deleted the buyer account of Nina Ng (@nina). Reason: Test account" | |
+
+---
+
+## Create Listing (Task 2.3)
+
+Log in as `diana` and open **Create Listing**. Each scenario starts from a reset unless it says otherwise.
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-2.3-01 | Basic flow, Sell | Type Sell; "Desk Fan"; Furniture; Used; "Three speeds, works."; price `150`; Hall 2 Lobby; Submit for Review. | "'Desk Fan' is now Pending Review. The admin has been notified." The card shows Pending Review. `admin` has "Diana Ng submitted 'Desk Fan' for review."; Diana has "Your listing 'Desk Fan' is pending review." | |
+| AT-2.3-02 | Basic flow, Lend | Type Lend; "Desk Lamp"; Furniture; Like New; "LED bulb included."; duration `5` seconds; Hall 5 Lobby; Submit. | Accepted as Pending Review; the card shows the 5-second lending duration (short enough to run the auto-return test). | |
+| AT-2.3-03 | Basic flow, Give Away | Type Give Away; fill the required fields; Submit. | Accepted; no price or duration is asked for. | |
+| AT-2.3-04 | Steps 3-4, the type decides the form | Choose Sell, then Lend, then Give Away. | Price is enabled only for Sell, duration only for Lend, and both are cleared when the type changes. | |
+| AT-2.3-05 | A1 Required fields | Submit with the name empty; then no category; no condition; an empty description; no meet-up location. | "The item name cannot be empty.", "Please choose a category.", "Please choose the item's condition.", "The description cannot be empty.", "Please choose a meet-up location." Nothing is posted. | |
+| AT-2.3-06 | A2 Price | Sell with price `0`, then `-5`, then `abc`, then `99.50`. | Each bad value: "The price must be a positive number, such as 180 or 99.50." The form keeps what was typed; `99.50` is accepted. | |
+| AT-2.3-07 | A3 Duration | Lend with `4` seconds, then `abc`. | "The lending duration must be at least 5 seconds." / "The lending duration must be a whole number of seconds, minutes, hours or days." | |
+| AT-2.3-08 | A4 Photos | Add two images; then (on another listing) choose seven. | The label lists the two photos, the first is the thumbnail. The seventh is refused: "A listing can have at most 6 photos." | |
+| AT-2.3-09 | Leaving the form | Fill the form, then open another sidebar screen without submitting. | Nothing is posted; no notification is sent. | |
+| AT-2.3-10 | Steps 11-13, review | As `admin`: Listing Review → Approve "Desk Fan". As `diana`: open My Listings and Notifications. | The listing is Live; Diana has "Your listing 'Desk Fan' is now live!" and the card shows Live. | |
+
+## Manage Listings (Task 2.4)
+
+Log in as `charlie` and open **My Listings**. After a reset he has the Sold *Organic Chemistry Textbook*, the Reserved *Calculus Textbook* and the Live *MacBook Pro Charger 61W*.
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-2.4-01 | Step 1, the list | Open My Listings. | Three cards showing title, category/condition, type and status (Sold, Reserved, Live), each with Edit and Delete. | |
+| AT-2.4-02 | Edit a Live listing with no open offers (client answer #5) | On the charger: Edit, change the name to "MacBook Pro Charger 61W (original)", Save Changes. | "Changes saved": "'MacBook Pro Charger 61W (original)' was updated." It **stays Live**, with no review and no Listing Submitted notice. | |
+| AT-2.4-03 | Edit a Rejected listing (3.1.6) | As `diana`, create a listing; as `admin`, reject it with reason "Photo unclear"; as `diana`, Edit it and change the title; Save. | "…was updated and is Pending Review again." Diana and the admin get the Listing Submitted notices. | |
+| AT-2.4-04 | A3 Edit with an open offer | As `alice`, make an offer on the charger; as `charlie`, Edit it and Save. | The confirmation warns that one open offer will be declined. After saving: "…was updated and is Pending Review again."; Alice gets "Your price offer … was declined because the seller changed the listing."; the offer is Declined. | |
+| AT-2.4-05 | Step 2, delete (3.2.4) | On the charger (after AT-2.4-04), press Delete, OK. | The card shows Removed; the listing is gone from Browse; its record stays in My Listings as Removed; any open offers were declined with a notice. | |
+| AT-2.4-06 | A2 Locked listing | On the Reserved calculus textbook, press Edit; then Delete. | "This listing can no longer be edited or deleted." Nothing changes (the same for Sold, Lent, Given and Removed). | |
+| AT-2.4-07 | Cancel an edit | On a Live listing, Edit, change a field, then open another sidebar screen. | The listing keeps its old values; no notification is sent. | |
+
+## Manage Offers & Requests (Task 2.5)
+
+Log in as `diana`. After a reset Bob has a pending borrow request on the calculator, and *Mini Fridge* is waiting for review. Run 01-03 in order; 04-07 use `alice` and `charlie`.
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-2.5-01 | Step 2, the inbox | Open Offers & Requests. | One card "Graphing Calculator TI-84": "Lend · Live · 1 offer waiting", Bob Wong (@bob), the proposed period, status Pending, and the buttons Accept, Decline, Counter, Open Chat. | |
+| AT-2.5-02 | Step 3.3 Accept | Accept the borrow request, OK. | "Offer accepted"; the listing becomes Lent; the buyer's My Deals shows the deal Accepted; Bob has "Diana Ng accepted your borrow request for 'Graphing Calculator TI-84'." | |
+| AT-2.5-03 | Step 3.4 Decline | On another open offer, press Decline, OK. | "Offer declined"; the status is Declined; the buyer is told. | |
+| AT-2.5-04 | Step 3.5, counter a price (A4) | As `alice`, offer HK$ 200 on the charger; as `charlie`, Offers & Requests → Counter. Send `abc`, then `175`. | "abc": "The counter price must be a positive amount, such as 150 or 99.50." and the form comes back with `abc`. `175`: "Counter sent"; status Countered; Alice sees the counter and can agree. | |
+| AT-2.5-05 | Step 3.5, counter a borrow period (A4) | Counter a borrow request with: a start yesterday; an end before the start; then a 5-second period. | "The counter period cannot start in the past." / "The counter period must end at least 5 seconds after it starts."; the form comes back with what was entered; the 5-second period is accepted. | |
+| AT-2.5-06 | SR1 Claims cannot be countered | As `bob`, claim the lamp; as `diana`, open Offers & Requests. | The claim row has Accept and Decline only; there is no Counter button. | |
+| AT-2.5-07 | Buttons follow the offer's state | Compare a Pending offer with a Countered one. | Pending: Accept, Decline and Counter are enabled. Countered: only Decline is enabled. | |
+| AT-2.5-08 | Step 3.6, Open Chat | Press Open Chat; then "← Back to Offers & Requests". | The chat opens with the offer in its history; Back returns to the list with nothing marked. | |
+| AT-2.5-09 | Chat → offers (assumptions register 71) | In a chat with an open offer, press "Respond in Offers & Requests (n)". | Offers & Requests opens with that chat's offer rows marked light yellow and the newest scrolled into view. | |
+
+## View Seller Stats (Task 2.8)
+
+Log in as `charlie` and open **Seller Stats** after a reset: the Sold chemistry book with one 5-star review, the Reserved calculus book and the Live charger; two offers received.
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-2.8-01 | Steps 2-3, the numbers | Open Seller Stats. | Listings 3, Views 0, Offers received 2, Completed deals 1; "Average rating: 5.0 / 5 (1 rating)". | |
+| AT-2.8-02 | Step 4, the bar chart | As `alice`, open the charger twice; as `charlie`, reopen Seller Stats. | Views 2; the bar chart shows the charger at 2 views and 0 offers; the other listings at 0. | |
+| AT-2.8-03 | Offers in the chart | As `alice`, make an offer on the charger; reopen Seller Stats. | Offers received 3; the charger's Offers bar is 1; Views unchanged. | |
+| AT-2.8-04 | Step 5, the pie chart | As `alice`, My Deals → calculus → Mark Complete; reopen Seller Stats. | Completed deals 2; the pie shows Sell (2); no Lend or Give Away slice. | |
+| AT-2.8-05 | A2 No ratings | As `diana`, open Seller Stats. | "Average rating: No ratings yet"; the card shows "—". | |
+| AT-2.8-06 | A3 No completed deals | As `diana` (no completed deal), open Seller Stats. | The pie area says "No completed deals yet." | |
+| AT-2.8-07 | A1 No listings | Register a new seller (or, in a dev run, log in as `seller`) and open Seller Stats. | Every number is 0, "No ratings yet", and the charts area says "There isn't enough data to draw charts yet." | |
+| AT-2.8-08 | SR1 Hidden review | As `admin`, Seller Ratings → hide Charlie's review; as `charlie`, reopen Seller Stats. | Ratings 0 and "No ratings yet"; the hidden review is not counted. | |
+
+## Manage Reviews (Task 2.9)
+
+Log in as `charlie` and open **Reviews & Feedback**. After a reset there is one 5-star review from Bob on the *Organic Chemistry Textbook*.
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-2.9-01 | Step 1, the list | Open Reviews & Feedback. | "Average rating: 5.0 / 5 (1 rating)"; one card: 5 stars, Bob's comment, "by Bob Wong · Organic Chemistry Textbook · <date>", with Reply and Flag. | |
+| AT-2.9-02 | Steps 2-5, reply | Press Reply, type "Thanks Bob, enjoy!", Send reply. Then as `bob`, open Notifications. | "Reply posted"; the card shows "Your reply: Thanks Bob, enjoy!" and the button is Replied (disabled). Bob has "Review Reply": "Charlie Lee replied to your review for 'Organic Chemistry Textbook': Thanks Bob, enjoy!". | |
+| AT-2.9-03 | A2 One reply only | On a review that already has a reply, look at the Reply button. | It reads Replied and is disabled; the service refuses a second reply with "Only one reply is allowed per review." | |
+| AT-2.9-04 | A3 Empty reply | Press Reply, clear the box, Send reply. | "The reply cannot be empty."; the form comes back with the empty box. | |
+| AT-2.9-05 | Step 6, flag | Press Flag, OK. Then as `admin`, open Notification Board and Seller Ratings. | "Review flagged"; the card shows "Awaiting moderation" and the button is disabled. The admin has "@charlie flagged a review of 'Organic Chemistry Textbook' as inappropriate." and the review shows "Flagged by seller". | |
+| AT-2.9-06 | A4 Already flagged | Try to flag a review that is already flagged. | The button is disabled; the service answers "This review is already awaiting moderation." | |
+| AT-2.9-07 | A1 No reviews | As a seller with no reviews (a new account, or `seller` in a dev run), open Reviews & Feedback. | "No reviews yet. A buyer can review you after a completed deal." and "Average rating: No ratings yet". | |
+| AT-2.9-08 | Deleted buyer (client answer #6) | As `admin`, Manage Users → delete `bob`; as `charlie`, reopen Reviews & Feedback. | The review is still shown, "by Deleted User", and the average is unchanged. Replying still works and no notification is sent. | |
+| AT-2.9-09 | A5 Cancel | Press Reply, type something, Cancel. | No message, nothing saved; the card still offers Reply. | |

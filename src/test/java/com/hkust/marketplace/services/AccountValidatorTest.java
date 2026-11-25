@@ -91,6 +91,20 @@ class AccountValidatorTest {
                 AccountValidator.validatePassword("Pässword#1"));
     }
 
+    @Test
+    void validatePassword_controlCharacter_returnsAsciiError() {
+        // Boundary value: the tab comes just below the space, the first printable ASCII character
+        assertEquals("Password can only contain English letters, digits and ASCII symbols.",
+                AccountValidator.validatePassword("Secure#1\t23"));
+    }
+
+    @Test
+    void validatePassword_characterJustAfterLowercaseZ_isASymbolNotALetter() {
+        // Boundary value: '{' follows 'z' in ASCII
+        assertEquals("Password must contain at least one lowercase letter.",
+                AccountValidator.validatePassword("SECURE#1{"));
+    }
+
     @ParameterizedTest
     @NullAndEmptySource
     void validatePassword_empty_returnsError(String password) {
@@ -116,5 +130,6 @@ class AccountValidatorTest {
         assertEquals("The two passwords do not match.",
                 AccountValidator.validateConfirmation("Secure#123", "Secure#12"));
         assertNotNull(AccountValidator.validateConfirmation("Secure#123", null));
+        assertEquals("The two passwords do not match.", AccountValidator.validateConfirmation(null, "Secure#123"));
     }
 }

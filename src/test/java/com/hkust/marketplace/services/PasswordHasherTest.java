@@ -45,6 +45,7 @@ class PasswordHasherTest {
         assertFalse(PasswordHasher.verify("password1", "password1"));
         assertFalse(PasswordHasher.verify("x", "pbkdf2$notANumber$abc$def"));
         assertFalse(PasswordHasher.verify("x", "pbkdf2$1000$***$***"));
+        assertFalse(PasswordHasher.verify("x", "md5$1000$abc$def")); // four parts, but another method
     }
 
     @Test

@@ -88,6 +88,15 @@ class AuthServiceTest {
     }
 
     @Test
+    void register_emptyUsername_isRejectedAndNothingIsStored() {
+        int accounts = data.getAllUsers().size();
+
+        assertEquals("Username cannot be empty.", auth.registerBuyer(" ", "No Name", GOOD_PASSWORD, GOOD_PASSWORD, null));
+        assertEquals("Username cannot be empty.", auth.registerSeller("", "No Name", GOOD_PASSWORD, GOOD_PASSWORD, null, null));
+        assertEquals(accounts, data.getAllUsers().size());
+    }
+
+    @Test
     void register_invalidDetails_isRejectedAndNothingIsStored() {
         assertEquals("Full name cannot be empty.",
                 auth.registerBuyer("u1", " ", GOOD_PASSWORD, GOOD_PASSWORD, null));
@@ -129,6 +138,7 @@ class AuthServiceTest {
     void login_missingUsernameOrPassword_returnsMissingFields() {
         assertEquals(LoginResult.MISSING_FIELDS, auth.login("", GOOD_PASSWORD, UserRole.BUYER));
         assertEquals(LoginResult.MISSING_FIELDS, auth.login("someone", "", UserRole.BUYER));
+        assertEquals(LoginResult.MISSING_FIELDS, auth.login("someone", null, UserRole.BUYER));
         assertEquals(LoginResult.MISSING_FIELDS, auth.login(null, null, UserRole.BUYER));
         assertFalse(SessionManager.isLoggedIn());
     }

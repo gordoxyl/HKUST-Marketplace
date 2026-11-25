@@ -193,9 +193,29 @@ class DataStoreTest {
     }
 
     @Test
+    void addOffer_refusesAListingThatDoesNotExist_andAnOfferAlreadyAdded() {
+        assertThrows(IllegalArgumentException.class, () -> store.addOffer(new PriceOffer("L404", "bea", 80)));
+
+        Offer offer = store.addOffer(new PriceOffer(sale().getId(), "bea", 80));
+
+        assertThrows(IllegalStateException.class, () -> store.addOffer(offer)); // an offer gets its id once
+        assertEquals(List.of(offer), store.getAllOffers());
+    }
+
+    @Test
     void chatThread_canOnlyBeStartedByABuyer() {
         Listing listing = sale();
         assertThrows(IllegalArgumentException.class, () -> store.getOrCreateThread("sam", listing.getId()));
+        assertThrows(IllegalArgumentException.class, () -> store.getOrCreateThread("bea", "L404")); // and about a listing
+    }
+
+    @Test
+    void offersInAThread_areOnlyThatBuyersOffers() {
+        Listing listing = sale();
+        Offer beas = store.addOffer(new PriceOffer(listing.getId(), "bea", 80));
+        store.addOffer(new PriceOffer(listing.getId(), "ben", 85)); // the same listing, in Ben's own chat
+
+        assertEquals(List.of(beas), store.getOffersInThread(store.findThread("bea", listing.getId())));
     }
 
     @Test
@@ -215,6 +235,7 @@ class DataStoreTest {
     void addReview_onlyForACompletedDealAndOnlyOnce() {
         Listing listing = sale();
         Offer offer = store.addOffer(new PriceOffer(listing.getId(), "bea", 80));
+        assertThrows(IllegalStateException.class, () -> store.addReview(new Review("O404", 5, null))); // no such deal
         assertThrows(IllegalStateException.class, () -> store.addReview(new Review(offer.getId(), 5, null)));
 
         offer.accept(LocalDateTime.now());

@@ -23,9 +23,11 @@ the client (TA) answered differently: `docs/client-answers.md` wins over the spe
    when added (`addListing`, `addOffer`, ...); never set them yourself.
 5. **Errors:** throw `ServiceException("message written for the user")` for anything the user can cause.
    Models throw `IllegalArgumentException` / `IllegalStateException`; treat those as bugs in your service.
-6. **Tests:** run `.\mvnw.cmd clean test` (always `clean`). `.\mvnw.cmd clean verify` also enforces 65%
-   branch coverage on non-screen code and builds JavaDoc. JavaFX screen classes are excluded from coverage
-   via `jacoco.ui.excludes` in `pom.xml`; add a new pure-JavaFX class there, never a class with logic.
+6. **Tests:** run `.\mvnw.cmd clean test` (always `clean`). `.\mvnw.cmd clean verify` also builds JavaDoc and
+   fails below 65% branch coverage, checked twice: on non-screen code (JavaFX screen classes are excluded via
+   `jacoco.ui.excludes` in `pom.xml`; add a new pure-JavaFX class there, never a class with logic), and, since
+   24 Nov, on the whole project, screens included (74.7% on 24 Nov). Untested screen or service code lowers the
+   second figure: test new services, and a page's buttons with a screen test (§8).
 7. **Do not edit** `models/`, `data/`, shared `services/` (`DealRules`, `NotificationService`,
    `ChatService`, `PhotoService`, `ProfileService`, `AuthService`, `AccessControl`) or `ui/` without
    telling Gordon. If a model class or constructor changes, `data/JsonMapping` must change too.
@@ -189,11 +191,15 @@ public interface RespondToOffers {
      */
     void respond(List<Offer> waiting);
 }
-public void setOnRespondToOffers(RespondToOffers respond)
+public void setOnRespondToOffers(RespondToOffers respond) {
+    // the seller's link to Offers & Requests, shown while the chat has open offers
+}
 
 // in ui/Scrolling (shared core; the chat search uses it too)
 public static final String JUMP_HIGHLIGHT = "jump-highlight";   // the mark: light yellow, in styles.css
-public static void bringIntoView(ScrollPane pane, Node node)   // lays the screen out, then centres the node as far as the content allows
+public static void bringIntoView(javafx.scene.control.ScrollPane pane, javafx.scene.Node node) {
+    // lays the screen out, then centres the node as far as the content allows
+}
 ```
 
 - **What the chat guarantees:**
@@ -302,6 +308,18 @@ void deletingAReservedListing_isRefused() {
 ```
 Examples to copy: `DealRulesTest`, `ChatServiceTest`, `ProfileServiceTest`. Demo logins: sellers
 `charlie`, `diana`, password `Demo@1234`.
+
+**Screen tests (24 Nov 2026).** On every build, `controllers/PortalScreensTest.sellerPortal_everyPageOpens` logs in as `charlie` on the welcome screen and presses every sidebar button except Logout. It fails if a page throws while opening, opens any dialog, has a blank title, or has the same title as another page. Adding or renaming pages needs no change to it. To test a page's own buttons, add a class like `controllers/buyer/BuyerScreensTest` in `controllers/seller`:
+```java
+@Test
+void declineAsksFirst() { // app = OffScreenApp.start() in @BeforeAll, app.reset() in @AfterEach
+    app.logIn("Enter as Seller", "diana", SeedData.DEMO_PASSWORD);
+    app.press("Offers & Requests");
+    app.press("Decline", "Graphing Calculator TI-84"); // the "Decline" button on the card that shows this text (Bob's borrow request)
+    assertEquals(1, app.dialogs().size());             // the confirmation, answered Cancel: every dialog gets Cancel, or its only button
+}
+```
+To fill in and submit a dialog instead, give its answer before the step: `app.answer("Decline borrow request", form -> form.press("OK"))`. The screens use the app's store, which in a test run is a temporary folder with the demo data, shared by all screen tests (storage manual §9.8). Do not depend on what another test changed; a test that changes data adds its own with `testsupport/ScreenData`. Examples to copy: `controllers/buyer/MakeOfferScreensTest`, `MyDealsScreensTest`.
 
 ## 9. Known gaps on the seller side (as of 2026-11-24)
 

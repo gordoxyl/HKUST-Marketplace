@@ -179,6 +179,19 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 
 ---
 
+## R15: In the chat beside the list, the Send button showed only "…"
+
+- **Area / owner:** **shared core** (`ui/ChatView`, the chat's buttons), Gordon's. Seen in the buyer's and the seller's chat since the list of chats moved beside the chat (a315b53).
+- **Found:** 2026-11-25, by Gordon in the running app (both portals). **Fixed:** 2026-11-25.
+- **Input:** at the app's window size (1200 × 780) or a little wider, open Chats and open any chat.
+- **Correct output:** the button reads "Send", and the deal buttons (Make Offer, Agree to Counter, Respond in Offers & Requests) and Search read in full; the message box gets narrower instead. A long listing title takes a second line.
+- **Output before the fix:** the button read "…". Reproduced off screen: the new test got the cut texts `[Send]` instead of `[]`. A check of every page of the three portals with the fix to the buttons found one more cut text, in both portals' chats: the chat's title, "Calculus Textbook (Stewart)". No other page cut anything.
+- **Cause:** the message box and Send share one row. The chat is narrower beside the list, so the row has less room than both want, and a row shrinks its children down to their minimum width. A button's minimum width by default lets its text be cut to "…".
+- **Fix:** the chat's buttons keep the width their text needs (`setMinWidth(Region.USE_PREF_SIZE)`), as the list's Open Chat already did, so the message box gives up the room. The notification board's Mark as read and Mark all as read got the same, for the same kind of row. The chat's title and subtitle wrap onto a second line instead of being cut.
+- **Test:** `ChatScreensTest.theChatBesideTheList_cutsNoTextShort_atTheAppsWindowSize` (a chat with a long title; no text on the screen may be cut, `OffScreenApp.cutTexts()`), and `PortalScreensTest`, which now checks every page of the three portals the same way (`cutTextsOnEveryPage()`).
+
+---
+
 ## Tooling notes (not code bugs, so no test)
 
 ### T1: `mvnw test` passed on outdated compiled tests

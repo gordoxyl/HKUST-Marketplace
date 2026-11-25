@@ -103,8 +103,8 @@ and `ChatServiceTest`.
 | ID | Flow | Steps | Expected result | Result |
 |---|---|---|---|---|
 | AT-CHAT-12 | The Chats page | As `alice`, open Chats. | Her chats in a list on the left, the newest first. Beside it: "Choose a chat to read and write its messages." The page title is Chats; there is no Back and no Hide button. | |
-| AT-CHAT-13 | Opening a chat | Press Open Chat on the Calculus Textbook (Stewart) chat, or click the chat. | The chat opens beside the list, and its card in the list turns light blue with a blue edge. The title is "Chat: Calculus Textbook (Stewart)". Above: **← Back to Chats** and **◀ Hide chats**. | |
-| AT-CHAT-14 | Hiding and showing the list | Press ◀ Hide chats, then ▶ Show chats. | Hidden, the chat takes the whole width and the button reads "▶ Show chats". Shown again, the list is as it was. | |
+| AT-CHAT-13 | Opening a chat | Press Open Chat on the Calculus Textbook (Stewart) chat, or click the chat. | The chat opens beside the list, with a light grey line between them, and its card in the list turns light blue with a blue edge. Send, Search and the button under Send read in full; a long title takes a second line. The title is "Chat: Calculus Textbook (Stewart)". Above: **← Back to Chats** and **◀ Hide chats**. | |
+| AT-CHAT-14 | Hiding and showing the list | Press ◀ Hide chats, then ▶ Show chats. | Hidden, the chat takes the whole width, the grey line goes with the list, and the button reads "▶ Show chats". Shown again, the list is as it was. | |
 | AT-CHAT-15 | Another chat | Start a second chat: Browse → IKEA Desk Lamp → Chat with Seller → write "Hi" and Send. Open Chats, open the Calculus chat, then click the IKEA Desk Lamp chat in the list. | It opens beside the list, the light-blue mark moves to it, and the title changes. Back still reads Back to Chats. | |
 | AT-CHAT-16 | Back to Chats | Press ← Back to Chats. | The Chats page as in AT-CHAT-12: the list alone, nothing marked, the title Chats. | |
 | AT-CHAT-17 | Writing moves the chat up | Open the Calculus chat (now second in the list), write "Is it still available?" and press Send. | The message appears in the chat, and the chat moves to the top of the list with the message as its preview. | |
@@ -241,8 +241,8 @@ only marking does (UC4 Special Requirement 3). Run in order after a reset. The a
 The admin's Notification Board lists every change to a buyer's or seller's account, in category "Account Change", so
 it reads as the accounts' history (decided 24 Nov). A profile notice names the fields that changed, never their
 values. An admin's own profile, and a save that changes nothing, send nothing. Users are not notified of their own
-changes (the screen confirms them). The four admin actions (07-10) need the admin portal's wiring (Jack's
-`AdminUserService`). Run in order after a reset; each scenario ends by opening `admin`'s Notification Board.
+changes (the screen confirms them). The four admin actions (07-10) are sent by `AdminUserService` (PR #23).
+Run in order after a reset; each scenario ends by opening `admin`'s Notification Board.
 
 | ID | Flow | Steps | Expected result | Result |
 |---|---|---|---|---|
@@ -252,10 +252,10 @@ changes (the screen confirms them). The four admin actions (07-10) need the admi
 | AT-UC4A-04 | A seller's own change | As `charlie`: Manage Profile, change the bio, tick one more meet-up location, Save. Then as `admin`. | "Charlie Lee (@charlie) changed their profile: bio, meet-up locations." | |
 | AT-UC4A-05 | A save that changes nothing | As `bob`: Manage Profile, Save without changing anything. Then as `admin`. | "Profile updated" for Bob; no new Account Change notice for `admin`. | |
 | AT-UC4A-06 | An admin's own profile | As `admin`: Manage Profile, change the full name, Save. Open the Notification Board. | No Account Change notice about it. | |
-| AT-UC4A-07 | Admin edits an account *(needs the admin's wiring)* | As `admin`: Manage All Users → Edit `bob` → full name `Bob Wong Jr` → OK. | `bob` gets "An administrator updated your account details." `admin`: "@admin edited the buyer account of Bob Wong Jr (@bob)." | |
-| AT-UC4A-08 | Admin deactivates *(needs the admin's wiring)* | Deactivate `bob`, reason `Spam`. | "@admin deactivated the buyer account of Bob Wong Jr (@bob). Reason: Spam" | |
-| AT-UC4A-09 | Admin reactivates *(needs the admin's wiring)* | Activate `bob`. | "@admin reactivated the buyer account of Bob Wong Jr (@bob)." | |
-| AT-UC4A-10 | Admin deletes *(needs the admin's wiring)* | Delete `nina` (from 01), reason `Test account`. | "@admin deleted the buyer account of Nina Ng (@nina). Reason: Test account" | |
+| AT-UC4A-07 | Admin edits an account | As `admin`: Manage All Users → Edit `bob` → full name `Bob Wong Jr` → OK. | `bob` gets "An administrator updated your account details." `admin`: "@admin edited the buyer account of Bob Wong Jr (@bob)." | |
+| AT-UC4A-08 | Admin deactivates | Deactivate `bob`, reason `Spam`. | "@admin deactivated the buyer account of Bob Wong Jr (@bob). Reason: Spam" | |
+| AT-UC4A-09 | Admin reactivates | Activate `bob`. | "@admin reactivated the buyer account of Bob Wong Jr (@bob)." | |
+| AT-UC4A-10 | Admin deletes | Delete `nina` (from 01), reason `Test account`. | "@admin deleted the buyer account of Nina Ng (@nina). Reason: Test account" | |
 
 ---
 

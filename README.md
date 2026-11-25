@@ -148,7 +148,7 @@ All passwords meet the password rules: at least 8 characters, with at least one 
 - All data in one store, saved to an encrypted file on this computer after every change (no database server, no network); see [Saved Data](#saved-data) and [Shared Core](#shared-core-read-before-building-a-feature)
 - **Notification Board (UC4), the same in all three portals:** newest first, each with its category, content and time; unread ones marked, with Mark as read on each and **Mark all as read** while anything is unread; a **category filter** offering the categories on the user's board
 - **Unread dot:** a red dot with the number of unread notifications on the sidebar's Notifications button (buyer portal; the seller and admin portals add it with two lines, see the guides). Only marking notifications as read lowers it
-- **Chat screen (UC6), the same for buyers and sellers:** the user's chats in a list beside the open chat, newest first, with the open chat marked; the list can be hidden and shown again. Every chat has Back above it: **Back to Chats** when chosen on the Chats page, otherwise back to the screen it was opened from
+- **Chat screen (UC6), the same for buyers and sellers:** the user's chats in a list beside the open chat, with a light grey line between them, newest first, with the open chat marked; the list can be hidden and shown again. Every chat has Back above it: **Back to Chats** when chosen on the Chats page, otherwise back to the screen it was opened from
 
 ### Buyer Portal
 - Registration, Login
@@ -171,8 +171,13 @@ All passwords meet the password rules: at least 8 characters, with at least one 
 - Chats, Notifications, Profile
 
 ### Admin Portal
-- Login only (seeded), Listing Review (approve/reject)
-- Manage Users, All Listings, All Deals, Seller Ratings, Notifications, Profile
+- Login (the seeded `admin` account)
+- **Listing Review (Task 3.2, done):** every listing pending review; approve it, or reject it with a reason, and the seller is told
+- **Manage All Listings (Task 3.7, done):** every listing in any status; filter by status (Reported included), category, type, seller and date; view the details with the reports; edit; add a listing for a seller (Live at once, with photos); remove one with a reason, which declines its open offers and tells their buyers and the seller
+- **Manage Users (Task 3.3, done):** search by username or name; filter by role, status and registration date; view a user's details; edit; deactivate with a reason and reactivate; delete with a reason, recorded in the Audit Log
+- **All Deals Record (Task 3.5, done):** every accepted deal with its type, start and return/complete dates and status (client answer #4); filters; details; export to CSV
+- **Seller Ratings (Task 3.8, done):** each seller's average rating and completed deals; their reviews, filtered by rating and date; hide a review with a reason, and the buyer and the seller are told
+- **Notification Board (Task 3.6, done):** the accounts' history (every account change reaches every admin, client question F4), new listings waiting for review and reported listings; Profile
 
 ## Project Structure
 
@@ -246,6 +251,7 @@ Other classes: `ChatThread` + `Message`, `Review`, `Report`, `Notification`, `Li
 - `NotificationBoard` (UC4): the notification board all three portals show, with newest first, an unread count, Mark as read, Mark all as read (while anything is unread) and a category filter. Open it with `show("Notification Board", new NotificationBoard(new NotificationService()))`.
 - `NotificationDot`: the red dot with the number of unread notifications on the sidebar's Notifications button. A dashboard adds it with two lines: `NotificationDot.attach(btnNotifications, new NotificationService())` in `initialize()`, and `NotificationDot.update()` in its `show(title, content)`. The board and `LiveUpdates` update it too. Opening the board does not lower it; only marking as read does (UC4 Special Requirement 3).
 - `ProfileView` (UC3): the profile screen all three portals show. Sellers also get bio and meet-up locations; buyers see their residence hall, which can't be changed.
+- **Buttons beside a field that grows** (a message box, a search box) keep the width their text needs, `button.setMinWidth(Region.USE_PREF_SIZE)`; otherwise a narrow row cuts them to "…" (regression log R15). The screen tests check every page at the app's window size with `OffScreenApp.cutTexts()`.
 - `ListingCard`: the listing card all three portals show (Browse, My Listings, Listing Review, Manage All Listings). `new ListingCard(listing, UserRole.BUYER)` (or `SELLER`, `ADMIN`), then `addActions(buttons...)` for the screen's own buttons and `setOnOpen(...)` for a click on the card; put several in `ListingCard.grid()`. Buyers see the availability status and unavailable listings greyed out (UC8); sellers and the admin see the status. What each line says comes from the tested `ListingSummary`.
 - `PhotoFrame`: shows one stored photo in a frame of a fixed size, or "No photo": `new PhotoFrame(photoId, 240, 180)`. The listing card uses it for the thumbnail, and `ListingOverview` for a detail screen's photos.
 - `ListingOverview`: the top of a listing's detail screen, the same in every portal: all photos, the title with the status badge and price, every field and the description. `new ListingOverview(ListingSummary.of(listing, UserRole.ADMIN, store), store)`; add the screen's own parts below it, each framed with `ListingOverview.card(node)`. The buyer's detail screen uses it; the admin's View listing should too.
@@ -326,7 +332,7 @@ The build **fails** if any test fails, or if **branch coverage drops below 65%**
 - **Everything**, screens included: the strict reading. The screen tests keep the screens covered; new screen code without tests lowers this figure.
 - **The measured code**: the models, data, services and utils, where all the logic lives. It leaves out the JavaFX screen controllers, `MarketplaceApp`, `SceneManager` and the dev-only `DevLogin` (the excluded list is `jacoco.ui.excludes` in `pom.xml`). Screens hold no logic of their own: they read the input, call a tested service and show the result. The screen tests open every page, and the manual acceptance tests check the flows. That only stays true if **screens stay thin**: any check, rule or calculation goes into a service with tests, never into a controller.
 
-Figures on 25 Nov 2026, after the buyer's and the seller's merges (PR #20, #21): 1254 tests; measured code **96.6% branch** (97.7% line); everything, screens included, **80.6% branch** (83.1% line). By package: services 96.6%, models 98.7%, data 92.4%, buyer screens 93.8%.
+Figures on 25 Nov 2026, with all three portals merged (PR #20, #21, #23) and the shared UI changes: 1297 tests; measured code **96.7% branch** (97.8% line); everything, screens included, **80.6% branch** (83.3% line). By package: services 96.8%, models 98.7%, data 92.4%, shared screens (`ui`) 92.2%, buyer screens 93.5%. The seller's and admin's screens are at 16.2% and 20.7%: the screen tests only open their pages, and their logic is in their tested services.
 
 ## Troubleshooting
 

@@ -256,6 +256,9 @@ Already wired. `AccountValidator` has the username / full name / password rules 
 - `ChatList` is the chat screen: the user's chats beside the open one, a toggle to hide the list, and Back above the
   chat. A chat opened from another screen: `new ChatList(service, this, this::addOfferLink).openFrom(chat, "Back to …", back)`.
 - `NotificationDot`: the red number of unread notifications on the sidebar's Notifications button (§10).
+- Buttons beside a field that grows (a message box, a search box) keep the width their text needs:
+  `button.setMinWidth(Region.USE_PREF_SIZE)`. Otherwise a narrow row cuts their text to "…" (regression log R15).
+  `PortalScreensTest` fails if any page cuts a button or label short at the app's window size.
 - `Scrolling.bringIntoView(scrollPane, node)`: scrolls a node into the middle of the visible part (the chat search, and
   Offers & Requests for a chat's offers).
 - CSS classes in `css/styles.css`: `card`, `badge` + `badge-live|pending|sold|rejected`, `btn-primary`,
@@ -337,6 +340,11 @@ Follow-ups, none of them blocking:
 - **The counter-borrow date pickers.** They show dates in the computer's locale, unlike every other screen ("26 Nov 2026"): give them `Formats.datePickerConverter()`. They also read only `getValue()`, so a date typed without Enter can be lost; `controllers/buyer/OfferDialogs.shownDate` reads the editor's text.
 - **Screen reads of `DataStore`** (BCE, optional): buyer names on offer rows, and each review's writer and listing title, are read in `SellerDashboardController`. Return them from the services instead.
 - **The submission:** run the seller acceptance scenarios (Create Listing to Manage Reviews, and AT-CHAT-06 to 11) on `main`; they are the script for the seller screenshots.
+- **Wording:** the Create Listing error "Choose Sell, Lend or Give Away first." says "Give Away" where the type buttons
+  and the cards say "Giveaway" (so do AT-2.3-03, AT-2.3-04 and AT-2.8-04); Reviews & Feedback draws its stars by hand
+  instead of with `Formats.stars` (same look).
+- **The shared UI's wiring** in §10: the unread dot, and Open Chat on an offer through `openFrom`.
+- **Already right:** at the app's window size, no seller page cuts a button or label short (`PortalScreensTest`).
 
 ## 10. Added on 25 Nov 2026: the shared UI changes, and what the seller portal adds
 

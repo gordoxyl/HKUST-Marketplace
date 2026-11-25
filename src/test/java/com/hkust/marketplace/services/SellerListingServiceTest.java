@@ -48,14 +48,13 @@ class SellerListingServiceTest {
     private TestClock clock;
     private DataStore store;
     private SellerListingService service;
-    private Seller sam;
 
     @BeforeEach
     void setUp() {
         clock = Fixtures.clock();
         store = Fixtures.store(clock);
         service = new SellerListingService(store);
-        sam = Fixtures.seller(store, "sam");
+        Seller sam = Fixtures.seller(store, "sam");
         SessionManager.login(sam);
     }
 
@@ -128,7 +127,7 @@ class SellerListingServiceTest {
         assertEquals(ItemCondition.NEW, listing.getCondition());
         assertEquals("An updated description", listing.getDescription());
         assertEquals(MeetupLocation.SPORTS_HALL, listing.getMeetupLocation());
-        assertEquals(250, ((SaleListing) listing).getPrice());
+        assertEquals(250, listing.getPrice());
         assertEquals(ListingStatus.LIVE, listing.getStatus()); // client answer #5: no review needed
         assertEquals(Fixtures.START, listing.getPostedDate()); // the posting date does not change
         assertTrue(store.getNotificationsFor("sam").isEmpty()); // and nobody is told it waits for review
@@ -273,7 +272,7 @@ class SellerListingServiceTest {
     // ---------- Photos ----------
 
     @Test
-    void savingAnEditWithNoNewPhotos_keepsTheCurrentOnes() throws IOException {
+    void savingAnEditWithNoNewPhotos_keepsTheCurrentOnes() {
         SaleListing listing = liveSale();
         listing.setPhotos(List.of(store.addPhoto(new byte[]{(byte) 0x89, 'P', 'N', 'G'})));
         List<String> before = listing.getPhotos();

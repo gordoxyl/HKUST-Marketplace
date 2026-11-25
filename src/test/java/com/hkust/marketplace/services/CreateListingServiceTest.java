@@ -45,14 +45,13 @@ class CreateListingServiceTest {
     private TestClock clock;
     private DataStore store;
     private CreateListingService service;
-    private Seller sam;
 
     @BeforeEach
     void setUp() {
         clock = Fixtures.clock();
         store = Fixtures.store(clock);
         service = new CreateListingService(store);
-        sam = Fixtures.seller(store, "sam");
+        Seller sam = Fixtures.seller(store, "sam");
         SessionManager.login(sam);
     }
 

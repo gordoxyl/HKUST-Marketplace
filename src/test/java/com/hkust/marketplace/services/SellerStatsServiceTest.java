@@ -39,14 +39,13 @@ class SellerStatsServiceTest {
     private TestClock clock;
     private DataStore store;
     private SellerStatsService service;
-    private Seller sam;
 
     @BeforeEach
     void setUp() {
         clock = Fixtures.clock();
         store = Fixtures.store(clock);
         service = new SellerStatsService(store);
-        sam = Fixtures.seller(store, "sam");
+        Seller sam = Fixtures.seller(store, "sam");
         Fixtures.buyer(store, "bea");
         Fixtures.buyer(store, "ben");
         SessionManager.login(sam);
@@ -57,7 +56,7 @@ class SellerStatsServiceTest {
         SessionManager.logout();
     }
 
-    private int count(SellerStats stats, ListingType type) {
+    private static int count(SellerStats stats, ListingType type) {
         return stats.completedByType().getOrDefault(type, -1);
     }
 

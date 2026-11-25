@@ -872,7 +872,7 @@ public class SellerDashboardController implements ContentHost {
         return placeholder;
     }
 
-    private VBox metricCard(String label, String value, String valueStyle) {
+    private static VBox metricCard(String label, String value, String valueStyle) {
         VBox card = new VBox(4);
         card.getStyleClass().add("card");
         card.setAlignment(Pos.CENTER);

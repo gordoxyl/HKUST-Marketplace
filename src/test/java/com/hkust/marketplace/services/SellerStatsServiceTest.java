@@ -8,7 +8,6 @@ import com.hkust.marketplace.models.GiveawayListing;
 import com.hkust.marketplace.models.LendListing;
 import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.ListingType;
-import com.hkust.marketplace.models.Offer;
 import com.hkust.marketplace.models.OfferStatus;
 import com.hkust.marketplace.models.PriceOffer;
 import com.hkust.marketplace.models.Review;

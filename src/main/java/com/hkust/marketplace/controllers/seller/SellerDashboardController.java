@@ -4,6 +4,7 @@ import com.hkust.marketplace.models.*;
 import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.services.Amounts;
 import com.hkust.marketplace.services.ChatService;
+import com.hkust.marketplace.services.Conversation;
 import com.hkust.marketplace.services.CreateListingService;
 import com.hkust.marketplace.services.NotificationService;
 import com.hkust.marketplace.services.OfferAction;
@@ -16,7 +17,6 @@ import com.hkust.marketplace.services.SellerStats;
 import com.hkust.marketplace.services.SellerStatsService;
 import com.hkust.marketplace.services.ServiceException;
 import com.hkust.marketplace.ui.ChatList;
-import com.hkust.marketplace.ui.ChatText;
 import com.hkust.marketplace.ui.ChatView;
 import com.hkust.marketplace.ui.ContentHost;
 import com.hkust.marketplace.ui.Dialogs;
@@ -24,11 +24,11 @@ import com.hkust.marketplace.ui.Formats;
 import com.hkust.marketplace.ui.ListingCard;
 import com.hkust.marketplace.ui.LiveUpdates;
 import com.hkust.marketplace.ui.NotificationBoard;
+import com.hkust.marketplace.ui.NotificationDot;
 import com.hkust.marketplace.ui.OfferText;
 import com.hkust.marketplace.ui.ProfileView;
 import com.hkust.marketplace.ui.Refreshable;
 import com.hkust.marketplace.ui.Scrolling;
-import com.hkust.marketplace.ui.SubScreen;
 import com.hkust.marketplace.ui.TextInputs;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
@@ -85,6 +85,7 @@ public class SellerDashboardController implements ContentHost {
         // UC12 step 4: an open screen shows a returned item at once, without the seller clicking.
         LiveUpdates.setOnDataChanged(() -> contentPane.getScene() != null, this::refreshCurrentScreen);
         showMyListings();
+        NotificationDot.attach(btnNotifications, new NotificationService());
     }
 
     /** Reloads the screen now shown, if it can reload (ui/Refreshable, or rebuilt from the store). */
@@ -118,6 +119,7 @@ public class SellerDashboardController implements ContentHost {
         pageTitle.setText(title);
         contentPane.getChildren().setAll(content);
         reloadCurrentScreen = null;
+        NotificationDot.update();
     }
 
     @FXML
@@ -374,7 +376,7 @@ public class SellerDashboardController implements ContentHost {
                                String description, MeetupLocation location, String priceText,
                                String durationText, String durationUnit, List<File> chosenPhotos) {
         if (type == null) {
-            Dialogs.error("Missing listing type", "Choose Sell, Lend or Give Away first.");
+            Dialogs.error("Missing listing type", "Choose Sell, Lend or Giveaway first.");
             return;
         }
         List<Path> photoFiles = chosenPhotos.stream().map(File::toPath).toList();
@@ -383,7 +385,7 @@ public class SellerDashboardController implements ContentHost {
         try {
             switch (type) {
                 case SELL -> created = service.createSale(name, category, condition, description, location,
-                        parsePrice(priceText), photoFiles);
+                        priceText, photoFiles);
                 case LEND -> created = service.createLend(name, category, condition, description, location,
                         parseDuration(durationText, durationUnit), photoFiles);
                 default -> created = service.createGiveaway(name, category, condition, description,
@@ -420,7 +422,7 @@ public class SellerDashboardController implements ContentHost {
             }
             saved = switch (existing.getType()) {
                 case SELL -> service.updateSale(existing.getId(), name, category, condition, description,
-                        location, parsePrice(priceText), photoFiles);
+                        location, priceText, photoFiles);
                 case LEND -> service.updateLend(existing.getId(), name, category, condition, description,
                         location, parseDuration(durationText, durationUnit), photoFiles);
                 default -> service.updateGiveaway(existing.getId(), name, category, condition, description,
@@ -461,15 +463,6 @@ public class SellerDashboardController implements ContentHost {
         }
         return count + (count == 1 ? " photo is kept" : " photos are kept")
                 + " unless you choose new files (up to 6)";
-    }
-
-    /** A2: a typed price, turned into a number; a non-number is reported like any other rule. */
-    private static double parsePrice(String priceText) {
-        try {
-            return Double.parseDouble(priceText.trim());
-        } catch (NumberFormatException e) {
-            throw new ServiceException("The price must be a positive number, such as 180 or 99.50.");
-        }
     }
 
     /** A3: a typed duration in the chosen unit; the service checks the 5-second minimum. */
@@ -715,8 +708,10 @@ public class SellerDashboardController implements ContentHost {
         String endTime = Formats.timeOfDay(request.getProposedEndDate());
         while (true) {
             DatePicker startPicker = new DatePicker(startDate);
+            startPicker.setConverter(Formats.datePickerConverter());
             TextField startField = new TextField(startTime);
             DatePicker endPicker = new DatePicker(endDate);
+            endPicker.setConverter(Formats.datePickerConverter());
             TextField endField = new TextField(endTime);
             for (TextField time : new TextField[]{startField, endField}) {
                 time.setPromptText("HH:mm or HH:mm:ss");
@@ -740,9 +735,9 @@ public class SellerDashboardController implements ContentHost {
             if (answer.isEmpty() || answer.get() != SEND_COUNTER) {
                 return;
             }
-            startDate = startPicker.getValue();
+            startDate = shownDate(startPicker);
             startTime = startField.getText();
-            endDate = endPicker.getValue();
+            endDate = shownDate(endPicker);
             endTime = endField.getText();
             try {
                 new SellerOfferService().counterBorrow(request.getId(),
@@ -758,14 +753,18 @@ public class SellerDashboardController implements ContentHost {
         }
     }
 
-    /** 3.6: the chat thread linked to the offer, with Back to the list and the link back to its offers. */
+    /** The date shown in a picker, including one typed without pressing Enter (as the buyer's forms do). */
+    private static LocalDate shownDate(DatePicker picker) {
+        return picker.getConverter().fromString(picker.getEditor().getText());
+    }
+
+    /** 3.6: the chat thread linked to the offer, in the shared chat screen; Back returns to the list. */
     private void openOfferChat(Offer offer) {
         try {
             ChatService service = new ChatService();
-            ChatView chat = new ChatView(service, service.openForOffer(offer.getId()));
-            addOfferLink(chat);
-            show(ChatText.title(chat.conversation()),
-                    new SubScreen("Back to Offers & Requests", this::showOffers, chat));
+            Conversation chat = service.openForOffer(offer.getId());
+            new ChatList(service, this, this::addOfferLink)
+                    .openFrom(chat, "Back to Offers & Requests", this::showOffers);
         } catch (ServiceException e) {
             Dialogs.problem(e);
         }
@@ -919,7 +918,7 @@ public class SellerDashboardController implements ContentHost {
             for (Review r : reviews) {
                 VBox item = new VBox(6);
                 item.getStyleClass().add("card");
-                Label stars = new Label("★".repeat(r.getRating()) + "☆".repeat(5 - r.getRating()));
+                Label stars = new Label(Formats.stars(r.getRating()));
                 stars.getStyleClass().add("review-stars-large");
                 Label comment = new Label(r.getComment());
                 comment.setWrapText(true);

@@ -61,8 +61,8 @@ class CreateListingServiceTest {
         SessionManager.logout();
     }
 
-    private Listing sale(double price) {
-        return service.createSale("Book", CATEGORY, CONDITION, DESCRIPTION, LOCATION, price, List.of());
+    private Listing sale(String typedPrice) {
+        return service.createSale("Book", CATEGORY, CONDITION, DESCRIPTION, LOCATION, typedPrice, List.of());
     }
 
     private Path image(String name) throws IOException {
@@ -76,7 +76,7 @@ class CreateListingServiceTest {
 
     @Test
     void saleListing_isCreatedAsPendingReviewWithAPostedDate() {
-        Listing listing = sale(120);
+        Listing listing = sale("120");
 
         assertInstanceOf(SaleListing.class, listing);
         assertEquals(ListingStatus.PENDING_REVIEW, listing.getStatus());
@@ -104,7 +104,7 @@ class CreateListingServiceTest {
     @Test
     void titleAndDescription_areTrimmed() {
         Listing listing = service.createSale("  Book  ", CATEGORY, CONDITION, "  A book  ",
-                LOCATION, 10, List.of());
+                LOCATION, "10", List.of());
 
         assertEquals("Book", listing.getTitle());
         assertEquals("A book", listing.getDescription());
@@ -116,19 +116,19 @@ class CreateListingServiceTest {
     void everyRequiredField_isChecked() {
         assertEquals("The item name cannot be empty.",
                 assertThrows(ServiceException.class, () -> service.createSale("  ", CATEGORY, CONDITION,
-                        DESCRIPTION, LOCATION, 10, List.of())).getMessage());
+                        DESCRIPTION, LOCATION, "10", List.of())).getMessage());
         assertEquals("Please choose a category.",
                 assertThrows(ServiceException.class, () -> service.createSale("Book", null, CONDITION,
-                        DESCRIPTION, LOCATION, 10, List.of())).getMessage());
+                        DESCRIPTION, LOCATION, "10", List.of())).getMessage());
         assertEquals("Please choose the item's condition.",
                 assertThrows(ServiceException.class, () -> service.createSale("Book", CATEGORY, null,
-                        DESCRIPTION, LOCATION, 10, List.of())).getMessage());
+                        DESCRIPTION, LOCATION, "10", List.of())).getMessage());
         assertEquals("The description cannot be empty.",
                 assertThrows(ServiceException.class, () -> service.createSale("Book", CATEGORY, CONDITION,
-                        "  ", LOCATION, 10, List.of())).getMessage());
+                        "  ", LOCATION, "10", List.of())).getMessage());
         assertEquals("Please choose a meet-up location.",
                 assertThrows(ServiceException.class, () -> service.createSale("Book", CATEGORY, CONDITION,
-                        DESCRIPTION, null, 10, List.of())).getMessage());
+                        DESCRIPTION, null, "10", List.of())).getMessage());
 
         assertTrue(store.getAllListings().isEmpty());
     }
@@ -137,12 +137,14 @@ class CreateListingServiceTest {
 
     @Test
     void priceMustBeAPositiveNumber() {
-        for (double bad : new double[]{0, -1, Double.NaN, Double.POSITIVE_INFINITY}) {
+        // Unparseable text and non-positive amounts are refused with the same message (A2).
+        for (String bad : new String[]{"0", "-1", "abc", "1e3", "NaN", "Infinity", "99.999"}) {
             assertEquals("The price must be a positive number, such as 180 or 99.50.",
                     assertThrows(ServiceException.class, () -> sale(bad)).getMessage());
         }
         assertTrue(store.getAllListings().isEmpty());
-        assertEquals(0.01, ((SaleListing) sale(0.01)).getPrice()); // boundary: the smallest positive
+        assertEquals(0.01, ((SaleListing) sale("0.01")).getPrice()); // boundary: the smallest positive
+        assertEquals(99.50, ((SaleListing) sale("99.50")).getPrice());
     }
 
     // ---------- A3: lending duration ----------
@@ -168,7 +170,7 @@ class CreateListingServiceTest {
     void photosAreStoredInOrder_andTheFirstIsTheThumbnail() throws IOException {
         List<Path> files = List.of(image("first.png"), image("second.png"));
 
-        Listing listing = service.createSale("Book", CATEGORY, CONDITION, DESCRIPTION, LOCATION, 10, files);
+        Listing listing = service.createSale("Book", CATEGORY, CONDITION, DESCRIPTION, LOCATION, "10", files);
 
         assertEquals(2, listing.getPhotos().size());
         assertEquals(listing.getPhotos().get(0), listing.getThumbnail());
@@ -182,7 +184,7 @@ class CreateListingServiceTest {
 
         assertEquals("A listing can have at most 6 photos.",
                 assertThrows(ServiceException.class, () -> service.createSale("Book", CATEGORY,
-                        CONDITION, DESCRIPTION, LOCATION, 10, seven)).getMessage());
+                        CONDITION, DESCRIPTION, LOCATION, "10", seven)).getMessage());
         assertTrue(store.getAllListings().isEmpty());
     }
 
@@ -191,7 +193,7 @@ class CreateListingServiceTest {
         Path text = Files.writeString(folder.resolve("notes.txt"), "not a photo");
 
         assertThrows(ServiceException.class, () -> service.createSale("Book", CATEGORY, CONDITION,
-                DESCRIPTION, LOCATION, 10, List.of(text)));
+                DESCRIPTION, LOCATION, "10", List.of(text)));
         assertTrue(store.getAllListings().isEmpty());
     }
 
@@ -201,7 +203,7 @@ class CreateListingServiceTest {
     void theAdminIsToldAndTheSellerGetsAConfirmation() {
         Fixtures.admin(store, "ada");
 
-        Listing listing = sale(50);
+        Listing listing = sale("50");
 
         assertTrue(store.getNotificationsFor("ada").stream().anyMatch(n ->
                 n.getCategory() == NotificationCategory.LISTING_SUBMITTED
@@ -217,11 +219,11 @@ class CreateListingServiceTest {
     @Test
     void onlyALoggedInSellerCanCreateAListing() {
         SessionManager.logout();
-        assertThrows(AccessDeniedException.class, () -> sale(10));
+        assertThrows(AccessDeniedException.class, () -> sale("10"));
 
         Buyer bea = Fixtures.buyer(store, "bea");
         SessionManager.login(bea);
-        assertThrows(AccessDeniedException.class, () -> sale(10));
+        assertThrows(AccessDeniedException.class, () -> sale("10"));
 
         assertTrue(store.getAllListings().isEmpty());
     }

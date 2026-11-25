@@ -45,17 +45,17 @@ public class CreateListingService {
 
     /**
      * Posts a Sell listing (Create Listings steps 3-13).
-     * @param price      the asking price, which must be a positive number (A2)
+     * @param typedPrice the asking price exactly as typed: digits with up to two decimals (A2)
      * @param photoFiles optional; at most {@link Listing#MAX_PHOTOS}, the first is the thumbnail
      * @throws AccessDeniedException if the logged-in user is not a seller
      * @throws ServiceException      if a rule is broken; nothing is stored then
      */
     public Listing createSale(String title, Category category, ItemCondition condition,
                               String description, MeetupLocation meetupLocation,
-                              double price, List<Path> photoFiles) {
+                              String typedPrice, List<Path> photoFiles) {
         Seller seller = AccessControl.requireSeller();
         ListingFormRules.requireCommonFields(title, category, condition, description, meetupLocation);
-        ListingFormRules.requirePrice(price);
+        double price = ListingFormRules.requirePriceText(typedPrice);
         return publish(seller, new SaleListing(seller.getUsername(), title.trim(), category,
                 condition, description.trim(), meetupLocation, price), photoFiles);
     }
@@ -77,7 +77,7 @@ public class CreateListingService {
                 condition, description.trim(), meetupLocation, lendingDuration), photoFiles);
     }
 
-    /** Posts a Give Away listing. It has no price or duration to check. */
+    /** Posts a Giveaway listing. It has no price or duration to check. */
     public Listing createGiveaway(String title, Category category, ItemCondition condition,
                                   String description, MeetupLocation meetupLocation,
                                   List<Path> photoFiles) {

@@ -266,8 +266,8 @@ Log in as `diana` and open **Create Listing**. Each scenario starts from a reset
 |---|---|---|---|---|
 | AT-2.3-01 | Basic flow, Sell | Type Sell; "Desk Fan"; Furniture; Used; "Three speeds, works."; price `150`; Hall 2 Lobby; Submit for Review. | "'Desk Fan' is now Pending Review. The admin has been notified." The card shows Pending Review. `admin` has "Diana Ng submitted 'Desk Fan' for review."; Diana has "Your listing 'Desk Fan' is pending review." | |
 | AT-2.3-02 | Basic flow, Lend | Type Lend; "Desk Lamp"; Furniture; Like New; "LED bulb included."; duration `5` seconds; Hall 5 Lobby; Submit. | Accepted as Pending Review; the card shows the 5-second lending duration (short enough to run the auto-return test). | |
-| AT-2.3-03 | Basic flow, Give Away | Type Give Away; fill the required fields; Submit. | Accepted; no price or duration is asked for. | |
-| AT-2.3-04 | Steps 3-4, the type decides the form | Choose Sell, then Lend, then Give Away. | Price is enabled only for Sell, duration only for Lend, and both are cleared when the type changes. | |
+| AT-2.3-03 | Basic flow, Giveaway | Type Giveaway; fill the required fields; Submit. | Accepted; no price or duration is asked for. | |
+| AT-2.3-04 | Steps 3-4, the type decides the form | Choose Sell, then Lend, then Giveaway. | Price is enabled only for Sell, duration only for Lend, and both are cleared when the type changes. | |
 | AT-2.3-05 | A1 Required fields | Submit with the name empty; then no category; no condition; an empty description; no meet-up location. | "The item name cannot be empty.", "Please choose a category.", "Please choose the item's condition.", "The description cannot be empty.", "Please choose a meet-up location." Nothing is posted. | |
 | AT-2.3-06 | A2 Price | Sell with price `0`, then `-5`, then `abc`, then `99.50`. | Each bad value: "The price must be a positive number, such as 180 or 99.50." The form keeps what was typed; `99.50` is accepted. | |
 | AT-2.3-07 | A3 Duration | Lend with `4` seconds, then `abc`. | "The lending duration must be at least 5 seconds." / "The lending duration must be a whole number of seconds, minutes, hours or days." | |
@@ -314,7 +314,7 @@ Log in as `charlie` and open **Seller Stats** after a reset: the Sold chemistry 
 | AT-2.8-01 | Steps 2-3, the numbers | Open Seller Stats. | Listings 3, Views 0, Offers received 2, Completed deals 1; "Average rating: 5.0 / 5 (1 rating)". | |
 | AT-2.8-02 | Step 4, the bar chart | As `alice`, open the charger twice; as `charlie`, reopen Seller Stats. | Views 2; the bar chart shows the charger at 2 views and 0 offers; the other listings at 0. | |
 | AT-2.8-03 | Offers in the chart | As `alice`, make an offer on the charger; reopen Seller Stats. | Offers received 3; the charger's Offers bar is 1; Views unchanged. | |
-| AT-2.8-04 | Step 5, the pie chart | As `alice`, My Deals → calculus → Mark Complete; reopen Seller Stats. | Completed deals 2; the pie shows Sell (2); no Lend or Give Away slice. | |
+| AT-2.8-04 | Step 5, the pie chart | As `alice`, My Deals → calculus → Mark Complete; reopen Seller Stats. | Completed deals 2; the pie shows Sell (2); no Lend or Giveaway slice. | |
 | AT-2.8-05 | A2 No ratings | As `diana`, open Seller Stats. | "Average rating: No ratings yet"; the card shows "—". | |
 | AT-2.8-06 | A3 No completed deals | As `diana` (no completed deal), open Seller Stats. | The pie area says "No completed deals yet." | |
 | AT-2.8-07 | A1 No listings | Register a new seller (or, in a dev run, log in as `seller`) and open Seller Stats. | Every number is 0, "No ratings yet", and the charts area says "There isn't enough data to draw charts yet." | |

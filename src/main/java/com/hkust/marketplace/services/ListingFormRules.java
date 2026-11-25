@@ -8,6 +8,7 @@ import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.MeetupLocation;
 
 import java.time.Duration;
+import java.util.OptionalDouble;
 
 /**
  * The field checks the listing forms share: Create Listings (Task 2.3) and Manage Listings
@@ -43,11 +44,18 @@ final class ListingFormRules {
         }
     }
 
-    /** A2: the asking price of a Sell listing. */
-    static void requirePrice(double price) {
-        if (!(price > 0) || Double.isInfinite(price)) {
+    /**
+     * A2: the asking price of a Sell listing, exactly as it was typed. The text is untrusted
+     * input, so it is parsed here at the barricade with {@link Amounts#parse}: digits with up to
+     * two decimals, such as "180" or "99.50"; "1e3", "NaN" and "abc" are refused.
+     * @return the price as a number
+     */
+    static double requirePriceText(String typedPrice) {
+        OptionalDouble price = Amounts.parse(typedPrice);
+        if (price.isEmpty() || price.getAsDouble() <= 0) {
             throw new ServiceException("The price must be a positive number, such as 180 or 99.50.");
         }
+        return price.getAsDouble();
     }
 
     /** A3: how long a Lend listing may be borrowed, at least the minimum borrow time. */

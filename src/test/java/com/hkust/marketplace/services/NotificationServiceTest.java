@@ -16,7 +16,11 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Tests for UC4 View Notifications and for sending notifications. */
+/**
+ * Tests for UC4 View Notifications and for sending notifications. Equivalence partitions of a
+ * board's notifications (Lecture 13): mine and another user's, read and unread, in the chosen
+ * category and not; boundary values: an empty board, a board with nothing unread.
+ */
 class NotificationServiceTest {
 
     private TestClock clock;
@@ -81,6 +85,9 @@ class NotificationServiceTest {
     void board_needsALoggedInUser() {
         assertThrows(AccessDeniedException.class, service::getMyNotifications);
         assertThrows(AccessDeniedException.class, service::getUnreadCount);
+        assertThrows(AccessDeniedException.class, service::markAllRead);
+        assertThrows(AccessDeniedException.class, service::getMyCategories);
+        assertThrows(AccessDeniedException.class, () -> service.getMyNotifications(NotificationCategory.ANNOUNCEMENT));
     }
 
     @Test
@@ -97,5 +104,62 @@ class NotificationServiceTest {
         assertThrows(AccessDeniedException.class, () -> service.markRead(bens.getId()));
         assertFalse(bens.isRead());
         assertThrows(AccessDeniedException.class, () -> service.markRead("N999"));
+    }
+
+    // ---------- Mark all as read (assumptions register 91) ----------
+
+    @Test
+    void markAllRead_marksEveryUnreadNotificationOfMine_andNoOneElses() {
+        Notification alreadyRead = service.send("bea", NotificationCategory.ANNOUNCEMENT, "read before");
+        Notification offer = service.send("bea", NotificationCategory.OFFER_UPDATE, "unread offer");
+        Notification message = service.send("bea", NotificationCategory.NEW_MESSAGE, "unread message");
+        Notification bens = service.send("ben", NotificationCategory.ANNOUNCEMENT, "ben's");
+        SessionManager.login(bea);
+        service.markRead(alreadyRead.getId());
+
+        service.markAllRead();
+
+        assertTrue(offer.isRead());
+        assertTrue(message.isRead());
+        assertTrue(alreadyRead.isRead());
+        assertEquals(0, service.getUnreadCount());
+        assertFalse(bens.isRead()); // another user's board is left alone
+    }
+
+    @Test
+    void anEmptyBoard_hasNothingToMark_andNoCategories() {
+        SessionManager.login(bea);
+
+        service.markAllRead();
+
+        assertEquals(0, service.getUnreadCount());
+        assertEquals(List.of(), service.getMyCategories());
+    }
+
+    // ---------- The category filter (assumptions register 93) ----------
+
+    @Test
+    void myCategories_areTheOnesMyNotificationsHave_onceEach_inTheEnumsOrder() {
+        service.send("bea", NotificationCategory.NEW_MESSAGE, "a message");
+        service.send("bea", NotificationCategory.OFFER_UPDATE, "an offer");
+        service.send("bea", NotificationCategory.NEW_MESSAGE, "another message");
+        service.send("ben", NotificationCategory.ANNOUNCEMENT, "not mine");
+        SessionManager.login(bea);
+
+        assertEquals(List.of(NotificationCategory.OFFER_UPDATE, NotificationCategory.NEW_MESSAGE),
+                service.getMyCategories());
+    }
+
+    @Test
+    void myNotificationsInOneCategory_areOnlyThose_newestFirst() {
+        Notification older = service.send("bea", NotificationCategory.NEW_MESSAGE, "older");
+        service.send("bea", NotificationCategory.OFFER_UPDATE, "an offer");
+        clock.advance(Duration.ofMinutes(1));
+        Notification newer = service.send("bea", NotificationCategory.NEW_MESSAGE, "newer");
+        service.send("ben", NotificationCategory.NEW_MESSAGE, "not mine");
+        SessionManager.login(bea);
+
+        assertEquals(List.of(newer, older), service.getMyNotifications(NotificationCategory.NEW_MESSAGE));
+        assertEquals(List.of(), service.getMyNotifications(NotificationCategory.ACCOUNT_CHANGE)); // none of mine
     }
 }

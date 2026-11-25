@@ -518,4 +518,27 @@ class ChatServiceTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new ChatEntry(0, "bea", "Buyer bea", Fixtures.START, "Hello", offer));
     }
+
+    /**
+     * The chat screen marks the open chat in its list (assumptions register 90). Partitions of two
+     * copies: of one chat, for the same or the other participant, older or newer; or of another
+     * chat, by another buyer or about another listing.
+     */
+    @Test
+    void sameChat_meansTheSameListingAndBuyer_whoeverTheCopyIsFor_andHoweverOld() {
+        Conversation beasFirst = beaStartsChat("Hi");
+        Conversation beasNewer = chat.send(beasFirst, "Still there?");
+        SaleListing lamp = Fixtures.live(Fixtures.sale(store, "sam", 30));
+        Conversation beasOtherChat = chat.openForListing(lamp.getId());
+        SessionManager.login(sam);
+        Conversation samsCopy = chat.getMyConversations().get(0);
+        SessionManager.login(ben);
+        Conversation bensChat = chat.openForListing(book.getId());
+
+        assertTrue(beasFirst.isSameChat(beasNewer));
+        assertTrue(beasFirst.isSameChat(samsCopy));
+        assertTrue(samsCopy.isSameChat(beasNewer));
+        assertFalse(beasFirst.isSameChat(bensChat));      // another buyer, the same listing
+        assertFalse(beasFirst.isSameChat(beasOtherChat)); // the same buyer, another listing
+    }
 }

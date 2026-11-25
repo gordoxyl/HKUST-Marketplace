@@ -94,6 +94,18 @@ class FormatsTest {
         assertEquals("No unread notifications", Formats.unreadSummary(-1)); // never negative on screen
     }
 
+    /** The number on the sidebar's notification dot (assumptions register 92), at the edges of what it writes out. */
+    @ParameterizedTest
+    @CsvSource({"1, 1", "99, 99", "100, 99+"})
+    void unreadCount_onTheDot_atTheBoundaries(int unread, String shown) {
+        assertEquals(shown, Formats.unreadCount(unread));
+    }
+
+    @Test
+    void unreadCount_belowOne_isRefused_becauseThenThereIsNoDot() {
+        assertThrows(IllegalArgumentException.class, () -> Formats.unreadCount(0));
+    }
+
     @Test
     void preview_atTheBoundaries() {
         assertEquals("Hello", Formats.preview("Hello", 5));          // exactly max: unchanged

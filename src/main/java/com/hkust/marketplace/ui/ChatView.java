@@ -29,9 +29,10 @@ import java.util.Optional;
  * The chat screen, the same in the buyer and seller portals (UC6 Chat About Listing; Tasks
  * 1.5 and 2.5): the history of messages and offers with sender and time, a box to write a
  * message, and a search of the history that jumps to the chosen message and highlights it.
+ * A chat is shown in the chat screen, {@link ChatList}, beside the user's other chats:
  * <pre>{@code
  * Conversation chat = chatService.openForOffer(offer.getId());       // or openForListing(listingId)
- * host.show(ChatText.title(chat), new ChatView(chatService, chat));
+ * new ChatList(chatService, host, onOpen).openFrom(chat, "Back to Offers & Requests", back);
  * }</pre>
  *
  * <p><b>Deal actions.</b> The offers in the history only show what happened and their status.
@@ -78,6 +79,8 @@ public class ChatView extends VBox implements Refreshable {
     private AgreeToCounter agreeToCounter;
     /** The seller's link to Offers &amp; Requests; null while it is not offered. */
     private RespondToOffers respondToOffers;
+    /** Told when the user's own action has changed the history, such as the chat screen's list beside it. */
+    private Runnable historyChanged = () -> { };
 
     public ChatView(ChatService service, Conversation conversation) {
         super(12);
@@ -175,6 +178,15 @@ public class ChatView extends VBox implements Refreshable {
     public void setOnRespondToOffers(RespondToOffers respond) {
         this.respondToOffers = respond;
         showActions();
+    }
+
+    /**
+     * What else follows when the user's own action changes this chat's history: a message sent,
+     * or an offer made with Make Offer or Agree to Counter. The chat screen ({@link ChatList})
+     * reloads its list of chats, so this chat moves to the top (assumptions register 90).
+     */
+    public void setOnHistoryChanged(Runnable changed) {
+        this.historyChanged = changed;
     }
 
     /** Reloads the history, for example after an offer was made or the other party wrote. */
@@ -336,7 +348,9 @@ public class ChatView extends VBox implements Refreshable {
         if (makeOffer != null) {
             dealActions.getChildren().add(actionButton(OfferText.actionText(conversation.listing().getType()), () -> {
                 makeOffer.run();
-                refresh();
+                if (reload()) {
+                    historyChanged.run();
+                }
             }));
         }
         if (agreeToCounter != null && waiting > 0) {
@@ -385,7 +399,11 @@ public class ChatView extends VBox implements Refreshable {
                 Dialogs.problem(e);
                 submitted = false;
             }
-            if (!reload() || submitted) {
+            if (!reload()) {
+                return;
+            }
+            if (submitted) {
+                historyChanged.run(); // a new offer in the history
                 return;
             }
         }
@@ -405,6 +423,7 @@ public class ChatView extends VBox implements Refreshable {
         hideSearch();
         showHistory();
         input.requestFocus();
+        historyChanged.run();
     }
 
     // ---------- Searching (UC6 A2) ----------

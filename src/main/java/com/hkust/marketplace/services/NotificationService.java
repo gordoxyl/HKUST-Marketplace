@@ -6,7 +6,10 @@ import com.hkust.marketplace.models.NotificationCategory;
 import com.hkust.marketplace.models.User;
 import com.hkust.marketplace.models.UserRole;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * Notifications for all three portals (UC4 View Notifications, shared by the User actor).
@@ -14,7 +17,8 @@ import java.util.List;
  * <p>Other services call {@link #send} or {@link #sendToAdmins} when an event happens
  * (UC4 Special Requirement 1). These calls do not check the logged-in user, because the
  * system, not the user, sends notifications. The board methods ({@link #getMyNotifications},
- * {@link #markRead}, {@link #getUnreadCount}) work only on the logged-in user's own board.
+ * {@link #markRead}, {@link #markAllRead}, {@link #getUnreadCount}, {@link #getMyCategories})
+ * work only on the logged-in user's own board.
  */
 public class NotificationService {
 
@@ -77,8 +81,39 @@ public class NotificationService {
         });
     }
 
-    /** How many of the logged-in user's notifications are unread, for a badge on the board's button. */
+    /**
+     * Marks every unread notification on the logged-in user's board as read: UC4 step 3 for all
+     * of them at once (team decision, assumptions register 91). It is one transaction, so all are
+     * marked or, when the account can no longer act, none.
+     */
+    public void markAllRead() {
+        User user = AccessControl.requireLoggedIn();
+        store.transaction(() -> store.getNotificationsFor(user.getUsername()).stream()
+                .filter(n -> !n.isRead())
+                .forEach(Notification::markRead));
+    }
+
+    /** How many of the logged-in user's notifications are unread: the number on the sidebar's dot (assumptions register 92). */
     public int getUnreadCount() {
         return (int) getMyNotifications().stream().filter(n -> !n.isRead()).count();
+    }
+
+    // ========== The board's category filter (assumptions register 93) ==========
+
+    /**
+     * The categories the logged-in user's notifications have, in the order of
+     * {@link NotificationCategory}: what the board's category filter offers. A category the user
+     * never receives is not offered.
+     */
+    public List<NotificationCategory> getMyCategories() {
+        Set<NotificationCategory> used = EnumSet.noneOf(NotificationCategory.class);
+        getMyNotifications().forEach(n -> used.add(n.getCategory()));
+        return List.copyOf(used); // an EnumSet keeps the enum's order
+    }
+
+    /** The logged-in user's notifications in one category, newest first (UC4 step 2, filtered). */
+    public List<Notification> getMyNotifications(NotificationCategory category) {
+        Objects.requireNonNull(category, "category");
+        return getMyNotifications().stream().filter(n -> n.getCategory() == category).toList();
     }
 }

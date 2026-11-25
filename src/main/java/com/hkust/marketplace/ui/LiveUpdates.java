@@ -7,7 +7,8 @@ import java.util.function.BooleanSupplier;
  * Tells the open dashboard that the data changed without the user doing anything, so the
  * screen it shows can reload. Today that is the borrowing-deadline timer (UC12): when it sends
  * a reminder or returns an item, the buyer's open My Deals or notification board shows it at
- * once (UC12 step 4), and a seller's open My Listings can show the listing Live again.
+ * once (UC12 step 4), and a seller's open My Listings can show the listing Live again. The
+ * sidebar's {@link NotificationDot} is updated too, so a new reminder shows on it at once.
  *
  * <p>A dashboard registers itself when it opens, and so replaces the dashboard before it:
  * <pre>{@code
@@ -41,7 +42,8 @@ public final class LiveUpdates {
     }
 
     /**
-     * The data changed: the open dashboard reloads its screen. Call it on the JavaFX thread.
+     * The data changed: the open dashboard reloads its screen, and the notification dot shows the
+     * number of unread notifications as it is now. Call it on the JavaFX thread.
      * @return true if a dashboard was told; false if none is open
      */
     public static boolean dataChanged() {
@@ -57,6 +59,7 @@ public final class LiveUpdates {
             action = onDataChanged;
         }
         action.run();
+        NotificationDot.update();
         return true;
     }
 

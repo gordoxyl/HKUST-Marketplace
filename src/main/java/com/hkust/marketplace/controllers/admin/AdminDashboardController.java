@@ -1,13 +1,9 @@
 package com.hkust.marketplace.controllers.admin;
 
-import com.hkust.marketplace.models.*;
 import com.hkust.marketplace.data.DataStore;
-import com.hkust.marketplace.services.NotificationService;
-import com.hkust.marketplace.services.ProfileService;
-import com.hkust.marketplace.ui.ContentHost;
-import com.hkust.marketplace.ui.ListingCard;
-import com.hkust.marketplace.ui.NotificationBoard;
-import com.hkust.marketplace.ui.ProfileView;
+import com.hkust.marketplace.models.*;
+import com.hkust.marketplace.services.*;
+import com.hkust.marketplace.ui.*;
 import com.hkust.marketplace.utils.SceneManager;
 import com.hkust.marketplace.utils.SessionManager;
 import javafx.collections.FXCollections;
@@ -17,50 +13,17 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-
-import java.util.List;
-
-import com.hkust.marketplace.services.AdminListingService;
-import com.hkust.marketplace.services.ListingFilter;
-import com.hkust.marketplace.services.ServiceException;
-import com.hkust.marketplace.ui.Dialogs;
-import com.hkust.marketplace.ui.LiveUpdates;
-
-import java.util.Optional;
-
-import com.hkust.marketplace.services.AdminUserService;
-import com.hkust.marketplace.services.UserFilter;
-import com.hkust.marketplace.ui.Formats;
-
-import com.hkust.marketplace.services.UserDetails;
-import javafx.scene.control.Dialog;
-import javafx.scene.control.TextArea;
-
-import java.util.stream.Collectors;
-
-import com.hkust.marketplace.services.ListingDetails;
-
-import java.time.Duration;
-import java.time.LocalTime;
-
-import com.hkust.marketplace.services.AdminDealService;
-import com.hkust.marketplace.services.DealDetails;
-import com.hkust.marketplace.services.DealFilter;
-import com.hkust.marketplace.services.DealRecord;
-import com.hkust.marketplace.services.DealState;
 import javafx.stage.FileChooser;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-
-import com.hkust.marketplace.services.AdminReputationService;
-import com.hkust.marketplace.services.ReviewFilter;
-import com.hkust.marketplace.services.SellerRating;
-
-import com.hkust.marketplace.services.PhotoService;
-
+import java.time.Duration;
+import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 public class AdminDashboardController implements ContentHost {
@@ -215,12 +178,12 @@ public class AdminDashboardController implements ContentHost {
 
         ComboBox<Object> categoryBox = new ComboBox<>();
         categoryBox.getItems().add("All categories");
-        categoryBox.getItems().addAll( Category.values());
+        categoryBox.getItems().addAll(List.of(Category.values()));
         categoryBox.getSelectionModel().selectFirst();
 
         ComboBox<Object> typeBox = new ComboBox<>();
         typeBox.getItems().add("All types");
-        typeBox.getItems().addAll( ListingType.values());
+        typeBox.getItems().addAll(List.of(ListingType.values()));
         typeBox.getSelectionModel().selectFirst();
 
         TextField sellerField = new TextField();
@@ -397,7 +360,7 @@ public class AdminDashboardController implements ContentHost {
                 photoIds.clear();
                 for (File f : files) {
                     if (photoIds.size() >= Listing.MAX_PHOTOS) {
-                        Dialogs.info("Photos", "Only the first 6 photos were kept.");
+                        Dialogs.info("Photos", "Only the first " + Listing.MAX_PHOTOS + " photos were kept.");
                         break;
                     }
                     try {
@@ -750,12 +713,12 @@ public class AdminDashboardController implements ContentHost {
         // ----- filter bar (spec step 2: Status, Date range, Deal type, Seller, Buyer) -----
         ComboBox<Object> statusBox = new ComboBox<>();
         statusBox.getItems().add("All statuses");
-        statusBox.getItems().addAll(DealState.values());
+        statusBox.getItems().addAll(List.of(ListingStatus.values()));
         statusBox.getSelectionModel().selectFirst();
 
         ComboBox<Object> typeBox = new ComboBox<>();
         typeBox.getItems().add("All types");
-        typeBox.getItems().addAll(ListingType.values());
+        typeBox.getItems().addAll(List.of(ListingType.values()));
         typeBox.getSelectionModel().selectFirst();
 
         TextField sellerField = new TextField();

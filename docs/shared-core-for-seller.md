@@ -327,7 +327,7 @@ void declineAsksFirst() { // app = OffScreenApp.start() in @BeforeAll, app.reset
 ```
 To fill in and submit a dialog instead, give its answer before the step: `app.answer("Decline borrow request", form -> form.press("OK"))`. The screens use the app's store, which in a test run is a temporary folder with the demo data, shared by all screen tests (storage manual §9.8). Do not depend on what another test changed; a test that changes data adds its own with `testsupport/ScreenData`. Examples to copy: `controllers/buyer/MakeOfferScreensTest`, `MyDealsScreensTest`.
 
-## 9. Known gaps on the seller side (as of 2026-11-25)
+## 9. Known gaps on the seller side (as of 2026-11-25, night)
 
 Tasks 2.1 to 2.9 are all merged:
 - PR #11: `CreateListingService`, `SellerListingService`, `SellerOfferService`.
@@ -336,13 +336,13 @@ Tasks 2.1 to 2.9 are all merged:
 Follow-ups, none of them blocking:
 - **Unused imports** that IntelliJ's commit check reports: `SellerOfferServiceTest` (`Category`, `ItemCondition`, `MeetupLocation`) and `SellerStatsServiceTest` (`Offer`).
 - **One `counterPrice` entry point.** The screen calls `counterPrice(String offerId, String typedPrice)`. The `double` overload is left only for `SellerOfferServiceTest` and `OfferActionTest`: let them pass text, and delete it, so every caller goes through `Amounts.parse`.
-- **The Create Listing price is parsed in the screen.** `SellerDashboardController.parsePrice` uses `Double.parseDouble`, which accepts "1e3" or "NaN". Parse the typed text with `Amounts.parse` in the service, as the counter price is.
+- **The listing price takes any number Java reads (to log as R18).** `SellerDashboardController.parsePrice` uses `Double.parseDouble`: on Create and Edit Listing, "99.999" is saved (the cards then show "HK$ 100.00") and "1e3" becomes HK$ 1000, which the counter price and the admin's form refuse. Read it with `Amounts.parse`, as the counter price is (in the service would be the full barricade). Edit Listing also shows the price as "250.0"; `Amounts.plain` gives "250".
 - **The counter-borrow date pickers.** They show dates in the computer's locale, unlike every other screen ("26 Nov 2026"): give them `Formats.datePickerConverter()`. They also read only `getValue()`, so a date typed without Enter can be lost; `controllers/buyer/OfferDialogs.shownDate` reads the editor's text.
 - **Screen reads of `DataStore`** (BCE, optional): buyer names on offer rows, and each review's writer and listing title, are read in `SellerDashboardController`. Return them from the services instead.
-- **The submission:** run the seller acceptance scenarios (Create Listing to Manage Reviews, and AT-CHAT-06 to 11) on `main`; they are the script for the seller screenshots.
+- **The submission:** run the seller acceptance scenarios (Create Listing to Manage Reviews, AT-CHAT-06 to 11 and AT-CHAT-19) on `main`; they are the script for the seller screenshots.
 - **Wording:** the Create Listing error "Choose Sell, Lend or Give Away first." says "Give Away" where the type buttons
   and the cards say "Giveaway" (so do AT-2.3-03, AT-2.3-04 and AT-2.8-04); Reviews & Feedback draws its stars by hand
-  instead of with `Formats.stars` (same look).
+  instead of with `Formats.stars` (same look); the photo texts say "up to 6" instead of using `Listing.MAX_PHOTOS`.
 - **The shared UI's wiring** in §10: the unread dot, and Open Chat on an offer through `openFrom`.
 - **Already right:** at the app's window size, no seller page cuts a button or label short (`PortalScreensTest`).
 
@@ -356,11 +356,14 @@ nothing from you:
     shows the list, and **Back to Chats** above a chat chosen there. Your
     `new ChatList(new ChatService(), this, this::addOfferLink)` stays as it is: `addOfferLink` runs on every chat
     the screen opens.
-- **Two lines for the unread dot** (the red number on the sidebar's Notifications button):
+- **Three lines for the unread dot** (the red number on the sidebar's Notifications button):
   - at the end of `initialize()`: `NotificationDot.attach(btnNotifications, new NotificationService());`
+  - at the end of `setActive(Button btn, String title)`: `NotificationDot.update();`
   - at the end of `show(String title, Node content)`: `NotificationDot.update();`
 
-  The board updates it after marking, and `LiveUpdates` after the timer's changes; nothing else to call.
+  My Listings, Create Listing, Offers & Requests, Seller Stats and Reviews & Feedback fill `contentPane` themselves
+  and never call `show(...)`, so the update in `setActive` is the one that runs on every page. The board updates the
+  dot after marking, and `LiveUpdates` after the timer's changes; nothing else to call.
 - **Offers & Requests → Open Chat** (`openOfferChat`), so that chat opens in the same chat screen, with the list
   beside it and Back to Offers & Requests above. After `ChatService service = new ChatService();`, replace the
   lines that build the `ChatView`, add the link and show it in a `SubScreen` with:

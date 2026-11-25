@@ -336,7 +336,8 @@ Follow-ups, none of them blocking the build:
   fields and description; roles through `UserRole.getDisplayName()` instead of the hand-made mapping.
 - **Smaller:** Edit listing shows a Condition box that starts empty and is ignored (spec 5.4.2 doesn't make Condition
   editable); Remove on the listing's detail screen doesn't confirm first, as Remove on the card does; Back from a detail
-  screen builds the list again, so its filters reset; AT-UC4A-12 still says OK where the form says Save.
+  screen builds the list again, so its filters reset; Edit listing shows the price as "250.0" (`Amounts.plain` gives
+  "250"); AT-UC4A-12 still says OK where the form says Save.
 - **Optional:** parse the price in `AdminListingService` (the barricade) rather than in the screen; `createReviewRow`
   could get its data from the service; runs of 2+ blank lines remain in `AdminUserServiceTest`, `AdminListingServiceTest`,
   `AdminUserService` and `AdminTestSupport`.
@@ -348,12 +349,15 @@ Five UI changes were made in the shared core, the same in every portal (assumpti
 - **Nothing to do:** the Notification Board has **Mark all as read** (while anything is unread) and a **category
   filter**. The admins' board is the busiest (every account change, listing submission and report), so Mark all as
   read helps most here.
-- **Two lines for the unread dot** (the red number on the sidebar's Notifications button):
+- **Three lines for the unread dot** (the red number on the sidebar's Notifications button):
   - at the end of `initialize()`: `NotificationDot.attach(btnNotifications, new NotificationService());`
+  - at the end of `setActive(Button btn, String title)`: `NotificationDot.update();`
   - at the end of `show(String title, Node content)`: `NotificationDot.update();`
 
-  An admin's own account action notifies every admin, the one who acted included (F4); the update in `show(...)`
-  shows it on the dot at the next screen.
+  The admin's sidebar pages fill `contentPane` themselves and never call `show(...)`, so the update in `setActive`
+  is the one that runs on every page. It matters here: an admin's own account action notifies every admin, the one
+  who acted included (F4), and Edit user → Save returns through `showUsers()`, which calls only `setActive`. Without
+  that line the dot stays at 1 after the Save; with it, it shows 2.
 - **View listing (spec 5.1)** already opens inside the app (PR #24). Replace its own copy of the photos, heading,
   fields and description with the shared `ListingOverview`, as the buyer's listing screen does:
   - `new ListingOverview(ListingSummary.of(listing, UserRole.ADMIN, store), store)` gives the photos, the title with

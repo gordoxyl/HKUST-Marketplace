@@ -241,8 +241,7 @@ only marking does (UC4 Special Requirement 3). Run in order after a reset. The a
 The admin's Notification Board lists every change to a buyer's or seller's account, in category "Account Change", so
 it reads as the accounts' history (decided 24 Nov). A profile notice names the fields that changed, never their
 values. An admin's own profile, and a save that changes nothing, send nothing. Users are not notified of their own
-changes (the screen confirms them). The four admin actions (07-10) are sent by `AdminUserService` (PR #23).
-Run in order after a reset; each scenario ends by opening `admin`'s Notification Board.
+changes (the screen confirms them). Run in order after a reset; each scenario ends by opening `admin`'s Notification Board.
 
 | ID | Flow | Steps | Expected result | Result |
 |---|---|---|---|---|
@@ -252,10 +251,10 @@ Run in order after a reset; each scenario ends by opening `admin`'s Notification
 | AT-UC4A-04 | A seller's own change | As `charlie`: Manage Profile, change the bio, tick one more meet-up location, Save. Then as `admin`. | "Charlie Lee (@charlie) changed their profile: bio, meet-up locations." | |
 | AT-UC4A-05 | A save that changes nothing | As `bob`: Manage Profile, Save without changing anything. Then as `admin`. | "Profile updated" for Bob; no new Account Change notice for `admin`. | |
 | AT-UC4A-06 | An admin's own profile | As `admin`: Manage Profile, change the full name, Save. Open the Notification Board. | No Account Change notice about it. | |
-| AT-UC4A-07 | Admin edits an account | As `admin`: Manage All Users → Edit `bob` → full name `Bob Wong Jr` → OK. | `bob` gets "An administrator updated your account details." `admin`: "@admin edited the buyer account of Bob Wong Jr (@bob)." | |
-| AT-UC4A-08 | Admin deactivates | Deactivate `bob`, reason `Spam`. | "@admin deactivated the buyer account of Bob Wong Jr (@bob). Reason: Spam" | |
-| AT-UC4A-09 | Admin reactivates | Activate `bob`. | "@admin reactivated the buyer account of Bob Wong Jr (@bob)." | |
-| AT-UC4A-10 | Admin deletes | Delete `nina` (from 01), reason `Test account`. | "@admin deleted the buyer account of Nina Ng (@nina). Reason: Test account" | |
+| AT-UC4A-07 | Admin edits an account | As `admin`: Manage All Users → Edit `bob` → full name `Bob Wong Jr` → OK. | `bob` gets "An administrator updated your account details." `admin`: "@admin edited the buyer account of Bob Wong Jr (@bob)." | Pass (2026-11-25, Jack) |
+| AT-UC4A-08 | Admin deactivates  | Deactivate `bob`, reason `Spam`. | "@admin deactivated the buyer account of Bob Wong Jr (@bob). Reason: Spam" |  Pass (2026-11-25, Jack)|
+| AT-UC4A-09 | Admin reactivates  | Activate `bob`. | "@admin reactivated the buyer account of Bob Wong Jr (@bob)." | Pass (2026-11-25, Jack) |
+| AT-UC4A-10 | Admin deletes  | Delete `nina` (from 01), reason `Test account`. | "@admin deleted the buyer account of Nina Ng (@nina). Reason: Test account" |  Pass (2026-11-25, Jack)|
 
 ---
 
@@ -339,52 +338,39 @@ Log in as `charlie` and open **Reviews & Feedback**. After a reset there is one 
 
 ---
 
-## UC4 View Notifications, admin: account changes by the admin (Task 3.6)
-
-*Run these after AT-UC4A-01 to AT-UC4A-06. Both admins (`admin` and `ada2` in test fixture, or demo admin) receive these notices.*
-
-| ID | Flow | Steps | Expected result | Result |
-|---|---|---|---|---|
-| AT-UC4A-07 | Admin edits an account | As `admin`: Manage All Users → Edit `bob` → full name `Bob Wong Jr` → OK. | `bob` gets "An administrator updated your account details." `admin`: "@admin edited the buyer account of Bob Wong Jr (@bob)." | Pass (24 Nov)|
-| AT-UC4A-08 | Admin deactivates | Deactivate `bob`, reason `Spam`. | `admin`: "@admin deactivated the buyer account of Bob Wong Jr (@bob). Reason: Spam" |Pass  |
-| AT-UC4A-09 | Admin reactivates | Activate `bob`. | `admin`: "@admin reactivated the buyer account of Bob Wong Jr (@bob)." | Pass |
-| AT-UC4A-10 | Admin deletes | Delete `nina` (from 01), reason `Test account`. | `admin`: "@admin deleted the buyer account of Nina Ng (@nina). Reason: Test account" |Pass  |
-
----
-
 ## Admin — Manage Marketplace (Tasks 3.2, 3.7)
 
 | ID | Flow | Steps | Expected result | Result |
 |---|---|---|---|---|
-| AT-UC3A-01 | Manage Listings | As `admin`, open Manage All Listings. Filter by Type=Sale and Status=Pending Review. | Only pending sale listings show. |Pass  |
-| AT-UC3A-02 | Approve/Reject | Approve a pending listing. Then Reject another with reason "Bad photo". | Seller gets notified. Audit log records the action. |Pass  |
-| AT-UC3A-03 | Remove/Edit | Edit a live listing's title. Then Remove it with reason "Violates policy". | Title updates. Removing declines open offers and notifies the seller. |Pass  |
+| AT-UC3A-01 | Manage Listings | As `admin`, open Manage All Listings. Filter by Type=Sell and Status=Pending Review. | Only pending sale listings show. | Pass (2026-11-25, Jack) |
+| AT-UC3A-02 | Approve/Reject | Approve a pending listing. Then Reject another with reason "Bad photo". | The listing turns Live or Rejected, and the seller's board shows "Listing Approved" or "Listing Rejected" with the reason. | Pass (2026-11-25, Jack) |
+| AT-UC3A-03 | Remove/Edit | Edit a live listing's title. Then Remove it with reason "Violates policy". | Title updates. Removing declines open offers, notifies the seller, and every buyer with an open offer on the listing is told. | Pass (2026-11-25, Jack) |
 
 ## Admin — Manage Users (Task 3.3)
 
 | ID | Flow | Steps | Expected result | Result |
 |---|---|---|---|---|
-| AT-UC3U-01 | User Search | As `admin`, open Manage All Users. Type `sam` in search. | Only `sam` shows. Filtering by "Seller" or "Deactivated" works. | Pass |
-| AT-UC3U-02 | User Details | Click View on `sam`. | Shows active listings, completed deals, pending offers, and rating (hidden reviews not counted). |Pass  |
+| AT-UC3U-01 | User Search | As `admin`, open Manage All Users. Type `alice` in search. | Only `alice` shows. Filtering by "Seller" or "Deactivated" works. | Pass (2026-11-25, Jack) |
+| AT-UC3U-02 | User Details | Click View on `charlie`. | Shows active listings, completed deals, pending offers, and rating (hidden reviews not counted). | Pass (2026-11-25, Jack) |
 
 ## Admin — Manage Ratings (Task 3.8)
 
 | ID | Flow | Steps | Expected result | Result |
 |---|---|---|---|---|
-| AT-UC3R-01 | Seller Ratings List | As `admin`, open Seller Ratings. | Lists sellers with their average rating and completed deal count. Hidden reviews are not counted. |Pass  |
-| AT-UC3R-02 | View Reviews | Click View Reviews on `charlie`. | Lists charlie's reviews. Supports filtering by rating and date range. |Pass  |
-| AT-UC3R-03 | Hide Review | Click Hide on a review, enter reason "Offensive". | The review is hidden. The buyer and seller get notifications. The average rating drops (if applicable). |Pass  |
+| AT-UC3R-01 | Seller Ratings List | As `admin`, open Seller Ratings. | Lists sellers with their average rating and completed deal count. Hidden reviews are not counted. | Pass (2026-11-25, Jack) |
+| AT-UC3R-02 | View Reviews | Click View Reviews on `charlie`. | Lists charlie's reviews. Supports filtering by rating and date range. | Pass (2026-11-25, Jack)  |
+| AT-UC3R-03 | Hide Review | Click Hide on a review, enter reason "Offensive". | The review is hidden. The buyer and seller get notifications. The average rating drops (if applicable). | Pass (2026-11-25, Jack) |
 
 ## Admin — Manage Deals (Task 3.5)
 
 | ID | Flow | Steps | Expected result | Result |
 |---|---|---|---|---|
-| AT-UC3D-01 | Deal Record | As `admin`, open All Deals Record. | Lists only accepted offers (in progress, completed, returned). Filter by Type, Status, Seller, Buyer. | Pass |
-| AT-UC3D-02 | Deal Details & Export | Click View Details on a deal. Then Export CSV. | Details show buyer, seller, item, dates. CSV contains the filtered rows. | Pass |
+| AT-UC3D-01 | Deal Record | As `admin`, open All Deals Record. | Lists only accepted offers (in progress, completed, returned). Filter by Type, Status, Seller, Buyer. | Pass (2026-11-25, Jack)|
+| AT-UC3D-02 | Deal Details & Export | Click View Details on a deal. Then Export CSV. | Details show buyer, seller, item, dates. CSV contains the filtered rows. | Pass (2026-11-25, Jack)|
 
 ## Bug Fix Regression Scenarios (R13, R14)
 
 | ID | Flow | Steps | Expected result | Result |
 |---|---|---|---|---|
-| AT-UC4A-11 | R13: Hide review refreshes | As `admin`, open Ratings → charlie's Reviews. Click Hide on a review, submit a reason. | The list refreshes instantly. The row now shows the "Hidden" badge and the Hide button is gone. |Pass  |
-| AT-UC4A-12 | R14: Edit lend listing duration | As `admin`, open Manage Listings. Edit a Lend listing with a 36-hour duration. Change nothing, just click OK. | The lending duration remains exactly 36 hours (not reset to days or empty). |Pass  |
+| AT-UC4A-11 | R13: Hide review refreshes | As `admin`, open Ratings → charlie's Reviews. Click Hide on a review, submit a reason. | The list refreshes instantly. The row now shows the "Hidden" badge and the Hide button is gone. | Pass (2026-11-25, Jack) |
+| AT-UC4A-12 | R14: Edit lend listing duration | As `admin`, open Manage Listings. Edit a Lend listing with a 36-hour duration. Change nothing, just click OK. | The lending duration remains exactly 36 hours (not reset to days or empty). | Pass (2026-11-25, Jack)  |

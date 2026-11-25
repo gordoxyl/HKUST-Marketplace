@@ -240,6 +240,11 @@ The average rating is recalculated automatically.
 - `ListingCard`: `new ListingCard(listing, UserRole.ADMIN).addActions(approveBtn, rejectBtn)` shows seller
   name + username, submitted date-time, photo count and status; `ListingCard.grid()`.
 - `PhotoFrame`, `NotificationBoard`, `ProfileView`, `ContentHost`.
+- `ListingOverview`: the top of a listing's detail screen, the same as the buyer's: photos, title with badge and
+  price, every field, description. `ListingOverview.card(node)` frames a part below it (§10).
+- `NotificationDot`: the red number of unread notifications on the sidebar's Notifications button (§10).
+- `UserRole.getDisplayName()`: "Buyer", "Seller", "Admin" for screens (its `toString()` stays "BUYER": the Audit
+  Log's account snapshots record it that way).
 - CSS classes in `css/styles.css`: `card`, `badge` + `badge-live|pending|sold|rejected`, `btn-primary`,
   `btn-outline`, `btn-danger`, `btn-success`, `btn-sm`, `section-title`.
 
@@ -330,3 +335,25 @@ On `main`, every admin screen calls its service: `AdminListingService` (PR #10),
   - tell the admin when more than 6 photos were chosen, instead of dropping them silently;
   - remove the runs of 2+ blank lines;
   - read the review row's data from the service rather than `DataStore` (`createReviewRow`).
+
+## 10. Added on 25 Nov 2026: the shared UI changes, and what the admin portal adds
+
+Five UI changes were made in the shared core, the same in every portal (assumptions registers 89 to 93):
+- **Nothing to do:** the Notification Board has **Mark all as read** (while anything is unread) and a **category
+  filter**. The admins' board is the busiest (every account change, listing submission and report), so Mark all as
+  read helps most here.
+- **Two lines for the unread dot** (the red number on the sidebar's Notifications button):
+  - at the end of `initialize()`: `NotificationDot.attach(btnNotifications, new NotificationService());`
+  - at the end of `show(String title, Node content)`: `NotificationDot.update();`
+
+  An admin's own account action notifies every admin, the one who acted included (F4); the update in `show(...)`
+  shows it on the dot at the next screen.
+- **View listing inside the app (spec 5.1)**, as the buyer's listing screen is, with the shared `ListingOverview`:
+  - `new ListingOverview(ListingSummary.of(listing, UserRole.ADMIN, store), store)` gives the photos, the title with
+    the badge and price, every field and the description;
+  - below it, "Reports (n)" with each report's reason and details in `ListingOverview.card(...)`, then Edit and Remove;
+  - show it with `show(listing.getTitle(), new SubScreen("Back to All Listings", back, page))`, where `back` shows
+    the same All Listings screen again, so its filters stay.
+- **Roles:** show them with `UserRole.getDisplayName()` on the Manage Users cards and in the user details.
+- **Check:** log in as `admin` after a reset: the dot says 1; AT-UC4-08; View on a listing with photos opens inside
+  the app, with the photos and Back to All Listings.

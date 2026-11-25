@@ -92,6 +92,25 @@ The rules behind them are tested in `OfferActionTest`, `ConversationTest`, `Chat
 | AT-CHAT-10 | Seller: two open offers from one buyer | After AT-CHAT-05 (Alice agreed to Charlie's counter, so her countered offer and her new offer are both open), as `charlie` open that chat and press Respond in Offers & Requests (2). | Both of Alice's offers are marked, and the newest is in view. The Countered one has only Decline enabled; the Pending one has Accept, Decline and Counter. | |
 | AT-CHAT-11 | Seller: loans and giveaways | As `diana`, open Bob's borrow request on the calculator, then a claim on the desk lamp, and press the link in each. | The same label in both, Respond in Offers & Requests (1). The request is marked and has Counter, which asks for dates; the claim is marked and has no Counter. | |
 
+## The chat screen (UC6; assumptions registers 89 and 90)
+
+Every chat opens in one chat screen, the same for buyers and sellers: the user's chats in a list on the left, newest
+first, and the open chat beside it, marked in the list. A button hides the list, so the chat takes the whole width,
+and shows it again. Above the chat is Back: **Back to Chats** when the chat was chosen on the Chats page, otherwise
+back to the screen it was opened from. Run in order after a reset. The automated checks are in `ChatScreensTest`
+and `ChatServiceTest`.
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-CHAT-12 | The Chats page | As `alice`, open Chats. | Her chats in a list on the left, the newest first. Beside it: "Choose a chat to read and write its messages." The page title is Chats; there is no Back and no Hide button. | |
+| AT-CHAT-13 | Opening a chat | Press Open Chat on the Calculus Textbook (Stewart) chat, or click the chat. | The chat opens beside the list, and its card in the list turns light blue with a blue edge. The title is "Chat: Calculus Textbook (Stewart)". Above: **← Back to Chats** and **◀ Hide chats**. | |
+| AT-CHAT-14 | Hiding and showing the list | Press ◀ Hide chats, then ▶ Show chats. | Hidden, the chat takes the whole width and the button reads "▶ Show chats". Shown again, the list is as it was. | |
+| AT-CHAT-15 | Another chat | Start a second chat: Browse → IKEA Desk Lamp → Chat with Seller → write "Hi" and Send. Open Chats, open the Calculus chat, then click the IKEA Desk Lamp chat in the list. | It opens beside the list, the light-blue mark moves to it, and the title changes. Back still reads Back to Chats. | |
+| AT-CHAT-16 | Back to Chats | Press ← Back to Chats. | The Chats page as in AT-CHAT-12: the list alone, nothing marked, the title Chats. | |
+| AT-CHAT-17 | Writing moves the chat up | Open the Calculus chat (now second in the list), write "Is it still available?" and press Send. | The message appears in the chat, and the chat moves to the top of the list with the message as its preview. | |
+| AT-CHAT-18 | From a listing, from a deal | Browse → IKEA Desk Lamp → Chat with Seller, then press Back. Then My Deals → Open Chat on the Calculus Textbook, then press Back. | Each time the same chat screen, with the list beside the chat. Back reads **← Back to listing** and returns to the listing, then **← Back to My Deals** and returns to My Deals; never Back to Chats. | |
+| AT-CHAT-19 | Seller: the same screen | As `charlie`, open Chats and open Alice's chat about the Calculus Textbook. | The same screen as in AT-CHAT-12 to 16; while an offer is waiting, the chat has the link of AT-CHAT-06 under Send. *(Offers & Requests → Open Chat shows the list beside the chat once the seller portal opens it with `openFrom`.)* | |
+
 ## UC7 Manage My Deals (Task 1.6)
 
 After a reset, Alice has one accepted deal (HK$ 160 for the calculus textbook), and Bob has a pending
@@ -197,6 +216,25 @@ reset: 02, 03, 07 and 09 use the report made in 01.
 | AT-UC9-08 | SR4 | Log in as `charlie`. Open Notification Board and every seller screen. | Nothing about the reports or who made them. | |
 | AT-UC9-09 | SR3 across a restart | Close the app and start it again. As `bob`, press Report Listing on the charger. | "You have already reported this listing." | |
 | AT-UC9-10 | A listing the buyer has a deal on (assumption 80) | As `bob`, open My Deals, and press View Listing on the completed *Organic Chemistry Textbook* (Sold). Press Report Listing. | The form opens: a buyer can report a listing they dealt on, even after it was sold. | |
+
+## UC4 View Notifications: the board and the dot (all portals; assumptions registers 91 to 93)
+
+The board is the same in all three portals: newest first, unread ones marked, Mark as read on each (UC4 step 3),
+**Mark all as read** while anything is unread, and a **category filter** offering the categories on the user's board.
+The red **dot** on the sidebar's Notifications button shows how many are unread; opening the board does not lower it,
+only marking does (UC4 Special Requirement 3). Run in order after a reset. The automated checks are in
+`NotificationServiceTest`, `HistoryAndNotificationsScreensTest` and `FormatsTest`.
+
+| ID | Flow | Steps | Expected result | Result |
+|---|---|---|---|---|
+| AT-UC4-01 | The dot before the board | As `alice`, log in. | The sidebar's Notifications button has a red dot with **1**; pointing at the dot says "1 unread notification". | |
+| AT-UC4-02 | Opening marks nothing | Open the Notification Board. | "1 unread notification": Charlie's acceptance of her offer, with Unread and Mark as read. The dot still says 1. | |
+| AT-UC4-03 | A new notification raises the dot | Log out. As `charlie`, open Chats, open Alice's chat about the Calculus Textbook and send "The book is ready." Log out, and log in as `alice`. | The dot says **2**. On the board, a New Message notice is now first. | |
+| AT-UC4-04 | The category filter | Open the category box, and choose New Message. | The box offers All categories, Offer Update and New Message, and nothing else. Only the New Message notice is shown; the heading still says 2 unread notifications. | |
+| AT-UC4-05 | Marking one keeps the filter | Press Mark as read on it. | It turns grey and loses Unread and its button. The heading says 1 unread notification, the dot 1, and the box still says New Message. | |
+| AT-UC4-06 | Mark all as read | Choose All categories, and press Mark all as read. | No question is asked. "No unread notifications"; no Mark as read button and no Mark all as read; the dot is gone. Both notices are still on the board. | |
+| AT-UC4-07 | The timer raises it at once | Run AT-UC12-01 and keep Alice's dashboard open on any screen. | When the Due-Date Reminder arrives, the dot rises by 1 without a click. | |
+| AT-UC4-08 | The other portals | As `charlie`, then `diana`, then `admin`, open the Notification Board. | The same board: the filter offers each user's own categories, and Mark all as read works as in AT-UC4-06. *(The dot appears once the seller and admin portals add their two lines: see the guides.)* | |
 
 ## UC4 View Notifications, admin: the accounts' history (Task 3.6; client question F4)
 

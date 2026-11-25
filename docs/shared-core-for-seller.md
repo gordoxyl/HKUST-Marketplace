@@ -253,6 +253,9 @@ Already wired. `AccountValidator` has the username / full name / password rules 
   `badgeStyle(offer)`, `kind(offer)`. Use it on the offers screen.
 - `ListingCard`: `new ListingCard(listing, UserRole.SELLER).addActions(editBtn, deleteBtn)`; `ListingCard.grid()`.
 - `PhotoFrame`, `ChatView`, `ChatList`, `NotificationBoard`, `ProfileView`, `ContentHost`.
+- `ChatList` is the chat screen: the user's chats beside the open one, a toggle to hide the list, and Back above the
+  chat. A chat opened from another screen: `new ChatList(service, this, this::addOfferLink).openFrom(chat, "Back to …", back)`.
+- `NotificationDot`: the red number of unread notifications on the sidebar's Notifications button (§10).
 - `Scrolling.bringIntoView(scrollPane, node)`: scrolls a node into the middle of the visible part (the chat search, and
   Offers & Requests for a chat's offers).
 - CSS classes in `css/styles.css`: `card`, `badge` + `badge-live|pending|sold|rejected`, `btn-primary`,
@@ -334,3 +337,29 @@ Follow-ups, none of them blocking:
 - **The counter-borrow date pickers.** They show dates in the computer's locale, unlike every other screen ("26 Nov 2026"): give them `Formats.datePickerConverter()`. They also read only `getValue()`, so a date typed without Enter can be lost; `controllers/buyer/OfferDialogs.shownDate` reads the editor's text.
 - **Screen reads of `DataStore`** (BCE, optional): buyer names on offer rows, and each review's writer and listing title, are read in `SellerDashboardController`. Return them from the services instead.
 - **The submission:** run the seller acceptance scenarios (Create Listing to Manage Reviews, and AT-CHAT-06 to 11) on `main`; they are the script for the seller screenshots.
+
+## 10. Added on 25 Nov 2026: the shared UI changes, and what the seller portal adds
+
+Five UI changes were made in the shared core, the same in every portal (assumptions registers 89 to 93). Most need
+nothing from you:
+- **Nothing to do:**
+  - the Notification Board has **Mark all as read** (while anything is unread) and a **category filter**;
+  - the Chats page is now the **chat screen**: your chats in a list beside the open chat, a button that hides and
+    shows the list, and **Back to Chats** above a chat chosen there. Your
+    `new ChatList(new ChatService(), this, this::addOfferLink)` stays as it is: `addOfferLink` runs on every chat
+    the screen opens.
+- **Two lines for the unread dot** (the red number on the sidebar's Notifications button):
+  - at the end of `initialize()`: `NotificationDot.attach(btnNotifications, new NotificationService());`
+  - at the end of `show(String title, Node content)`: `NotificationDot.update();`
+
+  The board updates it after marking, and `LiveUpdates` after the timer's changes; nothing else to call.
+- **Offers & Requests → Open Chat** (`openOfferChat`), so that chat opens in the same chat screen, with the list
+  beside it and Back to Offers & Requests above. After `ChatService service = new ChatService();`, replace the
+  lines that build the `ChatView`, add the link and show it in a `SubScreen` with:
+  - `Conversation chat = service.openForOffer(offer.getId());`
+  - `new ChatList(service, this, this::addOfferLink).openFrom(chat, "Back to Offers & Requests", this::showOffers);`
+
+  Then remove the imports this leaves unused.
+- **Check:**
+  - log in as `charlie` after a reset: the dot says 2; on the board, Mark all as read removes it;
+  - AT-CHAT-19, and Open Chat on an offer: the list is beside the chat, and Back returns to Offers & Requests.

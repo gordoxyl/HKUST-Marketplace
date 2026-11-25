@@ -132,7 +132,7 @@ public class AdminListingService {
                             MeetupLocation meetupLocation, Double price, Duration duration,
                             List<String> photoIds) {
         Admin admin = AccessControl.requireAdmin();
-        String cleanTitle = requireNonBlank(title, "The title is required.");
+        String cleanTitle = requireTitle(title);
         if (category == null || meetupLocation == null) {
             throw new ServiceException("Category and meet-up location are required.");
         }
@@ -203,7 +203,7 @@ public class AdminListingService {
         if (type == null) {
             throw new ServiceException("The listing type is required.");
         }
-        String cleanTitle = requireNonBlank(title, "The title is required.");
+        String cleanTitle = requireTitle(title);
         if (category == null || meetupLocation == null) {
             throw new ServiceException("Category and meet-up location are required.");
         }
@@ -355,11 +355,11 @@ public class AdminListingService {
     }
 
     /** The title without surrounding spaces; refuses blank. */
-    private static String requireNonBlank(String value, String message) {
-        if (value == null || value.isBlank()) {
-            throw new ServiceException(message);
+    private static String requireTitle(String title) {
+        if (title == null || title.isBlank()) {
+            throw new ServiceException("The title is required.");
         }
-        return value.strip();
+        return title.strip();
     }
 
     /** Zero or negative, or shorter than the minimum borrow time (Create Listings A3). */

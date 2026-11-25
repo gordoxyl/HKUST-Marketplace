@@ -45,26 +45,25 @@ class AdminReputationServiceTest {
      * Completes a deal and adds a review. The listing is created live each time so each
      * offer targets a different listing, satisfying the one-review-per-deal rule.
      */
-    private Review review(String seller, String buyer, int rating) {
+    private Review review(String seller, int rating) {
         SaleListing listing = Fixtures.live(Fixtures.sale(support.store, seller, 100));
-        Offer offer = support.store.addOffer(new PriceOffer(listing.getId(), buyer, 100));
+        Offer offer = support.store.addOffer(new PriceOffer(listing.getId(), "bea", 100));
         offer.accept(support.store.now());
         offer.complete(support.store.now());
         return support.store.addReview(new Review(offer.getId(), rating, "comment"));
     }
 
-    private List<Notification> notificationsOf(String username, NotificationCategory category) {
+    private List<Notification> notificationsOf(String username) {
         return support.store.getNotificationsFor(username).stream()
-                .filter(n -> n.getCategory() == category).toList();
+                .filter(n -> n.getCategory() == NotificationCategory.ANNOUNCEMENT).toList();
     }
-
     // ---------- Task 3.8: list and filters (6.5) ----------
 
     @Test
     void task3_8_noFilter_returnsEveryReview_includingHiddenOnes() {
-        Review r1 = review("sam", "bea", 5);
-        Review r2 = review("sam", "bea", 3);
-        review("sue", "bea", 4);
+        Review r1 = review("sam", 5);
+        Review r2 = review("sam", 3);
+        review("sue", 4);
         support.store.transaction(() -> r1.setHidden(true));            // hidden review must still appear
 
         List<Review> result = service.findReviews(ReviewFilter.none());
@@ -75,15 +74,15 @@ class AdminReputationServiceTest {
 
     @Test
     void task3_8_nullFilterIsTheSameAsNoFilter() {
-        Review r = review("sam", "bea", 5);
+        Review r = review("sam", 5);
 
         assertSame(r, service.findReviews(null).get(0));
     }
 
     @Test
     void task3_8_sellerFilter_returnsOnlyThatSellersReviews() {
-        Review sams = review("sam", "bea", 5);
-        Review sues = review("sue", "bea", 3);
+        Review sams = review("sam", 5);
+        Review sues = review("sue", 3);
 
         assertSameReviews(service.findReviews(ReviewFilter.none().withSeller("sam")), sams);
         assertSameReviews(service.findReviews(ReviewFilter.none().withSeller("SUE")), sues); // case-insensitive
@@ -92,9 +91,9 @@ class AdminReputationServiceTest {
 
     @Test
     void task3_8_ratingFilter_returnsOnlyMatchingScores() {
-        Review five = review("sam", "bea", 5);
-        review("sam", "bea", 3);
-        review("sue", "bea", 5);
+        Review five = review("sam", 5);
+        review("sam", 3);
+        review("sue", 5);
 
         List<Review> result = service.findReviews(ReviewFilter.none().withRating(5));
 
@@ -115,11 +114,11 @@ class AdminReputationServiceTest {
 
     @Test
     void task3_8_dateRange_isInclusiveOnBothEnds() {
-        Review r0 = review("sam", "bea", 5);                           // posted at DAY0
+        Review r0 = review("sam", 5);                           // posted at DAY0
         support.clock.advance(Duration.ofDays(1));
-        Review r1 = review("sam", "bea", 4);                           // posted at DAY0 + 1
+        Review r1 = review("sam", 4);                           // posted at DAY0 + 1
         support.clock.advance(Duration.ofDays(1));
-        Review r2 = review("sam", "bea", 3);                           // posted at DAY0 + 2
+        Review r2 = review("sam", 3);                           // posted at DAY0 + 2
         LocalDateTime day1 = DAY0.plusDays(1);
         LocalDateTime day2 = DAY0.plusDays(2);
 
@@ -133,11 +132,11 @@ class AdminReputationServiceTest {
 
     @Test
     void task3_8_allFiltersCombine_mustAllMatch() {
-        Review match = review("sam", "bea", 5);                        // sam, 5 stars, DAY0
-        review("sue", "bea", 5);                                        // wrong seller
-        review("sam", "bea", 3);                                        // wrong rating
+        Review match = review("sam", 5);                        // sam, 5 stars, DAY0
+        review("sue", 5);                                        // wrong seller
+        review("sam", 3);                                        // wrong rating
         support.clock.advance(Duration.ofDays(2));
-        review("sam", "bea", 5);                                        // too late
+        review("sam", 5);                                        // too late
 
         ReviewFilter filter = ReviewFilter.none()
                 .withSeller("sam").withRating(5).withDateRange(DAY0, DAY0.plusDays(1));
@@ -149,7 +148,7 @@ class AdminReputationServiceTest {
     void task3_8_noResults_returnsEmptyList_notAnError() {
         assertTrue(service.findReviews(ReviewFilter.none()).isEmpty());
 
-        review("sam", "bea", 4);
+        review("sam", 4);
         assertTrue(service.findReviews(ReviewFilter.none().withRating(1)).isEmpty());
     }
 
@@ -157,7 +156,7 @@ class AdminReputationServiceTest {
 
     @Test
     void task3_8_6_6_basicFlow_hidesReview_recordsAudit_notifiesBuyerAndSeller() {
-        Review r = review("sam", "bea", 1);
+        Review r = review("sam", 1);
         assertFalse(r.isHidden());
         support.clock.advance(Duration.ofHours(1));
 
@@ -175,19 +174,19 @@ class AdminReputationServiceTest {
         assertNotNull(entry.getLogReference());
         assertEquals(support.clock.now(), entry.getActionDate());
 
-        List<Notification> toBuyer = notificationsOf("bea", NotificationCategory.ANNOUNCEMENT);
+        List<Notification> toBuyer = notificationsOf("bea");
         assertEquals(1, toBuyer.size());
         assertTrue(toBuyer.get(0).getContent().contains("hidden"));
 
-        List<Notification> toSeller = notificationsOf("sam", NotificationCategory.ANNOUNCEMENT);
+        List<Notification> toSeller = notificationsOf("sam");
         assertEquals(1, toSeller.size());
         assertTrue(toSeller.get(0).getContent().contains("hidden"));
     }
 
     @Test
     void task3_8_6_6_hidingAReview_excludesItFromTheSellerAverageRating() {
-        review("sam", "bea", 5);
-        Review low = review("sam", "bea", 1);
+        review("sam", 5);
+        Review low = review("sam", 1);
         assertEquals(3.0, support.store.getAverageRating("sam").getAsDouble());
 
         service.hideReview(low.getId(), "Spam");
@@ -201,20 +200,20 @@ class AdminReputationServiceTest {
     @NullAndEmptySource
     @ValueSource(strings = {"   "})
     void task3_8_A1_reasonRequired_hideWithoutReasonChangesNothing(String reason) {
-        Review r = review("sam", "bea", 1);
+        Review r = review("sam", 1);
 
         ServiceException e = assertThrows(ServiceException.class, () -> service.hideReview(r.getId(), reason));
 
         assertEquals("A reason is required to hide a review.", e.getMessage());
         assertFalse(r.isHidden());
         assertTrue(support.store.getAuditLog().isEmpty());
-        assertTrue(notificationsOf("bea", NotificationCategory.ANNOUNCEMENT).isEmpty());
-        assertTrue(notificationsOf("sam", NotificationCategory.ANNOUNCEMENT).isEmpty());
+        assertTrue(notificationsOf("bea").isEmpty());
+        assertTrue(notificationsOf("sam").isEmpty());
     }
 
     @Test
     void task3_8_6_6_hideAlreadyHiddenReview_isRefused() {
-        Review r = review("sam", "bea", 1);
+        Review r = review("sam", 1);
         service.hideReview(r.getId(), "Spam");
         int auditCountAfterFirst = support.store.getAuditLog().size();
 
@@ -239,7 +238,7 @@ class AdminReputationServiceTest {
 
     @Test
     void task3_8_noSession_listAndHideAreDenied() {
-        Review r = review("sam", "bea", 5);
+        Review r = review("sam", 5);
         support.logout();
 
         assertThrows(AccessDeniedException.class, () -> service.findReviews(ReviewFilter.none()));
@@ -250,7 +249,7 @@ class AdminReputationServiceTest {
 
     @Test
     void task3_8_buyerSession_listAndHideAreDenied() {
-        Review r = review("sam", "bea", 5);
+        Review r = review("sam", 5);
         support.loginAsBuyer();
 
         assertThrows(AccessDeniedException.class, () -> service.findReviews(ReviewFilter.none()));
@@ -261,7 +260,7 @@ class AdminReputationServiceTest {
 
     @Test
     void task3_8_sellerSession_listAndHideAreDenied() {
-        Review r = review("sam", "bea", 5);
+        Review r = review("sam", 5);
         support.loginAsSeller();
 
         assertThrows(AccessDeniedException.class, () -> service.findReviews(ReviewFilter.none()));
@@ -270,6 +269,114 @@ class AdminReputationServiceTest {
         assertTrue(support.store.getAuditLog().isEmpty());
     }
 
+    // ---------- Task 3.8 N1: findReviewsForSeller coverage ----------
+
+    @Test
+    void task3_8_findReviewsForSeller_exactSellerMatch_doesNotMatchPrefix() {
+        Fixtures.seller(support.store, "samuel");
+        Review sams = review("sam", 5);
+        review("samuel", 3);
+
+        assertSameReviews(service.findReviewsForSeller("sam", ReviewFilter.none()), sams);
+    }
+
+    @Test
+    void task3_8_findReviewsForSeller_sellerMatchIsCaseInsensitive() {
+        Review sams = review("sam", 5);
+
+        assertSameReviews(service.findReviewsForSeller("SAM", ReviewFilter.none()), sams);
+        assertSameReviews(service.findReviewsForSeller("Sam", ReviewFilter.none()), sams);
+    }
+
+    @Test
+    void task3_8_findReviewsForSeller_includesHiddenReviews() {
+        Review hidden = review("sam", 2);
+        support.store.transaction(() -> hidden.setHidden(true));
+
+        assertTrue(service.findReviewsForSeller("sam", ReviewFilter.none()).contains(hidden));
+    }
+
+    @Test
+    void task3_8_findReviewsForSeller_rating0_isRefused() {
+        ServiceException e = assertThrows(ServiceException.class,
+                () -> service.findReviewsForSeller("sam", ReviewFilter.none().withRating(0)));
+        assertEquals("The rating filter must be between 1 and 5.", e.getMessage());
+    }
+
+    @Test
+    void task3_8_findReviewsForSeller_rating6_isRefused() {
+        ServiceException e = assertThrows(ServiceException.class,
+                () -> service.findReviewsForSeller("sam", ReviewFilter.none().withRating(6)));
+        assertEquals("The rating filter must be between 1 and 5.", e.getMessage());
+    }
+
+    @Test
+    void task3_8_findReviewsForSeller_rating1And5_areAccepted() {
+        Review one = review("sam", 1);
+        Review five = review("sam", 5);
+
+        assertSameReviews(service.findReviewsForSeller("sam", ReviewFilter.none().withRating(1)), one);
+        assertSameReviews(service.findReviewsForSeller("sam", ReviewFilter.none().withRating(5)), five);
+    }
+
+    @Test
+    void task3_8_findReviewsForSeller_dateRange_isInclusiveAtBothEnds() {
+        LocalDateTime start = support.clock.now();
+        Review atStart = review("sam", 5);
+
+        support.clock.advance(Duration.ofDays(1));
+        Review inMiddle = review("sam", 4);
+
+        support.clock.advance(Duration.ofDays(1));
+        LocalDateTime end = support.clock.now();
+        Review atEnd = review("sam", 3);
+
+        List<Review> result = service.findReviewsForSeller("sam",
+                ReviewFilter.none().withDateRange(start, end));
+
+        assertEquals(3, result.size());
+        assertTrue(result.containsAll(List.of(atStart, inMiddle, atEnd)));
+    }
+
+    @Test
+    void task3_8_findReviewsForSeller_nullFilter_returnsAllForSellerOnly() {
+        Review r1 = review("sam", 5);
+        Review r2 = review("sam", 3);
+        review("sue", 4);
+
+        assertSameReviews(service.findReviewsForSeller("sam", null), r1, r2);
+    }
+
+    @Test
+    void task3_8_findReviewsForSeller_sortedNewestFirst() {
+        Review older = review("sam", 5);
+        support.clock.advance(Duration.ofHours(1));
+        Review newer = review("sam", 3);
+
+        assertEquals(List.of(newer, older),
+                service.findReviewsForSeller("sam", ReviewFilter.none()));
+    }
+
+    @Test
+    void task3_8_findReviewsForSeller_noSession_isDenied() {
+        support.logout();
+        assertThrows(AccessDeniedException.class,
+                () -> service.findReviewsForSeller("sam", ReviewFilter.none()));
+    }
+
+    @Test
+    void task3_8_findReviewsForSeller_buyerSession_isDenied() {
+        support.loginAsBuyer();
+        assertThrows(AccessDeniedException.class,
+                () -> service.findReviewsForSeller("sam", ReviewFilter.none()));
+    }
+
+    @Test
+    void task3_8_findReviewsForSeller_sellerSession_isDenied() {
+        support.loginAsSeller();
+        assertThrows(AccessDeniedException.class,
+                () -> service.findReviewsForSeller("sam", ReviewFilter.none()));
+    }
     // ---------- helpers ----------
 
     private static void assertSameReviews(List<Review> actual, Review... expected) {

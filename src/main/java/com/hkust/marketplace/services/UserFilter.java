@@ -13,23 +13,28 @@ import java.time.LocalDateTime;
  * @param active   TRUE for active accounts only, FALSE for deactivated accounts only, null for both
  * @param fromDate first registration moment, inclusive, or null
  * @param toDate   last registration moment, inclusive, or null
+ * @param text     search text for username or full name, or null
  */
-public record UserFilter(UserRole role, Boolean active, LocalDateTime fromDate, LocalDateTime toDate) {
+public record UserFilter(UserRole role, Boolean active, LocalDateTime fromDate,
+                         LocalDateTime toDate, String text) {
 
-    /** No filter: every buyer and seller. */
     public static UserFilter none() {
-        return new UserFilter(null, null, null, null);
+        return new UserFilter(null, null, null, null, null);
     }
 
-    public UserFilter withRole(UserRole value) {
-        return new UserFilter(value, active, fromDate, toDate);
+    public UserFilter withRole(UserRole role) {
+        return new UserFilter(role, active, fromDate, toDate, text);
     }
 
-    public UserFilter withActive(Boolean value) {
-        return new UserFilter(role, value, fromDate, toDate);
+    public UserFilter withActive(Boolean active) {
+        return new UserFilter(role, active, fromDate, toDate, text);
     }
 
-    public UserFilter withRegistrationRange(LocalDateTime from, LocalDateTime to) {
-        return new UserFilter(role, active, from, to);
+    public UserFilter withRegistrationRange(LocalDateTime fromDate, LocalDateTime toDate) {
+        return new UserFilter(role, active, fromDate, toDate, text);
+    }
+
+    public UserFilter withText(String text) {
+        return new UserFilter(role, active, fromDate, toDate, text);
     }
 }

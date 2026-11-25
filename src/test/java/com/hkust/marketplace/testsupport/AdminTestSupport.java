@@ -15,11 +15,13 @@ public class AdminTestSupport {
     public final TestClock clock;
     public final DataStore store;
     public final Admin admin;
+    public final Admin ada2;
 
     public AdminTestSupport() {
         clock = Fixtures.clock();
         store = Fixtures.store(clock);
         admin = Fixtures.admin(store, "ada");
+        ada2 = Fixtures.admin(store, "ada2");
         Fixtures.seller(store, "sam");
         Fixtures.buyer(store, "bea");
     }
@@ -38,4 +40,6 @@ public class AdminTestSupport {
     public SaleListing liveSale() {
         return Fixtures.live(Fixtures.sale(store, "sam", 100));
     }
+
+    
 }

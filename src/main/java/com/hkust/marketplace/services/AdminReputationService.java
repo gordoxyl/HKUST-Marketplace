@@ -59,9 +59,7 @@ public class AdminReputationService {
         AccessControl.requireAdmin();
         ReviewFilter f = filter == null ? ReviewFilter.none() : filter;
 
-        if (f.rating() != null && (f.rating() < Review.MIN_RATING || f.rating() > Review.MAX_RATING)) {
-            throw new ServiceException("The rating filter must be between 1 and 5.");
-        }
+        checkRating(f);
         String sellerText = normalise(f.seller());
 
         return store.read(() -> store.getAllReviews().stream()
@@ -101,25 +99,36 @@ public class AdminReputationService {
 
             String buyerUsername = store.getBuyerUsername(review);
             String sellerUsername = store.getSellerUsername(review);
-            String reviewer = store.getReviewerName(review); // 已刪除買家會顯示 "Deleted User"
+            String reviewer = store.getReviewerName(review); // "Deleted User" if the buyer's account was deleted
             String itemTitle = store.getListingOf(store.findOffer(review.getOfferId())).getTitle();
 
             store.addAuditLogEntry(new AuditLogEntry(
                     admin.getUsername(), sellerUsername, "Hide review", cleanReason, null));
 
-            // 只有買家還在才發通知
-            if (store.findUser(buyerUsername) != null) {
-                notifications.send(buyerUsername, NotificationCategory.ANNOUNCEMENT,
-                        "Your review of " + store.getFullName(sellerUsername) + " for '" + itemTitle
-                                + "' was hidden by an administrator. Reason: " + cleanReason);
-            }
-            // 賣家的通知使用 reviewer 變數
+            // NotificationService.send skips a deleted account, so no existence check is needed
+            notifications.send(buyerUsername, NotificationCategory.ANNOUNCEMENT,
+                    "Your review of " + store.getFullName(sellerUsername) + " for '" + itemTitle
+                            + "' was hidden by an administrator. Reason: " + cleanReason);
+            // The seller's notice names the reviewer
             notifications.send(sellerUsername, NotificationCategory.ANNOUNCEMENT,
                     "A review of you by " + reviewer + " for '" + itemTitle
                             + "' was hidden by an administrator. Reason: " + cleanReason);
         });
     }
+    /** Returns all reviews (including hidden) written about exactly {@code sellerUsername}. */
+    public List<Review> findReviewsForSeller(String sellerUsername, ReviewFilter filter) {
+        AccessControl.requireAdmin();
+        ReviewFilter f = filter == null ? ReviewFilter.none() : filter;
+        checkRating(f);
 
+        return store.read(() -> store.getAllReviews().stream()
+                .filter(r -> store.getSellerUsername(r).equalsIgnoreCase(sellerUsername))
+                .filter(r -> f.rating() == null || r.getRating() == f.rating())
+                .filter(r -> f.fromDate() == null || !r.getReviewDate().isBefore(f.fromDate()))
+                .filter(r -> f.toDate() == null || !r.getReviewDate().isAfter(f.toDate()))
+                .sorted(Comparator.comparing(Review::getReviewDate).reversed())
+                .toList());
+    }
     // ---------- helpers ----------
 
     private static String normalise(String text) {
@@ -132,5 +141,11 @@ public class AdminReputationService {
             throw new ServiceException(message);
         }
         return reason.strip();
+    }
+
+    private static void checkRating(ReviewFilter f) {
+        if (f.rating() != null && (f.rating() < Review.MIN_RATING || f.rating() > Review.MAX_RATING)) {
+            throw new ServiceException("The rating filter must be between 1 and 5.");
+        }
     }
 }

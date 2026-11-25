@@ -8,6 +8,7 @@ import java.util.List;
 import com.hkust.marketplace.data.DeletedAccount;
 
 import java.util.Objects;
+import java.util.Locale;
 /**
  * Control class for Manage All User Accounts (Task 3.3): view the user list, view one user,
  * edit, deactivate and activate. Every method starts with the admin role check, and every
@@ -51,10 +52,19 @@ public class AdminUserService {
             return List.of();
         }
 
+
+        String query = f.text() == null ? "" : f.text().strip().toLowerCase(Locale.ROOT);
+
         return store.read(() -> store.getAllUsers().stream()
                 .filter(u -> !(u instanceof Admin))
                 .filter(u -> f.role() == null || u.getRole() == f.role())
                 .filter(u -> f.active() == null || u.isActive() == f.active())
+
+
+                .filter(u -> query.isEmpty()
+                        || u.getUsername().toLowerCase(Locale.ROOT).contains(query)
+                        || u.getFullName().toLowerCase(Locale.ROOT).contains(query))
+
                 .filter(u -> f.fromDate() == null || !u.getCreatedAt().isBefore(f.fromDate()))
                 .filter(u -> f.toDate() == null || !u.getCreatedAt().isAfter(f.toDate()))
                 .toList());
@@ -158,6 +168,9 @@ public class AdminUserService {
                     admin.getUsername(), user.getUsername(), "Edit account", null, null));
             notifications.send(user.getUsername(), NotificationCategory.ACCOUNT_CHANGE,
                     "An administrator updated your account details.");
+
+            notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,
+                    AccountNotices.edited(user, admin));
         });
     }
 
@@ -215,6 +228,8 @@ public class AdminUserService {
                     admin.getUsername(), username, "Deactivate account", cleanReason, null));
             notifications.send(username, NotificationCategory.ACCOUNT_CHANGE,
                     "Your account has been deactivated. Reason: " + cleanReason);
+            notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,
+                    AccountNotices.deactivated(user, admin, cleanReason));
         });
     }
 
@@ -243,6 +258,8 @@ public class AdminUserService {
                     admin.getUsername(), username, "Activate account", null, null));
             notifications.send(username, NotificationCategory.ACCOUNT_CHANGE,
                     "Your account has been activated.");
+            notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,
+                    AccountNotices.activated(user, admin));
         });
     }
 
@@ -267,6 +284,9 @@ public class AdminUserService {
 
             store.addAuditLogEntry(new AuditLogEntry(admin.getUsername(), username,
                     "Delete account", cleanReason, deleted.snapshot()));
+
+            notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,
+                    AccountNotices.deleted(user, admin, cleanReason));
 
             for (Offer offer : deleted.declinedOffers()) {
                 Listing listing = store.getListingOf(offer);

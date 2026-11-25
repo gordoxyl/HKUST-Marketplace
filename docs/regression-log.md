@@ -156,27 +156,30 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 ## R13: Hiding a review left the admin's review list unchanged
 
 - **Area / owner:** **admin** (`controllers/admin/AdminDashboardController.showSellerReviews`), Jack's. Seen on Seller Ratings → View Reviews → Hide.
-- **Found:** 2026-11-24, in Gordon's review of 4727541 (off-screen reproduction). **Fixed:** <date>.
+- **Found:** 2026-11-24, in Gordon's review of 4727541 (off-screen reproduction). **Fixed:** 2026-11-25 (dbc1c41).
 - **Input:** as admin, Seller Ratings → View Reviews of `charlie` → Hide on bob's review → reason "Spam" → OK.
 - **Correct output:** "Review hidden", then the row shows "Hidden" and has no Hide button.
 - **Output before the fix:** the review was hidden in the store but the list was not reloaded: `NullPointerException: Cannot invoke "java.lang.Runnable.run()" because "refreshRef[0]" is null`. The Hide button stayed; pressing it again said "This review is already hidden."
 - **Cause:** the row's reload used `refreshRef[0]`, which was declared but never assigned.
 - **Fix:** `refreshRef[0] = refresh;` after the refresh lambda, as `showUsers` does.
-- **Test:** acceptance scenario <AT-ID> (hiding a review updates the list).
+- **Test:** acceptance scenario AT-UC4A-11 (hiding a review updates the list).
 
 ---
 
 ## R14: Editing a lend listing changed its lending duration
 
 - **Area / owner:** **admin** (`controllers/admin/AdminDashboardController.showListingForm`), Jack's. Seen on All Listings → Edit on a Lend listing.
-- **Found:** 2026-11-24, in Gordon's review of 4727541 (off-screen reproduction). **Fixed:** <date>.
+- **Found:** 2026-11-24, in Gordon's review of 4727541 (off-screen reproduction). **Fixed:** 2026-11-25 (dbc1c41).
 - **Input:** a Live lend listing of 36 hours → Edit → change nothing → OK.
 - **Correct output:** the lending duration stays 36 hours.
 - **Output before the fix:** the form showed "1" days and saved 24 hours. A 10-second listing showed "0" days, and every edit was refused with "The duration must be positive."
 - **Cause:** the form pre-filled `getLendingDuration().toDays()` with the unit "days", which drops hours, minutes and seconds.
 - **Fix:** the field is left empty when editing (empty keeps the duration), and its prompt shows the current duration.
-- **Test:** acceptance scenario <AT-ID> (editing a short lend listing keeps its duration).
+- **Test:** acceptance scenario AT-UC4A-12 (editing a short lend listing keeps its duration).
 
+---
+
+## Tooling notes (not code bugs, so no test)
 
 ### T1: `mvnw test` passed on outdated compiled tests
 

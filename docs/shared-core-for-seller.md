@@ -40,11 +40,11 @@ the client (TA) answered differently: `docs/client-answers.md` wins over the spe
 |---|---|---|
 | Register as Seller (2.1), Login (2.2) | `AuthService.registerSeller`, `AuthService.login`; screens wired | done |
 | Manage Profile (2.6) | `ProfileService.updateSellerProfile`, shared `ui/ProfileView`, wired | done; page title "Manage Profile" |
-| Notification Board (2.7) | `NotificationService`, shared `ui/NotificationBoard`, wired | done; page title "Notification Board"; the seller services send the notices |
-| Chat (2.5 "open the linked chat thread") | `ChatService`, `ui/ChatView`, `ui/ChatList`, "Chats" sidebar button wired; under Send, the seller's link **Respond in Offers & Requests (n)** (`ChatView.setOnRespondToOffers`); `services/OfferAction` for the screen's buttons | done (52df814): every chat has the link, which opens Offers & Requests with the chat's offers marked; Open Chat on an offer has a Back button (see "From the chat to Offers & Requests") |
-| Create Listing (2.3) | models, `store.addListing`, `PhotoService.importPhoto` | done (`CreateListingService`); follow-up in §9 |
-| My Listings (2.4) | `ui/ListingCard` already used; `Listing` state machine; `DealRules.declineOpenOffers` | done (`SellerListingService`); client answer #5 (52df814): an edited Live listing with no open offers stays Live |
-| Manage Offers & Requests (2.5) | `DealRules.accept`, offer model methods, `ui/OfferText` | done (`SellerOfferService`); buttons from `OfferAction`; the counter price is parsed with `Amounts.parse` in the service |
+| Notification Board (2.7) | `NotificationService`, shared `ui/NotificationBoard` and `ui/NotificationDot`, wired | done; page title "Notification Board"; the seller services send the notices; the unread dot on every page (PR #27) |
+| Chat (2.5 "open the linked chat thread") | `ChatService`, `ui/ChatView`, `ui/ChatList`, "Chats" sidebar button wired; under Send, the seller's link **Respond in Offers & Requests (n)** (`ChatView.setOnRespondToOffers`); `services/OfferAction` for the screen's buttons | done (52df814): every chat has the link, which opens Offers & Requests with the chat's offers marked; Open Chat on an offer opens the chat screen, with the list beside it and Back to Offers & Requests (`ChatList.openFrom`, PR #27) |
+| Create Listing (2.3) | models, `store.addListing`, `PhotoService.importPhoto` | done (`CreateListingService`); the typed price is parsed in the service with `Amounts.parse` (regression log R18, PR #27) |
+| My Listings (2.4) | `ui/ListingCard` already used; `Listing` state machine; `DealRules.declineOpenOffers` | done (`SellerListingService`); client answer #5 (52df814): an edited Live listing with no open offers stays Live; Edit shows the price as typed, "250" (PR #27) |
+| Manage Offers & Requests (2.5) | `DealRules.accept`, offer model methods, `ui/OfferText` | done (`SellerOfferService`); buttons from `OfferAction`; the counter price is typed text, parsed with `Amounts.parse` in the service (one entry point since PR #27); the counter-borrow dates read "26 Nov 2026" |
 | Seller Stats (2.8) | `store.getTotalViews / getOffersReceivedCount / getCompletedDealCount / getAverageRating / getRatingCount` | done (52df814): `SellerStatsService` and `SellerStats`; a bar chart per listing, a pie chart by type, A1-A3 |
 | Reviews (2.9) | `store.getReviewsForSeller`, `store.getReviewerName`, `Review.reply`, `Review.flag` | done (52df814): `SellerReviewService`; one reply, which the buyer gets as `REVIEW_REPLY`; one flag, which the admins get |
 
@@ -148,10 +148,12 @@ Sending to an account the admin deleted returns null and is not an error.
 
 ### `ChatService` (UC6; buyer and seller)
 ```java
-// "Open chat" on an incoming offer (Manage Offers & Requests 3.6); host is the dashboard (ContentHost)
-void openChat(ChatService chatService, ContentHost host, Offer offer) {
+// "Open Chat" on an incoming offer (Manage Offers & Requests 3.6), as SellerDashboardController does it: the shared
+// chat screen, with the seller's chats beside the chat and a Back link; host is the dashboard (ContentHost)
+void openChat(ChatService chatService, ContentHost host, Offer offer,
+              java.util.function.Consumer<ChatView> addOfferLink, Runnable backToOffers) {
     Conversation chat = chatService.openForOffer(offer.getId());
-    host.show(ChatText.title(chat), new ChatView(chatService, chat));
+    new ChatList(chatService, host, addOfferLink).openFrom(chat, "Back to Offers & Requests", backToOffers);
 }
 ```
 Also `getMyConversations()` (the Chats screen, already wired), `send(chat, text)`, `search(chat, keyword)`,
@@ -327,47 +329,50 @@ void declineAsksFirst() { // app = OffScreenApp.start() in @BeforeAll, app.reset
 ```
 To fill in and submit a dialog instead, give its answer before the step: `app.answer("Decline borrow request", form -> form.press("OK"))`. The screens use the app's store, which in a test run is a temporary folder with the demo data, shared by all screen tests (storage manual §9.8). Do not depend on what another test changed; a test that changes data adds its own with `testsupport/ScreenData`. Examples to copy: `controllers/buyer/MakeOfferScreensTest`, `MyDealsScreensTest`.
 
-## 9. Known gaps on the seller side (as of 2026-11-25)
+## 9. Known gaps on the seller side (as of 2026-11-25, late night)
 
 Tasks 2.1 to 2.9 are all merged:
 - PR #11: `CreateListingService`, `SellerListingService`, `SellerOfferService`.
 - PR #21 (52df814): the chat's link to Offers & Requests; Seller Stats (`SellerStatsService`); Reviews & Feedback (`SellerReviewService`); client answer #5. The buyer's "seller replied" notification (Task 1.8) now arrives.
+- PR #27 (1ddf152), the follow-ups:
+  - the unread dot (§10);
+  - Open Chat on an offer in the chat screen (`ChatList.openFrom`);
+  - the listing price parsed at the service barricade (`ListingFormRules.requirePriceText` with `Amounts.parse`, regression log R18) and shown on Edit as typed ("250");
+  - one `counterPrice` entry point;
+  - the counter-borrow date pickers in the shared format;
+  - "Giveaway", `Formats.stars` and `Listing.MAX_PHOTOS`;
+  - no unused imports.
 
-Follow-ups, none of them blocking:
-- **Unused imports** that IntelliJ's commit check reports: `SellerOfferServiceTest` (`Category`, `ItemCondition`, `MeetupLocation`) and `SellerStatsServiceTest` (`Offer`).
-- **One `counterPrice` entry point.** The screen calls `counterPrice(String offerId, String typedPrice)`. The `double` overload is left only for `SellerOfferServiceTest` and `OfferActionTest`: let them pass text, and delete it, so every caller goes through `Amounts.parse`.
-- **The Create Listing price is parsed in the screen.** `SellerDashboardController.parsePrice` uses `Double.parseDouble`, which accepts "1e3" or "NaN". Parse the typed text with `Amounts.parse` in the service, as the counter price is.
-- **The counter-borrow date pickers.** They show dates in the computer's locale, unlike every other screen ("26 Nov 2026"): give them `Formats.datePickerConverter()`. They also read only `getValue()`, so a date typed without Enter can be lost; `controllers/buyer/OfferDialogs.shownDate` reads the editor's text.
+Still open:
+- **R18's named test.** The regression log names `SellerScreensTest.r18_aListingPriceIsAPlainAmount_likeEveryOtherPrice`, which is not in the repository yet. `CreateListingServiceTest.priceMustBeAPositiveNumber` tests the same inputs at the barricade. Commit the class, or name that test in the entry.
+- **The submission:** run the seller acceptance scenarios (Create Listing to Manage Reviews, AT-CHAT-06 to 11 and AT-CHAT-19) on `main` and record the results; they are the script for the seller screenshots.
 - **Screen reads of `DataStore`** (BCE, optional): buyer names on offer rows, and each review's writer and listing title, are read in `SellerDashboardController`. Return them from the services instead.
-- **The submission:** run the seller acceptance scenarios (Create Listing to Manage Reviews, and AT-CHAT-06 to 11) on `main`; they are the script for the seller screenshots.
-- **Wording:** the Create Listing error "Choose Sell, Lend or Give Away first." says "Give Away" where the type buttons
-  and the cards say "Giveaway" (so do AT-2.3-03, AT-2.3-04 and AT-2.8-04); Reviews & Feedback draws its stars by hand
-  instead of with `Formats.stars` (same look).
-- **The shared UI's wiring** in §10: the unread dot, and Open Chat on an offer through `openFrom`.
 - **Already right:** at the app's window size, no seller page cuts a button or label short (`PortalScreensTest`).
 
 ## 10. Added on 25 Nov 2026: the shared UI changes, and what the seller portal adds
 
-Five UI changes were made in the shared core, the same in every portal (assumptions registers 89 to 93). Most need
-nothing from you:
+Five UI changes were made in the shared core, the same in every portal (assumptions registers 89 to 93). The seller
+portal has all of them since PR #27:
 - **Nothing to do:**
   - the Notification Board has **Mark all as read** (while anything is unread) and a **category filter**;
   - the Chats page is now the **chat screen**: your chats in a list beside the open chat, a button that hides and
     shows the list, and **Back to Chats** above a chat chosen there. Your
     `new ChatList(new ChatService(), this, this::addOfferLink)` stays as it is: `addOfferLink` runs on every chat
     the screen opens.
-- **Two lines for the unread dot** (the red number on the sidebar's Notifications button):
+- **The unread dot** (the red number on the sidebar's Notifications button): three lines in
+  `SellerDashboardController` (PR #27):
   - at the end of `initialize()`: `NotificationDot.attach(btnNotifications, new NotificationService());`
+  - at the end of `setActive(Button btn, String title)`: `NotificationDot.update();`
   - at the end of `show(String title, Node content)`: `NotificationDot.update();`
 
-  The board updates it after marking, and `LiveUpdates` after the timer's changes; nothing else to call.
-- **Offers & Requests → Open Chat** (`openOfferChat`), so that chat opens in the same chat screen, with the list
-  beside it and Back to Offers & Requests above. After `ChatService service = new ChatService();`, replace the
-  lines that build the `ChatView`, add the link and show it in a `SubScreen` with:
+  My Listings, Create Listing, Offers & Requests, Seller Stats and Reviews & Feedback fill `contentPane` themselves
+  and never call `show(...)`, so the update in `setActive` is the one that runs on every page. After Submit for
+  Review, for example, the seller's own confirmation shows on the dot at once. The board updates the dot after
+  marking, and `LiveUpdates` after the timer's changes; nothing else calls it.
+- **Offers & Requests → Open Chat** (`openOfferChat`) opens the same chat screen, with the list beside it and Back
+  to Offers & Requests above (PR #27):
   - `Conversation chat = service.openForOffer(offer.getId());`
   - `new ChatList(service, this, this::addOfferLink).openFrom(chat, "Back to Offers & Requests", this::showOffers);`
-
-  Then remove the imports this leaves unused.
 - **Check:**
   - log in as `charlie` after a reset: the dot says 2; on the board, Mark all as read removes it;
   - AT-CHAT-19, and Open Chat on an offer: the list is beside the chat, and Back returns to Offers & Requests.

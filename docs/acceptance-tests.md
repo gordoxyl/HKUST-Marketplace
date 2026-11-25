@@ -109,7 +109,7 @@ and `ChatServiceTest`.
 | AT-CHAT-16 | Back to Chats | Press ← Back to Chats. | The Chats page as in AT-CHAT-12: the list alone, nothing marked, the title Chats. | |
 | AT-CHAT-17 | Writing moves the chat up | Open the Calculus chat (now second in the list), write "Is it still available?" and press Send. | The message appears in the chat, and the chat moves to the top of the list with the message as its preview. | |
 | AT-CHAT-18 | From a listing, from a deal | Browse → IKEA Desk Lamp → Chat with Seller, then press Back. Then My Deals → Open Chat on the Calculus Textbook, then press Back. | Each time the same chat screen, with the list beside the chat. Back reads **← Back to listing** and returns to the listing, then **← Back to My Deals** and returns to My Deals; never Back to Chats. | |
-| AT-CHAT-19 | Seller: the same screen | As `charlie`, open Chats and open Alice's chat about the Calculus Textbook. | The same screen as in AT-CHAT-12 to 16; while an offer is waiting, the chat has the link of AT-CHAT-06 under Send. *(Offers & Requests → Open Chat shows the list beside the chat once the seller portal opens it with `openFrom`.)* | |
+| AT-CHAT-19 | Seller: the same screen | As `charlie`, open Chats and open Alice's chat about the Calculus Textbook. Then open Offers & Requests and press Open Chat on any offer. | The same screen as in AT-CHAT-12 to 16; while an offer is waiting, the chat has the link of AT-CHAT-06 under Send. Open Chat opens the same screen, with the list beside the chat and "← Back to Offers & Requests" above; Back returns to Offers & Requests. | |
 
 ## UC7 Manage My Deals (Task 1.6)
 
@@ -234,7 +234,7 @@ only marking does (UC4 Special Requirement 3). Run in order after a reset. The a
 | AT-UC4-05 | Marking one keeps the filter | Press Mark as read on it. | It turns grey and loses Unread and its button. The heading says 1 unread notification, the dot 1, and the box still says New Message. | |
 | AT-UC4-06 | Mark all as read | Choose All categories, and press Mark all as read. | No question is asked. "No unread notifications"; no Mark as read button and no Mark all as read; the dot is gone. Both notices are still on the board. | |
 | AT-UC4-07 | The timer raises it at once | Run AT-UC12-01 and keep Alice's dashboard open on any screen. | When the Due-Date Reminder arrives, the dot rises by 1 without a click. | |
-| AT-UC4-08 | The other portals | As `charlie`, then `diana`, then `admin`, open the Notification Board. | The same board: the filter offers each user's own categories, and Mark all as read works as in AT-UC4-06. *(The dot appears once the seller and admin portals add their two lines: see the guides.)* | |
+| AT-UC4-08 | The other portals | As `charlie`, then `diana`, then `admin`, open the Notification Board. | The same board: the filter offers each user's own categories, and Mark all as read works as in AT-UC4-06. For `charlie` and `diana`, the dot counts and clears as in AT-UC4-01 to 06. *(The admin's dot appears once the admin portal adds its three lines: see the admin guide.)* | |
 
 ## UC4 View Notifications, admin: the accounts' history (Task 3.6; client question F4)
 

@@ -25,24 +25,23 @@ import com.hkust.marketplace.services.ListingFilter;
 import com.hkust.marketplace.services.ServiceException;
 import com.hkust.marketplace.ui.Dialogs;
 import com.hkust.marketplace.ui.LiveUpdates;
+
 import java.util.Optional;
-
-
 
 import com.hkust.marketplace.services.AdminUserService;
 import com.hkust.marketplace.services.UserFilter;
 import com.hkust.marketplace.ui.Formats;
 
-
 import com.hkust.marketplace.services.UserDetails;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.TextArea;
+
 import java.util.stream.Collectors;
 
 import com.hkust.marketplace.services.ListingDetails;
+
 import java.time.Duration;
 import java.time.LocalTime;
-
 
 import com.hkust.marketplace.services.AdminDealService;
 import com.hkust.marketplace.services.DealDetails;
@@ -50,33 +49,35 @@ import com.hkust.marketplace.services.DealFilter;
 import com.hkust.marketplace.services.DealRecord;
 import com.hkust.marketplace.services.DealState;
 import javafx.stage.FileChooser;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-
-
 
 import com.hkust.marketplace.services.AdminReputationService;
 import com.hkust.marketplace.services.ReviewFilter;
 import com.hkust.marketplace.services.SellerRating;
 
-
-
-
 import com.hkust.marketplace.services.PhotoService;
+
 import java.util.ArrayList;
 
 
 public class AdminDashboardController implements ContentHost {
-    @FXML private StackPane contentPane;
-    @FXML private Label pageTitle;
-    @FXML private Label welcomeLabel;
-    @FXML private Button btnReview, btnAllListings, btnUsers, btnDeals, btnRatings, btnNotifications, btnProfile;
+    @FXML
+    private StackPane contentPane;
+    @FXML
+    private Label pageTitle;
+    @FXML
+    private Label welcomeLabel;
+    @FXML
+    private Button btnReview, btnAllListings, btnUsers, btnDeals, btnRatings, btnNotifications, btnProfile;
 
     private Button currentActiveBtn;
     private final AdminListingService listingService = new AdminListingService();
     private final AdminUserService userService = new AdminUserService();
-    private Runnable listingsReload = () -> { };
+    private Runnable listingsReload = () -> {
+    };
     private final AdminDealService dealService = new AdminDealService();
     private List<DealRecord> currentDeals = List.of();   // the list the Export button saves
     private final AdminReputationService reputationService = new AdminReputationService();
@@ -93,14 +94,16 @@ public class AdminDashboardController implements ContentHost {
     }
 
     private void refreshCurrentScreen() {
-        if (currentActiveBtn == btnReview)           showReview();
+        if (currentActiveBtn == btnReview) showReview();
         else if (currentActiveBtn == btnAllListings) showAllListings();
-        else if (currentActiveBtn == btnUsers)       showUsers();
-        else if (currentActiveBtn == btnDeals)       showDeals();
-        else if (currentActiveBtn == btnRatings)     showRatings();
+        else if (currentActiveBtn == btnUsers) showUsers();
+        else if (currentActiveBtn == btnDeals) showDeals();
+        else if (currentActiveBtn == btnRatings) showRatings();
     }
 
-    /** Shows the logged-in admin's name. Runs again after a profile change, so a new name shows at once. */
+    /**
+     * Shows the logged-in admin's name. Runs again after a profile change, so a new name shows at once.
+     */
     private void showGreeting() {
         User user = SessionManager.getCurrentUser();
         if (user != null) welcomeLabel.setText("Admin: " + user.getFullName());
@@ -113,7 +116,9 @@ public class AdminDashboardController implements ContentHost {
         pageTitle.setText(title);
     }
 
-    /** Lets shared components open a screen here, such as a listing or a chat thread. */
+    /**
+     * Lets shared components open a screen here, such as a listing or a chat thread.
+     */
     @Override
     public void show(String title, Node content) {
         pageTitle.setText(title);
@@ -210,12 +215,12 @@ public class AdminDashboardController implements ContentHost {
 
         ComboBox<Object> categoryBox = new ComboBox<>();
         categoryBox.getItems().add("All categories");
-        categoryBox.getItems().addAll((Object[]) Category.values());
+        categoryBox.getItems().addAll( Category.values());
         categoryBox.getSelectionModel().selectFirst();
 
         ComboBox<Object> typeBox = new ComboBox<>();
         typeBox.getItems().add("All types");
-        typeBox.getItems().addAll((Object[]) ListingType.values());
+        typeBox.getItems().addAll( ListingType.values());
         typeBox.getSelectionModel().selectFirst();
 
         TextField sellerField = new TextField();
@@ -232,7 +237,7 @@ public class AdminDashboardController implements ContentHost {
 
         FlowPane filterBar = new FlowPane(10, 8, statusBox, categoryBox, typeBox, sellerField, from, to, apply, add);
         filterBar.setAlignment(Pos.CENTER_LEFT);
-        filterBar.getChildren().forEach(n -> ((Region)n).setMinWidth(Region.USE_PREF_SIZE));
+        filterBar.getChildren().forEach(n -> ((Region) n).setMinWidth(Region.USE_PREF_SIZE));
 
         FlowPane results = ListingCard.grid();
         VBox resultArea = new VBox(10);
@@ -245,7 +250,7 @@ public class AdminDashboardController implements ContentHost {
             ListingFilter filter = ListingFilter.none();
             String status = statusBox.getValue();
             if ("Reported".equals(status)) {
-                filter = filter.withReportedOnly(true);
+                filter = filter.withReportedOnly(true);// not a status: its own flag
             } else {
                 for (ListingStatus s : ListingStatus.values()) {
                     if (s.getDisplayName().equals(status)) filter = filter.withStatus(s);
@@ -391,7 +396,10 @@ public class AdminDashboardController implements ContentHost {
             if (files != null) {
                 photoIds.clear();
                 for (File f : files) {
-                    if (photoIds.size() >= Listing.MAX_PHOTOS) break;
+                    if (photoIds.size() >= Listing.MAX_PHOTOS) {
+                        Dialogs.info("Photos", "Only the first 6 photos were kept.");
+                        break;
+                    }
                     try {
                         photoIds.add(photoService.importPhoto(f.toPath()));
                     } catch (ServiceException ex) {
@@ -517,11 +525,11 @@ public class AdminDashboardController implements ContentHost {
 
             UserFilter filter = UserFilter.none();
             switch (roleBox.getValue()) {
-                case "Buyer"  -> filter = filter.withRole(UserRole.BUYER);
+                case "Buyer" -> filter = filter.withRole(UserRole.BUYER);
                 case "Seller" -> filter = filter.withRole(UserRole.SELLER);
             }
             switch (statusBox.getValue()) {
-                case "Active"      -> filter = filter.withActive(true);
+                case "Active" -> filter = filter.withActive(true);
                 case "Deactivated" -> filter = filter.withActive(false);
             }
 
@@ -728,7 +736,7 @@ public class AdminDashboardController implements ContentHost {
     }
 
 
-    private static final double COL_ACTIONS_MIN     = 100;
+    private static final double COL_ACTIONS_MIN = 100;
     private static final double COL_RETURN_DATE_MIN = 160;
 
     @FXML
@@ -742,12 +750,12 @@ public class AdminDashboardController implements ContentHost {
         // ----- filter bar (spec step 2: Status, Date range, Deal type, Seller, Buyer) -----
         ComboBox<Object> statusBox = new ComboBox<>();
         statusBox.getItems().add("All statuses");
-        statusBox.getItems().addAll((Object[]) DealState.values());
+        statusBox.getItems().addAll(DealState.values());
         statusBox.getSelectionModel().selectFirst();
 
         ComboBox<Object> typeBox = new ComboBox<>();
         typeBox.getItems().add("All types");
-        typeBox.getItems().addAll((Object[]) ListingType.values());
+        typeBox.getItems().addAll(ListingType.values());
         typeBox.getSelectionModel().selectFirst();
 
         TextField sellerField = new TextField();
@@ -767,7 +775,7 @@ public class AdminDashboardController implements ContentHost {
         FlowPane filterBar = new FlowPane(10, 8, statusBox, typeBox, sellerField, buyerField, from, to, apply, export);
 
 
-        filterBar.getChildren().forEach(n -> ((Region)n).setMinWidth(Region.USE_PREF_SIZE));
+        filterBar.getChildren().forEach(n -> ((Region) n).setMinWidth(Region.USE_PREF_SIZE));
 
         filterBar.setAlignment(Pos.CENTER_LEFT);
 
@@ -789,11 +797,13 @@ public class AdminDashboardController implements ContentHost {
         actions.setMinWidth(COL_ACTIONS_MIN);
         actions.setCellFactory(col -> new TableCell<>() {
             private final Button view = new Button("View Details");
+
             {
                 view.getStyleClass().addAll("btn-outline", "btn-sm");
                 view.setMinWidth(Region.USE_PREF_SIZE);
                 view.setOnAction(e -> showDealDetails(getTableView().getItems().get(getIndex())));
             }
+
             @Override
             protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
@@ -871,7 +881,9 @@ public class AdminDashboardController implements ContentHost {
         };
     }
 
-    /** VIEW DETAILS (spec 4.1). Only reads the record and shows it. */
+    /**
+     * VIEW DETAILS (spec 4.1). Only reads the record and shows it.
+     */
     private void showDealDetails(DealRecord record) {
         try {
             DealDetails d = dealService.getDealDetails(record.offer().getId());
@@ -965,7 +977,9 @@ public class AdminDashboardController implements ContentHost {
         return row;
     }
 
-    /** One seller's reviews (spec 6.5), with hide (6.6). */
+    /**
+     * One seller's reviews (spec 6.5), with hide (6.6).
+     */
     private void showSellerReviews(SellerRating seller) {
         setActive(btnRatings, "Reviews of @" + seller.username());
         contentPane.getChildren().clear();
@@ -1056,7 +1070,7 @@ public class AdminDashboardController implements ContentHost {
             flagged.getStyleClass().addAll("badge", "badge-pending");
             info.getChildren().add(flagged);
         }
-        // not a status: its own flag
+
         if (r.isHidden()) {
             Label hidden = new Label("Hidden");
             hidden.getStyleClass().addAll("badge", "badge-rejected");
@@ -1095,6 +1109,7 @@ public class AdminDashboardController implements ContentHost {
         setActive(btnProfile, "Manage Profile");
         show("Manage Profile", new ProfileView(new ProfileService(), this::showGreeting));
     }
+
     @FXML
     private void logout() {
         SessionManager.logout();

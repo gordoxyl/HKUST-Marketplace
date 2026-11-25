@@ -92,10 +92,11 @@ class OfferTest {
     }
 
     @Test
-    void priceOffer_rejectsNonPositivePrices() {
+    void priceOffer_rejectsPricesThatAreNotPositiveAmounts() {
         assertThrows(IllegalArgumentException.class, () -> new PriceOffer("L1", "bea", 0));
         assertThrows(IllegalArgumentException.class, () -> new PriceOffer("L1", "bea", -5));
         assertThrows(IllegalArgumentException.class, () -> new PriceOffer("L1", "bea", Double.NaN));
+        assertThrows(IllegalArgumentException.class, () -> new PriceOffer("L1", "bea", Double.POSITIVE_INFINITY));
 
         PriceOffer offer = new PriceOffer("L1", "bea", 50);
         assertThrows(IllegalArgumentException.class, () -> offer.counter(0));

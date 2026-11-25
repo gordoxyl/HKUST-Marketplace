@@ -62,10 +62,11 @@ class ModelRulesTest {
     }
 
     @Test
-    void saleListing_rejectsNonPositivePrice() {
+    void saleListing_rejectsAPriceThatIsNotAPositiveAmount() {
         assertThrows(IllegalArgumentException.class, () -> new SaleListing("sam", "Book", Category.TEXTBOOKS,
                 ItemCondition.USED, "desc", MeetupLocation.LIBRARY, 0));
         assertThrows(IllegalArgumentException.class, () -> book().setPrice(-1));
+        assertThrows(IllegalArgumentException.class, () -> book().setPrice(Double.POSITIVE_INFINITY));
     }
 
     @Test
@@ -76,6 +77,7 @@ class ModelRulesTest {
                 ItemCondition.USED, "desc", MeetupLocation.LIBRARY, Duration.ofSeconds(5));
         assertEquals("5 seconds", lend.getDurationDisplay());
         assertEquals("1 day 2 hours", LendListing.formatDuration(Duration.ofHours(26)));
+        assertEquals("0 seconds", LendListing.formatDuration(Duration.ZERO)); // boundary value
     }
 
     @Test
@@ -131,6 +133,7 @@ class ModelRulesTest {
         Review review = new Review("O1", 4, "Good");
 
         assertThrows(IllegalArgumentException.class, () -> review.reply(" "));
+        assertThrows(IllegalArgumentException.class, () -> review.reply(null));
         review.reply("Thanks!");
         assertEquals("Thanks!", review.getSellerReply());
         assertThrows(IllegalStateException.class, () -> review.reply("Again"));
@@ -142,6 +145,36 @@ class ModelRulesTest {
     void report_needsReasonAndDetails() {
         assertThrows(IllegalArgumentException.class, () -> new Report("L1", "bea", null, "details"));
         assertThrows(IllegalArgumentException.class, () -> new Report("L1", "bea", ReportReason.OTHER, " "));
+        assertThrows(IllegalArgumentException.class, () -> new Report("L1", "bea", ReportReason.OTHER, null));
+    }
+
+    // ---------- Ids: DataStore gives each record its id once, when it is added ----------
+
+    @Test
+    void records_areGivenTheirIdOnlyOnce() {
+        Listing listing = book();
+        listing.markAdded("L1", NOW);
+        Offer offer = new PriceOffer("L1", "bea", 50);
+        ChatThread thread = new ChatThread("bea", listing);
+        Notification notification = new Notification("bea", NotificationCategory.ANNOUNCEMENT, "Welcome");
+        Review review = new Review("O1", 5, "Good");
+        Report report = new Report("L1", "bea", ReportReason.OTHER, "details");
+        User user = new Buyer("bea", "Bea", "hash", null);
+
+        offer.markAdded("O1", NOW);
+        thread.markAdded("T1", NOW);
+        notification.markAdded("N1", NOW);
+        review.markAdded("R1", NOW);
+        report.markAdded("P1");
+        user.markAdded(NOW);
+
+        assertThrows(IllegalStateException.class, () -> offer.markAdded("O2", NOW));
+        assertThrows(IllegalStateException.class, () -> thread.markAdded("T2", NOW));
+        assertThrows(IllegalStateException.class, () -> notification.markAdded("N2", NOW));
+        assertThrows(IllegalStateException.class, () -> review.markAdded("R2", NOW));
+        assertThrows(IllegalStateException.class, () -> report.markAdded("P2"));
+        assertThrows(IllegalStateException.class, () -> user.markAdded(NOW));
+        assertEquals("O1", offer.getId());
     }
 
     @Test

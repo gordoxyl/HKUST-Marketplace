@@ -51,6 +51,13 @@ public class DataStore {
     public static final Path DATA_FOLDER = Path.of("marketplace-data");
 
     /**
+     * The system property that moves the app's saved data from {@link #DATA_FOLDER} to another
+     * folder. The tests set it ({@code testsupport/TestDataFolder}), so a test run that opens the
+     * app's screens never reads or changes the data in the project folder.
+     */
+    public static final String DATA_FOLDER_PROPERTY = "marketplace.dataFolder";
+
+    /**
      * How screens name the writer of a review whose account was deleted. The review is kept
      * and its writer is shown as "Deleted User" (client answer 6, 16 Nov 2026); see
      * {@link #getReviewerName}.
@@ -117,8 +124,9 @@ public class DataStore {
     }
 
     private static DataStore createAppStore() {
+        Path folder = Path.of(System.getProperty(DATA_FOLDER_PROPERTY, DATA_FOLDER.toString()));
         String fileName = DevLogin.isEnabled() ? "marketplace-dev.dat" : "marketplace.dat"; // DEV-ONLY: dev runs use their own file; make it "marketplace.dat" before release
-        DataStore store = new DataStore(Clock.systemDefaultZone(), new EncryptedJsonStorage(DATA_FOLDER.resolve(fileName)));
+        DataStore store = new DataStore(Clock.systemDefaultZone(), new EncryptedJsonStorage(folder.resolve(fileName)));
         store.loadOrSeed();
         if (store.getLoadProblem() != null) {
             // Only the app's store logs this; MarketplaceApp also shows it in a dialog

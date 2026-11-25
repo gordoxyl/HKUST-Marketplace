@@ -147,7 +147,7 @@ All passwords meet the password rules: at least 8 characters, with at least one 
   - **⚠️ Outdated for our team:** Ikonli is not in `pom.xml` and is not used by the code.
 - All data in one store, saved to an encrypted file on this computer after every change (no database server, no network); see [Saved Data](#saved-data) and [Shared Core](#shared-core-read-before-building-a-feature)
 - **Notification Board (UC4), the same in all three portals:** newest first, each with its category, content and time; unread ones marked, with Mark as read on each and **Mark all as read** while anything is unread; a **category filter** offering the categories on the user's board
-- **Unread dot:** a red dot with the number of unread notifications on the sidebar's Notifications button (buyer portal; the seller and admin portals add it with three lines, see the guides). Only marking notifications as read lowers it
+- **Unread dot:** a red dot with the number of unread notifications on the sidebar's Notifications button (buyer and seller portals; the admin portal adds it with three lines, see the admin guide). Only marking notifications as read lowers it
 - **Chat screen (UC6), the same for buyers and sellers:** the user's chats in a list beside the open chat, with a light grey line between them, newest first, with the open chat marked; the list can be hidden and shown again. Every chat has Back above it: **Back to Chats** when chosen on the Chats page, otherwise back to the screen it was opened from
 
 ### Buyer Portal
@@ -163,7 +163,7 @@ All passwords meet the password rules: at least 8 characters, with at least one 
 
 ### Seller Portal
 - Registration, Login
-- **Create Listing (Task 2.3, done):** Sell, Lend or Give Away, with category, condition, description, meet-up location, a price or a lending duration (5 seconds or more), and up to 6 photos; submitted for the admin's review
+- **Create Listing (Task 2.3, done):** Sell, Lend or Giveaway, with category, condition, description, meet-up location, a price or a lending duration (5 seconds or more), and up to 6 photos; submitted for the admin's review
 - **My Listings (Task 2.4, done):** every listing with its status; edit and delete. An edited Live listing with no open offers stays Live (client answer #5). Any other edit goes back for review, and open offers are declined with their buyers told
 - **Offers & Requests (Task 2.5, done):** every offer, borrow request and claim on the seller's listings; accept, decline, or counter with a price or a borrow period (to the second); open the linked chat. A chat's "Respond in Offers & Requests (n)" opens this screen with that chat's offers marked
 - **Seller Stats (Task 2.8, done):** views, offers received, completed deals and rating; a bar chart of views and offers per listing, and a pie chart of completed deals by type
@@ -332,7 +332,7 @@ The build **fails** if any test fails, or if **branch coverage drops below 65%**
 - **Everything**, screens included: the strict reading. The screen tests keep the screens covered; new screen code without tests lowers this figure.
 - **The measured code**: the models, data, services and utils, where all the logic lives. It leaves out the JavaFX screen controllers, `MarketplaceApp`, `SceneManager` and the dev-only `DevLogin` (the excluded list is `jacoco.ui.excludes` in `pom.xml`). Screens hold no logic of their own: they read the input, call a tested service and show the result. The screen tests open every page, and the manual acceptance tests check the flows. That only stays true if **screens stay thin**: any check, rule or calculation goes into a service with tests, never into a controller.
 
-Figures on 25 Nov 2026, with all three portals and the shared UI changes merged (PR #20 to #25): 1297 tests; measured code **96.7% branch** (97.8% line); everything, screens included, **80.6% branch** (81.8% line). By package: services 96.8%, models 98.7%, data 92.4%, shared screens (`ui`) 92.2%, buyer screens 93.5%. The seller's and admin's screens are at 16.2% and 21.1%: the screen tests only open their pages, and their logic is in their tested services.
+Figures on 25 Nov 2026, with all three portals, the shared UI changes and the seller's follow-ups merged (PR #20 to #27): 1296 tests; measured code **96.8% branch** (97.8% line); everything, screens included, **80.6% branch** (81.8% line). By package: services 96.8%, models 98.7%, data 92.4%, shared screens (`ui`) 92.2%, buyer screens 93.5%. The seller's and admin's screens are at 16.2% and 21.1%: the screen tests only open their pages, and their logic is in their tested services.
 
 ## Troubleshooting
 

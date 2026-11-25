@@ -48,7 +48,7 @@ public class ListingOverview extends VBox {
         return card;
     }
 
-    /** All the listing's photos, up to 6, in order; one empty frame if there are none. */
+    /** All the listing's photos, at most {@link Listing#MAX_PHOTOS}, in order; one empty frame if there are none. */
     private static Node photos(Listing listing, DataStore store) {
         FlowPane photos = new FlowPane(10, 10);
         for (String photoId : listing.getPhotos()) {

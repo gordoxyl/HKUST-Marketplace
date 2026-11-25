@@ -10,7 +10,7 @@ import java.util.Optional;
 
 /**
  * Adds listing photos (Create Listings step 8 and the admin's Manage Marketplace Listings:
- * up to 6 photos per listing). A photo chosen from the computer is copied into the app's own
+ * up to {@code Listing.MAX_PHOTOS} photos per listing). A photo chosen from the computer is copied into the app's own
  * storage, encrypted like the rest of the data, and the listing keeps only the photo's id:
  * <pre>{@code
  * List<String> photoIds = new ArrayList<>();

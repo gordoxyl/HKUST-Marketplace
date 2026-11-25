@@ -24,7 +24,6 @@ import com.hkust.marketplace.services.PasswordHasher;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -126,7 +125,7 @@ public final class ScreenData {
                 "the test run's data folder, which TestDataFolder sets");
         Path file = Path.of(folder, "marketplace-photos", photoId + ".img");
         try {
-            Files.write(file, "damaged".getBytes(StandardCharsets.UTF_8));
+            Files.writeString(file, "damaged");
         } catch (IOException e) {
             throw new UncheckedIOException("Could not damage " + file, e);
         }

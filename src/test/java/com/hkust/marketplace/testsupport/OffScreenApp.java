@@ -201,18 +201,39 @@ public final class OffScreenApp {
      * @return each sidebar button with the title of the page it opened, in the sidebar's order
      */
     public Map<String, String> visitEveryPage() {
+        Map<String, String> titles = new LinkedHashMap<>();
+        forEveryPage(page -> titles.put(page, pageTitle()));
+        return titles;
+    }
+
+    /**
+     * Opens every page of the sidebar in turn, except Logout, and looks for text cut short for
+     * lack of room ({@link #cutTexts()}) at the app's window size.
+     * @return the pages that cut some text, each with those texts; empty when no page does
+     */
+    public Map<String, List<String>> cutTextsOnEveryPage() {
+        Map<String, List<String>> cut = new LinkedHashMap<>();
+        forEveryPage(page -> {
+            List<String> texts = cutTexts();
+            if (!texts.isEmpty()) {
+                cut.put(page, texts);
+            }
+        });
+        return cut;
+    }
+
+    /** Opens every page of the sidebar in turn, except Logout, and runs {@code onPage} while each is shown. */
+    private void forEveryPage(Consumer<String> onPage) {
         List<String> pages = read(() -> all(root()).stream()
                 .filter(node -> node.getStyleClass().contains("sidebar-btn"))
                 .map(OffScreenApp::textOf)
                 .filter(text -> !text.equals("Logout"))
                 .toList());
-        Map<String, String> titles = new LinkedHashMap<>();
         for (String page : pages) {
             onScreen("Opening the page '" + page + "'", () -> find(root(), ButtonBase.class,
                     button -> button.getStyleClass().contains("sidebar-btn") && textOf(button).equals(page)).fire());
-            titles.put(page, pageTitle());
+            onPage.accept(page);
         }
-        return titles;
     }
 
     /**
@@ -271,6 +292,26 @@ public final class OffScreenApp {
                 .filter(node -> node.getStyleClass().contains("listing-card-title") && isShown(node))
                 .map(OffScreenApp::textOf)
                 .toList());
+    }
+
+    /**
+     * The texts of the buttons and labels shown that are cut short for lack of room, such as a
+     * "Send" button showing only "…". A screen laid out well at the app's window size has none.
+     */
+    public List<String> cutTexts() {
+        return read(() -> all(root()).stream()
+                .filter(node -> node instanceof Labeled && isShown(node))
+                .map(node -> (Labeled) node)
+                .filter(OffScreenApp::isCut)
+                .map(Labeled::getText)
+                .toList());
+    }
+
+    /** True if the label or button draws less of its text than it has: JavaFX then ends it with "…". */
+    private static boolean isCut(Labeled labeled) {
+        String text = labeled.getText();
+        return text != null && !text.isBlank() && labeled.getChildrenUnmodifiable().stream()
+                .anyMatch(drawn -> drawn instanceof Text shown && !text.equals(shown.getText()));
     }
 
     /** How many photo frames on the window show their photo. Photos load in the background. */

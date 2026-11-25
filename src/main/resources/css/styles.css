@@ -414,6 +414,13 @@
     -fx-border-width: 0 0 0 4;
     -fx-border-radius: 12;
 }
+/* The light grey line between the list of chats and the open chat (ui/ChatList) */
+.chat-divider {
+    -fx-background-color: -border;
+    -fx-min-width: 1;
+    -fx-pref-width: 1;
+    -fx-max-width: 1;
+}
 
 /* ---------- Seller portal (controllers/seller/SellerDashboardController) ---------- */
 /* One buyer's offer on Offers & Requests (Task 2.5): a line above each row */

@@ -212,8 +212,10 @@ public class ChatView extends VBox implements Refreshable {
     private Node header() {
         Label title = new Label(conversation.listing().getTitle());
         title.getStyleClass().add("listing-card-title");
+        title.setWrapText(true); // beside the list of chats, a long title takes a second line instead of being cut
         Label subtitle = new Label(ChatText.subtitle(conversation));
         subtitle.getStyleClass().add("listing-card-line");
+        subtitle.setWrapText(true);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
@@ -222,6 +224,7 @@ public class ChatView extends VBox implements Refreshable {
         searchField.setOnAction(e -> search());
         Button searchButton = new Button("Search");
         searchButton.getStyleClass().addAll("btn-outline", "btn-sm");
+        searchButton.setMinWidth(Region.USE_PREF_SIZE);
         searchButton.setOnAction(e -> search());
 
         HBox header = new HBox(10, new VBox(2, title, subtitle), spacer, searchField, searchButton);
@@ -250,6 +253,7 @@ public class ChatView extends VBox implements Refreshable {
 
         Button send = new Button("Send");
         send.getStyleClass().add("btn-primary");
+        send.setMinWidth(Region.USE_PREF_SIZE); // never cut to "...": in a narrow chat, the message box gives up the room
         send.setOnAction(e -> send());
 
         HBox writing = new HBox(10, input, send);
@@ -369,6 +373,7 @@ public class ChatView extends VBox implements Refreshable {
     private static Button actionButton(String text, Runnable action) {
         Button button = new Button(text);
         button.getStyleClass().add("btn-outline");
+        button.setMinWidth(Region.USE_PREF_SIZE);
         button.setOnAction(e -> action.run());
         return button;
     }
@@ -446,6 +451,7 @@ public class ChatView extends VBox implements Refreshable {
         HBox.setHgrow(spacer, Priority.ALWAYS);
         Button close = new Button("Close search");
         close.getStyleClass().addAll("btn-outline", "btn-sm");
+        close.setMinWidth(Region.USE_PREF_SIZE);
         close.setOnAction(e -> hideSearch());
         HBox top = new HBox(8, summary, spacer, close);
         top.setAlignment(Pos.CENTER_LEFT);

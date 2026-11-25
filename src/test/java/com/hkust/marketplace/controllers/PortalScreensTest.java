@@ -18,7 +18,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * System tests of the three portals through their real screens (Lecture 14), with the demo
  * data: a demo user of each portal logs in on the welcome screen (UC2) and opens every page of
  * the sidebar. A page that fails to open, or opens with a dialog such as an error, fails the
- * test. What each page's own buttons do is tested per portal, as in {@code BuyerScreensTest}.
+ * test, and so does a page that cuts a button or label short ("…") at the app's window size
+ * (regression log R15). What each page's own buttons do is tested per portal, as in
+ * {@code BuyerScreensTest}.
  */
 class PortalScreensTest {
 
@@ -48,6 +50,7 @@ class PortalScreensTest {
 
         assertEquals("Hello, Alice Chan", app.text("#welcomeLabel"));
         assertEveryPageOpens(app.visitEveryPage());
+        assertEquals(Map.of(), app.cutTextsOnEveryPage());
     }
 
     @Test
@@ -56,6 +59,7 @@ class PortalScreensTest {
 
         assertTrue(SessionManager.isSeller());
         assertEveryPageOpens(app.visitEveryPage());
+        assertEquals(Map.of(), app.cutTextsOnEveryPage());
     }
 
     @Test
@@ -64,6 +68,7 @@ class PortalScreensTest {
 
         assertTrue(SessionManager.isAdmin());
         assertEveryPageOpens(app.visitEveryPage());
+        assertEquals(Map.of(), app.cutTextsOnEveryPage());
     }
 
     @Test

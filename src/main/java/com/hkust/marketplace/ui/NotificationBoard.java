@@ -93,6 +93,7 @@ public class NotificationBoard extends ScrollPane implements Refreshable {
         if (unread > 0) {
             Button markAll = new Button("Mark all as read");
             markAll.getStyleClass().addAll("btn-outline", "btn-sm");
+            markAll.setMinWidth(Region.USE_PREF_SIZE);
             markAll.setOnAction(e -> marked(service::markAllRead));
             heading.getChildren().add(markAll);
         }
@@ -136,6 +137,7 @@ public class NotificationBoard extends ScrollPane implements Refreshable {
             unread.getStyleClass().addAll("badge", "badge-pending");
             Button markRead = new Button("Mark as read");
             markRead.getStyleClass().addAll("btn-outline", "btn-sm");
+            markRead.setMinWidth(Region.USE_PREF_SIZE);
             markRead.setOnAction(e -> marked(() -> service.markRead(notification.getId()))); // UC4 step 3
             top.getChildren().addAll(unread, markRead);
         }

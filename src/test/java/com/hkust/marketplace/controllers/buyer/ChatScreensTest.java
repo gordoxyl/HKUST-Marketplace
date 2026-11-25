@@ -130,6 +130,15 @@ class ChatScreensTest {
     }
 
     @Test
+    void theChatBesideTheList_cutsNoTextShort_atTheAppsWindowSize() {
+        // Regression log R15: beside the list, Send showed only "…", and a long title was cut
+        buyerWithChat("chwidth", "Chat Width Portable Bluetooth Speaker (Stereo)", "Is the speaker loud?");
+        openChat("chwidth", "Chat Width Portable Bluetooth Speaker (Stereo)");
+
+        assertEquals(List.of(), app.cutTexts());
+    }
+
+    @Test
     void writing_movesTheChatToTheTopOfTheList() {
         buyerWithChat("chorder", "Chat Order Radio", "Is the radio still for sale?");
         data.waitUntilAfter(LocalDateTime.now());

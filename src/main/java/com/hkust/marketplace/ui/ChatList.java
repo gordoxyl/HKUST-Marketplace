@@ -23,8 +23,8 @@ import java.util.function.Consumer;
  * The chat screen, the same in the buyer and seller portals (UC6 Chat About Listing; Tasks 1.5
  * and 2.5): every chat of the logged-in user in a list, the one with the newest message or
  * offer first, and the chosen chat ({@link ChatView}) beside the list, as in a desktop
- * messenger. The list can be hidden, to give the chat the whole width, and shown again
- * (assumptions register 90).
+ * messenger, with a light grey line between them. The list can be hidden, to give the chat
+ * the whole width, and shown again (assumptions register 90).
  * <pre>{@code
  * show("Chats", new ChatList(chatService, this, onOpen));                         // the Chats page
  * new ChatList(chatService, this, onOpen).openFrom(chat, "Back to listing", back); // from another screen
@@ -53,6 +53,8 @@ public class ChatList extends VBox implements Refreshable {
     private final Consumer<ChatView> onOpen;
     private final VBox list = new VBox(10);
     private final ScrollPane listPane = new ScrollPane(list);
+    /** The light grey line between the list and the chat; it hides with the list. */
+    private final Region divider = new Region();
     private final StackPane chatPane = new StackPane();
     private final Button toggle = new Button(HIDE_LIST);
     /** The chats as last loaded, newest first. */
@@ -85,8 +87,9 @@ public class ChatList extends VBox implements Refreshable {
         listPane.setMinWidth(LIST_WIDTH);
         toggle.getStyleClass().addAll("btn-outline", "btn-sm");
         toggle.setOnAction(e -> showList(!listPane.isVisible()));
+        divider.getStyleClass().add("chat-divider");
         HBox.setHgrow(chatPane, Priority.ALWAYS);
-        HBox split = new HBox(12, listPane, chatPane);
+        HBox split = new HBox(12, listPane, divider, chatPane);
         VBox.setVgrow(split, Priority.ALWAYS);
         getChildren().addAll(toggle, split);
 
@@ -211,6 +214,8 @@ public class ChatList extends VBox implements Refreshable {
     private void showList(boolean shown) {
         listPane.setVisible(shown);
         listPane.setManaged(shown);
+        divider.setVisible(shown);
+        divider.setManaged(shown);
         toggle.setText(shown ? HIDE_LIST : SHOW_LIST);
     }
 }

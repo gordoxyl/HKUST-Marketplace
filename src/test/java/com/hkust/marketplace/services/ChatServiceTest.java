@@ -233,7 +233,7 @@ class ChatServiceTest {
     void search_listsTheMessagesContainingTheKeyword_ignoringCase_withSenderTimeAndPosition() {
         Conversation c = beaStartsChat("Is the BOOK still available?");
         clock.advance(Duration.ofMinutes(1));
-        c = chat.send(c, "I can meet today");
+        chat.send(c, "I can meet today");
         clock.advance(Duration.ofMinutes(1));
         SessionManager.login(sam);
         chat.send(chat.getMyConversations().get(0), "The book is yours, see you at the library");

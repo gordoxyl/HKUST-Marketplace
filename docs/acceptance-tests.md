@@ -3,8 +3,10 @@
 System and acceptance tests are black-box tests of the whole application through its screens
 (COMP 3111 Lecture 14). Each scenario below comes from a use case in
 `Diagrams and Use-Case Specifications.pdf`: one for the basic flow, one for each alternative flow,
-and one for each special requirement that a user can see. They complement the automated tests,
-which stop at the service layer.
+and one for each special requirement that a user can see. They complement the automated tests:
+the unit and integration tests stop at the service layer, and the screen tests
+(`controllers/buyer/*ScreensTest`) run the buyer's flows through the screens. This page is the
+manual checklist for the demo, and for what an automated test cannot judge, such as how a screen looks.
 
 **How to run them**
 

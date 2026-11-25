@@ -17,7 +17,7 @@ These rules are normative. **MUST** and **MUST NOT** are used in the RFC 2119 se
 3. Code **MUST NOT** write inside `store.read(...)`. A transaction nested in a `read` never saves, because saving happens only when the lock's hold count returns to one inside a transaction (§6.3).
 4. A service **MUST** finish every check before its first mutation, and throw `ServiceException` without changing anything when a check fails. There is no rollback (§6.4).
 5. Every recorded date **MUST** come from `store.now()`, never `LocalDateTime.now()` (R1).
-6. Tests **MUST** build their own store (`new DataStore(clock)`, or `Fixtures.store(clock)`) and inject it. They **MUST NOT** call `DataStore.getInstance()` or the no-argument constructor of any service, since both open the real save file relative to the working directory (R3).
+6. Unit tests **MUST** build their own store (`new DataStore(clock)`, or `Fixtures.store(clock)`) and inject it. Tests **MUST NOT** call `DataStore.getInstance()` or the no-argument constructor of any service themselves, since both open the app's save file. Only the screen tests reach the app's store: through the screens (`testsupport.OffScreenApp`), and to add data of their own (`testsupport.ScreenData`). In a test run `testsupport.TestDataFolder` has moved that store to a new temporary folder, so no test opens the save file in the working directory (R3, §9.8).
 7. Agents **MUST NOT** delete, overwrite, rename, hand-edit or "repair" anything under `marketplace-data/`. The folder holds the project owner's working data. This is a standing instruction from the owner.
 8. Ad-hoc tooling **MUST NOT** call `DataStore.getInstance()` or `loadOrSeed()` against the real folder. An unreadable file would be renamed aside and demo data written in its place. Copy the file into a scratch directory first (§9.7, §11.5).
 9. Agents **MUST NOT** change, without a migration plan:
@@ -104,7 +104,7 @@ flowchart LR
 
 ## 3. On-disk layout
 
-All paths are relative to the **process working directory**: `DataStore.DATA_FOLDER = Path.of("marketplace-data")`. Running `mvnw javafx:run` from the repository root puts the folder there. An IntelliJ run configuration with another working directory creates a separate folder there instead.
+All paths are relative to the **process working directory**: `DataStore.DATA_FOLDER = Path.of("marketplace-data")`. Running `mvnw javafx:run` from the repository root puts the folder there. An IntelliJ run configuration with another working directory creates a separate folder there instead. The system property `marketplace.dataFolder` (`DataStore.DATA_FOLDER_PROPERTY`) names another folder; only test runs set it (§9.8).
 
 | Path | Written by | Content |
 |---|---|---|
@@ -231,7 +231,7 @@ An abbreviated, illustrative decrypted document. It is not real data, and Jackso
 1. `MarketplaceApp.start` calls `DataStore.getInstance()` before showing any screen.
 2. The first call initializes the `AppStore` holder, which runs `createAppStore()`:
    - It picks `marketplace-dev.dat` if `Boolean.getBoolean("marketplace.dev")` is true, otherwise `marketplace.dat`.
-   - It constructs `new DataStore(Clock.systemDefaultZone(), new EncryptedJsonStorage(DATA_FOLDER.resolve(file)))`.
+   - It constructs `new DataStore(Clock.systemDefaultZone(), new EncryptedJsonStorage(folder.resolve(file)))`. The `folder` is the `marketplace.dataFolder` system property if it is set (test runs, §9.8), otherwise `DATA_FOLDER`.
    - It calls `loadOrSeed()`.
 3. `loadOrSeed()`:
    - **No file:** seeds the demo data with `transaction(() -> SeedData.populate(this))`, so the result is saved once. In dev mode, `DevLogin.seedAccounts` runs inside the same transaction.
@@ -375,13 +375,14 @@ Abbreviations: **R** = read (`read`/`select`, never saves); **W** = write (a tra
 |---|---|---|
 | `DataStore()` / `DataStore(Clock)` | | Empty in-memory store, no storage |
 | `DataStore(Clock, Storage)` | | Empty store that saves to the storage. Call `loadOrSeed()` next |
-| `static getInstance()` | | The app's store, created lazily (§5.1). Never use it in tests |
+| `static getInstance()` | | The app's store, created lazily (§5.1). Never call it in tests; the screen tests reach it through the screens (§9.8) |
 | `now()`, `getClock()`, `setClock(Clock)` | | Time (§7.4) |
 | `transaction(Supplier<T>)`, `transaction(Runnable)` | W | §6.2 |
 | `read(Supplier<T>)` | R | §6.3 |
 | `loadOrSeed()` | W | §5.1. `IllegalStateException` without storage, or on a store that is not empty |
 | `getLoadProblem()` | R | `null` if the load succeeded, otherwise a user-facing explanation |
 | `DATA_FOLDER` | | `Path.of("marketplace-data")` |
+| `DATA_FOLDER_PROPERTY` | | `"marketplace.dataFolder"`: the system property that names another folder for the app's store. `testsupport.TestDataFolder` sets it for every test run |
 
 **Users and accounts**
 
@@ -674,6 +675,49 @@ class SaveFileInspectorExample {
 
 To run service-level code on real data, copy the file into a scratch folder and construct `new DataStore(clock, new EncryptedJsonStorage(copy))`. `loadOrSeed()` can rename or seed the file it is given, so never point it at the original.
 
+### 9.8 A screen test
+
+The screens make their services with the no-argument constructors, so they use the app's store. In a test run that store is in a new temporary folder (`marketplace-test-data-*`), with the demo data, deleted when the run ends:
+
+- `testsupport.TestDataFolder` sets `marketplace.dataFolder` before the first test. JUnit starts it in IntelliJ and in Maven alike, because `src/test/resources/META-INF/services/org.junit.platform.launcher.LauncherSessionListener` names it (this needs the test dependency `junit-platform-launcher`).
+- `OffScreenApp.start()` refuses to run if the property is not set.
+- All screen tests of a run share that store, so a screen test must not depend on what another one changed. A test that changes data adds accounts and listings of its own with `testsupport.ScreenData`, under names no other test uses. `ScreenData` changes the data through the model's events and `DealRules`, as the app does, and never logs anyone in.
+- A dialog is answered as the test says, for example `app.answer("Make Offer", form -> form.type("such as 150 or 99.50", "150").press("Submit"))`, or else with Cancel (or its only button).
+
+```java
+import com.hkust.marketplace.data.SeedData;
+import com.hkust.marketplace.testsupport.OffScreenApp;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class ScreenExampleTest {
+
+    private static OffScreenApp app;
+
+    @BeforeAll
+    static void openTheApp() {
+        app = OffScreenApp.start();                  // skipped where JavaFX cannot start
+    }
+
+    @AfterEach
+    void backToTheWelcomeScreen() {
+        app.reset();                                 // logs out
+    }
+
+    @Test
+    void myDealsOpens() {
+        app.logIn("Enter as Buyer", "alice", SeedData.DEMO_PASSWORD);
+
+        app.press("My Deals");
+
+        assertEquals("My Deals", app.pageTitle());
+    }
+}
+```
+
 ---
 
 ## 10. Schema evolution
@@ -740,6 +784,7 @@ To migrate: read the old file with the old code, transform the data, and write i
 
 - **Normal run** (`mvnw clean javafx:run`): `marketplace-data/marketplace.dat` in the working directory.
 - **Dev run** (`-Pdev`, which sets `-Dmarketplace.dev=true`): `marketplace-dev.dat`. Its dev accounts are `buyer`, `seller` and `admin`, with the passwords in the README.
+- **Test run** (IntelliJ or Maven): `marketplace.dat` in a new temporary folder `marketplace-test-data-*`, deleted when the run ends (§9.8).
 - The two files never mix.
 
 ### 11.2 Resetting to demo data
@@ -817,7 +862,8 @@ Backups from the scripts restore the same way.
 |---|---|
 | `data/PersistenceTest` | `firstRun_createsTheDemoData_andSavesIt`, `restart_loadsExactlyWhatWasSaved`, `changes_areSavedAutomatically_andIdsContinueAfterARestart`, `adminDeactivationAndReviewHiding_surviveARestart` (R4), `stateChangesInsideATransaction_areSaved`, `readsDoNotSave_andUnchangedDataIsNotRewritten`, `nestedTransactions_saveOnceAtTheEnd`, `unreadableFile_isKept_demoDataIsUsed_andTheProblemIsReported`, `auditEntryWithASnapshot_alsoWritesAnEncryptedTxtFile` |
 | `data/EncryptedJsonStorageTest` | The cipher round trip with fresh nonces, refusal of changed data, other keys and foreign files, nothing to load on a first run, no readable text in the save file, no leftover temp file, set-aside under a new name, encrypted audit and photo files, traversal guards, dev photos in their own folder |
-| `data/AppStoreStartupTest` (+ `testsupport/StoreProbe`, run in a child JVM) | Creating a store never touches the app's folder, and the app store creates and saves the demo data (R3) |
+| `data/AppStoreStartupTest` (+ `testsupport/StoreProbe`, run in a child JVM) | Creating a store never touches the app's folder, the app store creates and saves the demo data (R3), and `marketplace.dataFolder` moves the app store to another folder |
+| `controllers/PortalScreensTest`, `controllers/buyer/BuyerScreensTest` (+ `testsupport/OffScreenApp`, `TestDataFolder`) | The screens work on the app's store in the run's temporary folder (§9.8) |
 | `data/DataStoreTest` | Queries, rules (including `addReport`'s checks, R10), and `concurrentClaims_onlyTheFirstSucceeds` (a thread test of the lock) |
 | `data/AccountDeletionTest`, `services/AccountDeletionFlowTest` | `deleteAccount` semantics and the end-to-end flow |
 | `data/SeedDataTest` | Seeded dates happen in order (R1), and the demo states |

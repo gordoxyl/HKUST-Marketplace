@@ -285,11 +285,12 @@ We use **sandwich integration** (COMP 3111 Lecture 14). The bottom layer (models
 | Unit | Equivalence partitions and boundary values (e.g. rating 0/1/5/6, photos 6/7, borrow time 4 s/5 s); state-based tests for each state machine | `src/test/.../models`, `AccountValidatorTest` |
 | Integration | Use-case flow tests at service level, including flows across roles (offer → accept → complete → review; buyer and seller chatting; the rest of the system after an account is deleted); run all tests again after every change | `DealRulesTest`, `ChatServiceTest`, `AccountDeletionFlowTest`, `DataStoreTest`, `PersistenceTest` |
 | Regression | Every bug found gets a test that reproduces it, with its input and correct output recorded in [docs/regression-log.md](docs/regression-log.md) | e.g. `AppStoreStartupTest` |
-| System / acceptance | One manual scenario per flow of each use case, run through the screens; teammates test each other's portals | [docs/acceptance-tests.md](docs/acceptance-tests.md) (UC5, UC7, UC8 and UC12 so far) |
+| System | Screen tests: the real screens, in a window nobody sees. A demo user of each portal logs in on the welcome screen and opens every page. Every buyer use case runs through its screens with its alternative flows: forms are filled in and submitted or cancelled as the test says, and other dialogs are answered Cancel. A test that changes data has accounts and listings of its own | `PortalScreensTest`, `controllers/buyer/*ScreensTest` |
+| Acceptance | One manual scenario per flow of each use case, run through the screens; teammates test each other's portals | [docs/acceptance-tests.md](docs/acceptance-tests.md) (UC4's admin part and UC5 to UC12 so far) |
 
 Which course concept is applied where (boundary/control/entity classes, the barricade, equivalence partitions, boundary values, basis paths, thread and state-based tests) is listed in [docs/course-concepts.md](docs/course-concepts.md).
 
-Test tools in `src/test/.../testsupport`: `TestClock` (a clock the test moves by hand, so a 5-second borrow is tested instantly) and `Fixtures` (accounts and listings in any state, built through the state machine). `StoreProbe` is a tiny program a test runs in a separate JVM. Run all tests with `.\mvnw.cmd clean test`: without `clean`, Maven can run outdated compiled tests (regression log T1).
+Test tools in `src/test/.../testsupport`: `TestClock` (a clock the test moves by hand, so a 5-second borrow is tested instantly) and `Fixtures` (accounts and listings in any state, built through the state machine). `OffScreenApp` runs the app's screens for the screen tests: it presses buttons, types into fields, answers dialogs and reads what the screens show. `ScreenData` adds a screen test's own accounts, listings and deals to the data the screens use. `TestDataFolder` gives every test run a new temporary data folder, so the screen tests use the demo data there and never the project's `marketplace-data`. `StoreProbe` is a tiny program a test runs in a separate JVM. Run all tests with `.\mvnw.cmd clean test`: without `clean`, Maven can run outdated compiled tests (regression log T1).
 
 ## Reports
 
@@ -303,15 +304,19 @@ One command runs all tests and produces every report the submission needs:
 | Report | Open in a browser |
 |---|---|
 | Unit-test report (every test, pass/fail) | `target/reports/surefire.html` |
-| Coverage of the measured code (the >65% branch rule) | `target/reports/jacoco/index.html` |
-| Coverage of everything, screens included (for reference) | `target/reports/jacoco-all/index.html` |
+| Coverage of the measured code (>65% branch rule) | `target/reports/jacoco/index.html` |
+| Coverage of everything, screens included (>65% branch rule) | `target/reports/jacoco-all/index.html` |
 | JavaDoc | `target/reports/apidocs/index.html` |
 
-The build **fails** if any test fails, or if the measured code's **branch coverage drops below 65%**. `target/` is not committed, so run the command again to get fresh reports. JavaDoc checks links, HTML and syntax, but not missing `@param`/`@return` tags on simple methods.
+The build **fails** if any test fails, or if **branch coverage drops below 65%** in either coverage report. `target/` is not committed, so run the command again to get fresh reports. JavaDoc checks links, HTML and syntax, but not missing `@param`/`@return` tags on simple methods.
 
-**Coverage policy.** The 65% rule is measured on the models, data, services and utils, where all the logic lives. It leaves out the JavaFX screen controllers, `MarketplaceApp`, `SceneManager` and the dev-only `DevLogin` (the excluded list is `jacoco.ui.excludes` in `pom.xml`). Screens hold no logic of their own: they read the input, call a tested service and show the result, and the manual acceptance tests check them. That only stays true if **screens stay thin**: any check, rule or calculation goes into a service with tests, never into a controller.
+**In IntelliJ:** right-click `src/test/java` → **Run 'Tests in java' with Coverage**. It runs the same tests, the screen tests included, so the screens are measured too. IntelliJ counts branches a little differently from JaCoCo, so its figures can differ slightly. After pulling a change to `pom.xml`, click **Load Maven Changes** first.
 
-Figures on 9 Nov 2026: measured code **83.3% branch** (88.8% line); everything 56.4% branch. By package: services 93.8%, models 85.4%, data 76.8%.
+**Coverage policy.** The submission asks for ">65% branch coverage" without saying of which code, so the build checks it twice:
+- **Everything**, screens included: the strict reading. The screen tests keep the screens covered; new screen code without tests lowers this figure.
+- **The measured code**: the models, data, services and utils, where all the logic lives. It leaves out the JavaFX screen controllers, `MarketplaceApp`, `SceneManager` and the dev-only `DevLogin` (the excluded list is `jacoco.ui.excludes` in `pom.xml`). Screens hold no logic of their own: they read the input, call a tested service and show the result. The screen tests open every page, and the manual acceptance tests check the flows. That only stays true if **screens stay thin**: any check, rule or calculation goes into a service with tests, never into a controller.
+
+Figures on 25 Nov 2026: measured code **96.5% branch** (97.5% line); everything, screens included, **81.2% branch** (84.0% line). By package: services 96.5%, models 98.7%, data 92.4%, buyer screens 93.8%.
 
 ## Troubleshooting
 
@@ -326,7 +331,7 @@ Install JDK 17+ from https://adoptium.net/ and **restart the terminal**.
 Make sure the installer option “Add to PATH” was checked.
 
 ### Build fails with JavaFX / DISPLAY errors
-You need a normal desktop session (not a headless server). On Windows this is usually fine.
+You need a normal desktop session (not a headless server). On Windows this is usually fine. The screen tests open a window nobody sees (transparent, outside the screen) for a few seconds; it may take the keyboard focus while they run. Without a display they are skipped, not failed. The warning `Unsupported JavaFX configuration: classes were loaded from 'unnamed module'` in the test output is harmless.
 
 ### To see the real error
 ```powershell

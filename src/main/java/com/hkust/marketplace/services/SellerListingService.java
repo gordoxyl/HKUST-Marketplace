@@ -80,11 +80,11 @@ public class SellerListingService {
      */
     public Listing updateSale(String listingId, String title, Category category,
                               ItemCondition condition, String description,
-                              MeetupLocation meetupLocation, double price,
+                              MeetupLocation meetupLocation, String typedPrice,
                               List<Path> newPhotoFiles) {
         Seller seller = AccessControl.requireSeller();
         ListingFormRules.requireCommonFields(title, category, condition, description, meetupLocation);
-        ListingFormRules.requirePrice(price);
+        double price = ListingFormRules.requirePriceText(typedPrice);
         return saveEdit(listingId, seller, ListingType.SELL, newPhotoFiles, listing -> {
             applyCommonFields(listing, title, category, condition, description, meetupLocation);
             ((SaleListing) listing).setPrice(price);
@@ -113,7 +113,7 @@ public class SellerListingService {
     }
 
     /**
-     * Manage Listings 3.1: saves the seller's changes to a Give Away listing and sends it back
+     * Manage Listings 3.1: saves the seller's changes to a Giveaway listing and sends it back
      * for review (3.1.6). It has no price or duration to update.
      * @throws AccessDeniedException if the logged-in user is not a seller
      * @throws ServiceException      if the fields are invalid, the listing is not the seller's,

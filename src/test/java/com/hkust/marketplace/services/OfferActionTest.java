@@ -150,7 +150,7 @@ class OfferActionTest {
                     if (offer instanceof BorrowRequest) {
                         service.counterBorrow(offer.getId(), NOW.plusDays(1), NOW.plusDays(4));
                     } else {
-                        service.counterPrice(offer.getId(), 175); // a claim is refused here
+                        service.counterPrice(offer.getId(), "175"); // a claim is refused here
                     }
                 }
                 case AGREE_TO_COUNTER -> throw new IllegalArgumentException("not a seller's answer");

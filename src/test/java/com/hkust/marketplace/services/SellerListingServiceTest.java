@@ -48,14 +48,13 @@ class SellerListingServiceTest {
     private TestClock clock;
     private DataStore store;
     private SellerListingService service;
-    private Seller sam;
 
     @BeforeEach
     void setUp() {
         clock = Fixtures.clock();
         store = Fixtures.store(clock);
         service = new SellerListingService(store);
-        sam = Fixtures.seller(store, "sam");
+        Seller sam = Fixtures.seller(store, "sam");
         SessionManager.login(sam);
     }
 
@@ -75,9 +74,9 @@ class SellerListingServiceTest {
         return file;
     }
 
-    private Listing editSale(Listing listing, String title, double price) {
+    private Listing editSale(Listing listing, String title, String typedPrice) {
         return service.updateSale(listing.getId(), title, Category.ELECTRONICS, ItemCondition.NEW,
-                "An updated description", MeetupLocation.SPORTS_HALL, price, List.of());
+                "An updated description", MeetupLocation.SPORTS_HALL, typedPrice, List.of());
     }
 
     // ---------- My Listings step 1 ----------
@@ -103,7 +102,7 @@ class SellerListingServiceTest {
         SaleListing listing = liveSale();
         SessionManager.logout();
         assertThrows(AccessDeniedException.class, () -> service.myListings());
-        assertThrows(AccessDeniedException.class, () -> editSale(listing, "Book", 10));
+        assertThrows(AccessDeniedException.class, () -> editSale(listing, "Book", "10"));
         assertThrows(AccessDeniedException.class, () -> service.deleteListing(listing.getId()));
 
         Buyer bea = Fixtures.buyer(store, "bea");
@@ -120,7 +119,7 @@ class SellerListingServiceTest {
     void editingALiveListingWithNoOffers_changesTheFields_andKeepsItLive() {
         SaleListing listing = liveSale();
 
-        Listing edited = editSale(listing, "  Advanced Calculus  ", 250);
+        Listing edited = editSale(listing, "  Advanced Calculus  ", "250");
 
         assertSame(listing, edited);
         assertEquals("Advanced Calculus", listing.getTitle());
@@ -128,7 +127,7 @@ class SellerListingServiceTest {
         assertEquals(ItemCondition.NEW, listing.getCondition());
         assertEquals("An updated description", listing.getDescription());
         assertEquals(MeetupLocation.SPORTS_HALL, listing.getMeetupLocation());
-        assertEquals(250, ((SaleListing) listing).getPrice());
+        assertEquals(250, listing.getPrice());
         assertEquals(ListingStatus.LIVE, listing.getStatus()); // client answer #5: no review needed
         assertEquals(Fixtures.START, listing.getPostedDate()); // the posting date does not change
         assertTrue(store.getNotificationsFor("sam").isEmpty()); // and nobody is told it waits for review
@@ -138,7 +137,7 @@ class SellerListingServiceTest {
     void editingARejectedListing_sendsItBackForReview() {
         SaleListing listing = Fixtures.moveTo(Fixtures.sale(store, "sam", 100), ListingStatus.REJECTED);
 
-        editSale(listing, "Book", 120);
+        editSale(listing, "Book", "120");
 
         assertEquals(ListingStatus.PENDING_REVIEW, listing.getStatus());
     }
@@ -172,7 +171,7 @@ class SellerListingServiceTest {
         SaleListing reserved = Fixtures.moveTo(Fixtures.sale(store, "sam", 100), ListingStatus.RESERVED);
 
         assertEquals("This listing can no longer be edited or deleted.",
-                assertThrows(ServiceException.class, () -> editSale(reserved, "Nope", 10)).getMessage());
+                assertThrows(ServiceException.class, () -> editSale(reserved, "Nope", "10")).getMessage());
         assertEquals("Book", reserved.getTitle());
         assertEquals(100, reserved.getPrice());
         assertEquals(ListingStatus.RESERVED, reserved.getStatus());
@@ -184,7 +183,7 @@ class SellerListingServiceTest {
         SaleListing hers = Fixtures.live(Fixtures.sale(store, "sue", 100));
 
         assertEquals("This listing is not yours.",
-                assertThrows(ServiceException.class, () -> editSale(hers, "Nope", 10)).getMessage());
+                assertThrows(ServiceException.class, () -> editSale(hers, "Nope", "10")).getMessage());
         assertEquals("Book", hers.getTitle());
         assertEquals(ListingStatus.LIVE, hers.getStatus());
     }
@@ -194,7 +193,7 @@ class SellerListingServiceTest {
         assertEquals("This listing is not yours.",
                 assertThrows(ServiceException.class,
                         () -> service.updateSale("no-such-id", "Book", CATEGORY, CONDITION,
-                                DESCRIPTION, LOCATION, 10, List.of())).getMessage());
+                                DESCRIPTION, LOCATION, "10", List.of())).getMessage());
     }
 
     @Test
@@ -202,21 +201,21 @@ class SellerListingServiceTest {
         SaleListing listing = liveSale();
 
         assertEquals("The item name cannot be empty.",
-                assertThrows(ServiceException.class, () -> editSale(listing, "  ", 10)).getMessage());
+                assertThrows(ServiceException.class, () -> editSale(listing, "  ", "10")).getMessage());
         assertEquals("Please choose a category.",
                 assertThrows(ServiceException.class, () -> service.updateSale(listing.getId(), "Book",
-                        null, CONDITION, DESCRIPTION, LOCATION, 10, List.of())).getMessage());
+                        null, CONDITION, DESCRIPTION, LOCATION, "10", List.of())).getMessage());
         assertEquals("Please choose the item's condition.",
                 assertThrows(ServiceException.class, () -> service.updateSale(listing.getId(), "Book",
-                        CATEGORY, null, DESCRIPTION, LOCATION, 10, List.of())).getMessage());
+                        CATEGORY, null, DESCRIPTION, LOCATION, "10", List.of())).getMessage());
         assertEquals("The description cannot be empty.",
                 assertThrows(ServiceException.class, () -> service.updateSale(listing.getId(), "Book",
-                        CATEGORY, CONDITION, "  ", LOCATION, 10, List.of())).getMessage());
+                        CATEGORY, CONDITION, "  ", LOCATION, "10", List.of())).getMessage());
         assertEquals("Please choose a meet-up location.",
                 assertThrows(ServiceException.class, () -> service.updateSale(listing.getId(), "Book",
-                        CATEGORY, CONDITION, DESCRIPTION, null, 10, List.of())).getMessage());
+                        CATEGORY, CONDITION, DESCRIPTION, null, "10", List.of())).getMessage());
         assertEquals("The price must be a positive number, such as 180 or 99.50.",
-                assertThrows(ServiceException.class, () -> editSale(listing, "Book", 0)).getMessage());
+                assertThrows(ServiceException.class, () -> editSale(listing, "Book", "0")).getMessage());
         assertEquals("The lending duration must be at least 5 seconds.",
                 assertThrows(ServiceException.class, () -> service.updateLend("x", "Calculator",
                         Category.ELECTRONICS, CONDITION, DESCRIPTION, LOCATION, Duration.ofSeconds(4),
@@ -230,7 +229,7 @@ class SellerListingServiceTest {
     void anUpdateMustMatchTheTypeOfTheListing() {
         LendListing calculator = Fixtures.live(Fixtures.lend(store, "sam", Duration.ofDays(7)));
 
-        assertThrows(IllegalArgumentException.class, () -> editSale(calculator, "Book", 10));
+        assertThrows(IllegalArgumentException.class, () -> editSale(calculator, "Book", "10"));
         assertEquals(ListingStatus.LIVE, calculator.getStatus());
     }
 
@@ -245,7 +244,7 @@ class SellerListingServiceTest {
         PriceOffer ben = (PriceOffer) store.addOffer(new PriceOffer(listing.getId(), "ben", 90));
         clock.advance(Duration.ofHours(1));
 
-        editSale(listing, "Book", 120);
+        editSale(listing, "Book", "120");
 
         assertEquals(OfferStatus.DECLINED, bea.getStatus());
         assertEquals(OfferStatus.DECLINED, ben.getStatus());
@@ -264,7 +263,7 @@ class SellerListingServiceTest {
         PriceOffer offer = (PriceOffer) store.addOffer(new PriceOffer(listing.getId(), "bea", 80));
         offer.counter(95);
 
-        editSale(listing, "Book", 120);
+        editSale(listing, "Book", "120");
 
         assertEquals(OfferStatus.DECLINED, offer.getStatus());
         assertEquals(ListingStatus.PENDING_REVIEW, listing.getStatus());
@@ -273,14 +272,14 @@ class SellerListingServiceTest {
     // ---------- Photos ----------
 
     @Test
-    void savingAnEditWithNoNewPhotos_keepsTheCurrentOnes() throws IOException {
+    void savingAnEditWithNoNewPhotos_keepsTheCurrentOnes() {
         SaleListing listing = liveSale();
         listing.setPhotos(List.of(store.addPhoto(new byte[]{(byte) 0x89, 'P', 'N', 'G'})));
         List<String> before = listing.getPhotos();
 
-        editSale(listing, "Book", 120);
+        editSale(listing, "Book", "120");
         service.updateSale(listing.getId(), "Book", CATEGORY, CONDITION, DESCRIPTION, LOCATION,
-                120, null);
+                "120", null);
 
         assertEquals(before, listing.getPhotos());
     }
@@ -291,7 +290,7 @@ class SellerListingServiceTest {
         listing.setPhotos(List.of(store.addPhoto(new byte[]{(byte) 0x89, 'P', 'N', 'G'})));
 
         service.updateSale(listing.getId(), "Book", CATEGORY, CONDITION, DESCRIPTION, LOCATION,
-                120, List.of(image("new.png")));
+                "120", List.of(image("new.png")));
 
         assertEquals(1, listing.getPhotos().size());
         assertTrue(store.readPhoto(listing.getThumbnail()).isPresent());
@@ -305,7 +304,7 @@ class SellerListingServiceTest {
 
         assertEquals("A listing can have at most 6 photos.",
                 assertThrows(ServiceException.class, () -> service.updateSale(listing.getId(), "Book",
-                        CATEGORY, CONDITION, DESCRIPTION, LOCATION, 120, seven)).getMessage());
+                        CATEGORY, CONDITION, DESCRIPTION, LOCATION, "120", seven)).getMessage());
         assertEquals(ListingStatus.LIVE, listing.getStatus());
     }
 
@@ -316,7 +315,7 @@ class SellerListingServiceTest {
         Fixtures.admin(store, "ada");
         SaleListing listing = Fixtures.moveTo(Fixtures.sale(store, "sam", 100), ListingStatus.REJECTED);
 
-        editSale(listing, "Advanced Calculus", 250);
+        editSale(listing, "Advanced Calculus", "250");
 
         assertEquals(ListingStatus.PENDING_REVIEW, listing.getStatus());
 

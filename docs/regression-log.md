@@ -192,6 +192,19 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 
 ---
 
+## R18: A listing's price took any number Java reads, such as "99.999" or "1e3"
+
+- **Area / owner:** Seller (`SellerDashboardController` and the Create/Edit Listing services), Daniel's.
+- **Found:** 2026-11-25, in Gordon's review of `main` 2770bd3 (through the screens, off screen). **Fixed:** 2026-11-25 (61d545c).
+- **Input:** as a seller, Edit Listing on a Sell listing priced HK$ 80; type the price "99.999"; Save Changes. Create Listing takes the same text.
+- **Correct output:** refused with "The price must be a positive number, such as 180 or 99.50."; the price stays HK$ 80 and the form stays as typed, as for the counter price and the admin's listing form (`Amounts.parse`: digits with at most two decimals).
+- **Output before the fix:** saved: the price became 99.999, which the cards show as "HK$ 100.00". "1e3" was saved as HK$ 1000.
+- **Cause:** the screen read the text with `Double.parseDouble`, which takes exponents and any number of decimals, instead of the shared `Amounts.parse`.
+- **Fix:** the screen passes the typed text to `CreateListingService.createSale` and `SellerListingService.updateSale`, which parse it at the service barricade with `Amounts.parse` and throw the same message; the screen's `parsePrice` is gone. The tests pass text, not a `double`.
+- **Test:** `SellerScreensTest.r18_aListingPriceIsAPlainAmount_likeEveryOtherPrice`
+
+---
+
 ## Tooling notes (not code bugs, so no test)
 
 ### T1: `mvnw test` passed on outdated compiled tests

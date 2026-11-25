@@ -8,7 +8,6 @@ import com.hkust.marketplace.models.GiveawayListing;
 import com.hkust.marketplace.models.LendListing;
 import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.ListingType;
-import com.hkust.marketplace.models.Offer;
 import com.hkust.marketplace.models.OfferStatus;
 import com.hkust.marketplace.models.PriceOffer;
 import com.hkust.marketplace.models.Review;
@@ -40,14 +39,13 @@ class SellerStatsServiceTest {
     private TestClock clock;
     private DataStore store;
     private SellerStatsService service;
-    private Seller sam;
 
     @BeforeEach
     void setUp() {
         clock = Fixtures.clock();
         store = Fixtures.store(clock);
         service = new SellerStatsService(store);
-        sam = Fixtures.seller(store, "sam");
+        Seller sam = Fixtures.seller(store, "sam");
         Fixtures.buyer(store, "bea");
         Fixtures.buyer(store, "ben");
         SessionManager.login(sam);
@@ -58,7 +56,7 @@ class SellerStatsServiceTest {
         SessionManager.logout();
     }
 
-    private int count(SellerStats stats, ListingType type) {
+    private static int count(SellerStats stats, ListingType type) {
         return stats.completedByType().getOrDefault(type, -1);
     }
 

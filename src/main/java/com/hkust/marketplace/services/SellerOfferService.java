@@ -98,21 +98,11 @@ public class SellerOfferService {
 
     /**
      * Counters a pending price offer with another price (3.5) and tells the buyer, who answers
-     * by making a new offer (UC5 Special Requirement 4).
-     * @throws ServiceException if the offer is not a pending price offer, or the price is not positive
-     */
-    public void counterPrice(String offerId, double price) {
-        Seller seller = AccessControl.requireSeller();
-        requireCounterPrice(price);
-        counterPrice(seller, offerId, price);
-    }
-
-    /**
-     * The same, with the price exactly as the seller typed it. The text is untrusted input, so
-     * it is parsed at the barricade with {@link Amounts#parse}: digits with up to two decimals,
-     * such as "150" or "99.50". Anything else - "abc", "1e3", "-5", "1,000" - is refused with
-     * the same message as a non-positive price (Manage Offers &amp; Requests A4).
-     * @throws ServiceException if the typed text is not a plain positive amount
+     * by making a new offer (UC5 Special Requirement 4). The price is exactly what the seller
+     * typed: untrusted input, parsed at the barricade with {@link Amounts#parse}, so digits with
+     * up to two decimals ("150", "99.50") pass and "abc", "1e3", "-5" or "1,000" are refused
+     * with the same message as a non-positive price (Manage Offers &amp; Requests A4).
+     * @throws ServiceException if the offer cannot be countered or the price is not a plain positive amount
      */
     public void counterPrice(String offerId, String typedPrice) {
         Seller seller = AccessControl.requireSeller();
@@ -123,13 +113,7 @@ public class SellerOfferService {
         counterPrice(seller, offerId, amount.getAsDouble());
     }
 
-    private static void requireCounterPrice(double price) {
-        if (!(price > 0) || Double.isInfinite(price)) {
-            throw new ServiceException(COUNTER_PRICE_MESSAGE);
-        }
-    }
-
-    /** The rules shared by both counterPrice forms, after the price itself was checked. */
+    /** The rules shared by the counter, after the price itself was checked. */
     private void counterPrice(Seller seller, String offerId, double price) {
         Offer offer = requireOwnedOffer(offerId, seller);
         if (offer instanceof Claim) {

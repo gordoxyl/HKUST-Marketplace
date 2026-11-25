@@ -7,6 +7,8 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -32,10 +34,12 @@ class AppStoreStartupTest {
     private record ProbeRun(int exitCode, String output) { }
 
     /** Runs StoreProbe in a new JVM whose working folder is the empty temp folder. */
-    private ProbeRun runProbe(String mode) throws Exception {
-        String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
-        Process process = new ProcessBuilder(java, "-cp", System.getProperty("java.class.path"),
-                StoreProbe.class.getName(), mode)
+    private ProbeRun runProbe(String mode, String... systemProperties) throws Exception {
+        List<String> command = new ArrayList<>();
+        command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
+        command.addAll(List.of(systemProperties));
+        command.addAll(List.of("-cp", System.getProperty("java.class.path"), StoreProbe.class.getName(), mode));
+        Process process = new ProcessBuilder(command)
                 .directory(folder.toFile())
                 .redirectErrorStream(true)
                 .start();
@@ -62,5 +66,18 @@ class AppStoreStartupTest {
         assertEquals(0, run.exitCode(), run.output());
         assertTrue(run.output().contains("app store users=5"), run.output());
         assertTrue(Files.exists(folder.resolve("marketplace-data").resolve("marketplace.dat")));
+    }
+
+    @Test
+    void appStore_savesInTheFolderTheDataFolderPropertyNames() throws Exception {
+        // How a test run keeps the app's store out of the project folder (testsupport/TestDataFolder)
+        Path testData = folder.resolve("test-data");
+
+        ProbeRun run = runProbe("app", "-D" + DataStore.DATA_FOLDER_PROPERTY + "=" + testData);
+
+        assertEquals(0, run.exitCode(), run.output());
+        assertTrue(run.output().contains("app store users=5"), run.output());
+        assertTrue(Files.exists(testData.resolve("marketplace.dat")));
+        assertFalse(Files.exists(folder.resolve("marketplace-data")));
     }
 }

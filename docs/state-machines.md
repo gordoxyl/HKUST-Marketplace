@@ -35,7 +35,7 @@ stateDiagram-v2
 | *(create)* | Seller | Create Listings step 11 | starts in Pending Review |
 | `approve()` | Admin | Manage Marketplace Listings 5.2; also right after the admin adds a listing (5.6.4) | Pending Review |
 | `reject()` | Admin | 5.3 (reason stored in a `ListingActionRecord`) | Pending Review |
-| `resubmit()` | Seller | Manage Listings 3.1.6 (edit saved). Per the client's answer of 16 Nov ([client-answers.md](client-answers.md) #5), not called when a **Live** listing with no open offers is edited: it stays Live (seller code still to do) | not locked |
+| `resubmit()` | Seller | Manage Listings 3.1.6 (edit saved). Per the client's answer of 16 Nov ([client-answers.md](client-answers.md) #5), not called when a **Live** listing with no open offers is edited: it stays Live (`SellerListingService`, PR #21) | not locked |
 | `withdraw()` | Seller | Manage Listings 3.2.4 (delete) | not locked |
 | `remove()` | Admin | Manage Marketplace Listings 5.5.4; also for every listing of an account the admin deletes (6.4.4, via `DataStore.deleteAccount`) | anything except Sold, Given, Removed (`canBeRemoved()`) |
 | `acceptDeal()` | Seller, via `DealRules.accept` | Manage Offers & Requests 3.3.4 | Live |

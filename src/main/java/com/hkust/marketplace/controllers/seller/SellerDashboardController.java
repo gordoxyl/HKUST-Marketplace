@@ -111,6 +111,7 @@ public class SellerDashboardController implements ContentHost {
         btn.getStyleClass().add("sidebar-btn-active");
         currentActiveBtn = btn;
         pageTitle.setText(title);
+        NotificationDot.update();
     }
 
     /** Lets shared components open a screen here, such as a listing or a chat thread. */
@@ -271,7 +272,7 @@ public class SellerDashboardController implements ContentHost {
         if (editing) {
             if (existing instanceof SaleListing sale) {
                 priceField.setDisable(false);
-                priceField.setText(String.valueOf(sale.getPrice()));
+                priceField.setText(Amounts.plain(sale.getPrice()));
             } else if (existing instanceof LendListing lend) {
                 durationField.setDisable(false);
                 durationUnit.setDisable(false);
@@ -287,7 +288,7 @@ public class SellerDashboardController implements ContentHost {
         List<File> chosenPhotos = new ArrayList<>();
         Label photoLabel = new Label(editing
                 ? keptPhotosText(existing)
-                : "No photos chosen (optional, up to 6)");
+                : "No photos chosen (optional, up to " + Listing.MAX_PHOTOS + ")");
         photoLabel.setWrapText(true);
         photoLabel.getStyleClass().add("dialog-hint");
         Button choosePhotos = new Button("Add Photos…");
@@ -459,10 +460,10 @@ public class SellerDashboardController implements ContentHost {
     private static String keptPhotosText(Listing listing) {
         int count = listing.getPhotos().size();
         if (count == 0) {
-            return "No photos yet (optional, up to 6)";
+            return "No photos yet (optional, up to " + Listing.MAX_PHOTOS + ")";
         }
         return count + (count == 1 ? " photo is kept" : " photos are kept")
-                + " unless you choose new files (up to 6)";
+                + " unless you choose new files (up to " + Listing.MAX_PHOTOS + ")";
     }
 
     /** A3: a typed duration in the chosen unit; the service checks the 5-second minimum. */
@@ -492,7 +493,7 @@ public class SellerDashboardController implements ContentHost {
     /** A4: shows how many photos were chosen and their names. */
     private static void showChosenPhotos(Label label, List<File> files) {
         if (files.isEmpty()) {
-            label.setText("No photos chosen (optional, up to 6)");
+            label.setText("No photos chosen (optional, up to " + Listing.MAX_PHOTOS + ")");
             return;
         }
         StringBuilder names = new StringBuilder();

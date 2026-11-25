@@ -25,6 +25,9 @@ public final class Formats {
     /** Shown when there is no value, such as a deal that is not completed yet. */
     public static final String NONE = "—";
 
+    /** The largest number the sidebar's notification dot writes out; above it, the dot says "99+". */
+    private static final int DOT_MAX = 99;
+
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH);
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", Locale.ENGLISH);
     private static final DateTimeFormatter TIME_OF_DAY = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.ENGLISH);
@@ -145,6 +148,17 @@ public final class Formats {
             return "No unread notifications";
         }
         return unread + " unread notification" + (unread == 1 ? "" : "s");
+    }
+
+    /**
+     * The number on the sidebar's notification dot (assumptions register 92): "1" to "99", then "99+".
+     * @throws IllegalArgumentException below 1: with nothing unread, there is no dot
+     */
+    public static String unreadCount(int unread) {
+        if (unread < 1) {
+            throw new IllegalArgumentException("The dot shows 1 or more unread notifications, not " + unread + ".");
+        }
+        return unread > DOT_MAX ? DOT_MAX + "+" : Integer.toString(unread);
     }
 
     /**

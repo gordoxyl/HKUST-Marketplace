@@ -29,9 +29,10 @@ import java.util.Optional;
  * The chat screen, the same in the buyer and seller portals (UC6 Chat About Listing; Tasks
  * 1.5 and 2.5): the history of messages and offers with sender and time, a box to write a
  * message, and a search of the history that jumps to the chosen message and highlights it.
+ * A chat is shown in the chat screen, {@link ChatList}, beside the user's other chats:
  * <pre>{@code
  * Conversation chat = chatService.openForOffer(offer.getId());       // or openForListing(listingId)
- * host.show(ChatText.title(chat), new ChatView(chatService, chat));
+ * new ChatList(chatService, host, onOpen).openFrom(chat, "Back to Offers & Requests", back);
  * }</pre>
  *
  * <p><b>Deal actions.</b> The offers in the history only show what happened and their status.
@@ -78,6 +79,8 @@ public class ChatView extends VBox implements Refreshable {
     private AgreeToCounter agreeToCounter;
     /** The seller's link to Offers &amp; Requests; null while it is not offered. */
     private RespondToOffers respondToOffers;
+    /** Told when the user's own action has changed the history, such as the chat screen's list beside it. */
+    private Runnable historyChanged = () -> { };
 
     public ChatView(ChatService service, Conversation conversation) {
         super(12);
@@ -177,6 +180,15 @@ public class ChatView extends VBox implements Refreshable {
         showActions();
     }
 
+    /**
+     * What else follows when the user's own action changes this chat's history: a message sent,
+     * or an offer made with Make Offer or Agree to Counter. The chat screen ({@link ChatList})
+     * reloads its list of chats, so this chat moves to the top (assumptions register 90).
+     */
+    public void setOnHistoryChanged(Runnable changed) {
+        this.historyChanged = changed;
+    }
+
     /** Reloads the history, for example after an offer was made or the other party wrote. */
     @Override
     public final void refresh() {
@@ -200,8 +212,10 @@ public class ChatView extends VBox implements Refreshable {
     private Node header() {
         Label title = new Label(conversation.listing().getTitle());
         title.getStyleClass().add("listing-card-title");
+        title.setWrapText(true); // beside the list of chats, a long title takes a second line instead of being cut
         Label subtitle = new Label(ChatText.subtitle(conversation));
         subtitle.getStyleClass().add("listing-card-line");
+        subtitle.setWrapText(true);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
@@ -210,6 +224,7 @@ public class ChatView extends VBox implements Refreshable {
         searchField.setOnAction(e -> search());
         Button searchButton = new Button("Search");
         searchButton.getStyleClass().addAll("btn-outline", "btn-sm");
+        searchButton.setMinWidth(Region.USE_PREF_SIZE);
         searchButton.setOnAction(e -> search());
 
         HBox header = new HBox(10, new VBox(2, title, subtitle), spacer, searchField, searchButton);
@@ -238,6 +253,7 @@ public class ChatView extends VBox implements Refreshable {
 
         Button send = new Button("Send");
         send.getStyleClass().add("btn-primary");
+        send.setMinWidth(Region.USE_PREF_SIZE); // never cut to "...": in a narrow chat, the message box gives up the room
         send.setOnAction(e -> send());
 
         HBox writing = new HBox(10, input, send);
@@ -336,7 +352,9 @@ public class ChatView extends VBox implements Refreshable {
         if (makeOffer != null) {
             dealActions.getChildren().add(actionButton(OfferText.actionText(conversation.listing().getType()), () -> {
                 makeOffer.run();
-                refresh();
+                if (reload()) {
+                    historyChanged.run();
+                }
             }));
         }
         if (agreeToCounter != null && waiting > 0) {
@@ -355,6 +373,7 @@ public class ChatView extends VBox implements Refreshable {
     private static Button actionButton(String text, Runnable action) {
         Button button = new Button(text);
         button.getStyleClass().add("btn-outline");
+        button.setMinWidth(Region.USE_PREF_SIZE);
         button.setOnAction(e -> action.run());
         return button;
     }
@@ -385,7 +404,11 @@ public class ChatView extends VBox implements Refreshable {
                 Dialogs.problem(e);
                 submitted = false;
             }
-            if (!reload() || submitted) {
+            if (!reload()) {
+                return;
+            }
+            if (submitted) {
+                historyChanged.run(); // a new offer in the history
                 return;
             }
         }
@@ -405,6 +428,7 @@ public class ChatView extends VBox implements Refreshable {
         hideSearch();
         showHistory();
         input.requestFocus();
+        historyChanged.run();
     }
 
     // ---------- Searching (UC6 A2) ----------
@@ -427,6 +451,7 @@ public class ChatView extends VBox implements Refreshable {
         HBox.setHgrow(spacer, Priority.ALWAYS);
         Button close = new Button("Close search");
         close.getStyleClass().addAll("btn-outline", "btn-sm");
+        close.setMinWidth(Region.USE_PREF_SIZE);
         close.setOnAction(e -> hideSearch());
         HBox top = new HBox(8, summary, spacer, close);
         top.setAlignment(Pos.CENTER_LEFT);

@@ -322,6 +322,18 @@
     -fx-text-fill: -text-primary;
     -fx-font-size: 13px;
 }
+/* The number of unread notifications on the sidebar's Notifications button (ui/NotificationDot;
+   assumptions register 92) */
+.notif-dot {
+    -fx-background-color: -danger;
+    -fx-background-radius: 10;
+    -fx-text-fill: white;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 1 6;
+    -fx-min-width: 20;
+    -fx-alignment: center;
+}
 
 /* ---------- Reviews (ui/ReviewList; UC8) ---------- */
 .review-stars {
@@ -393,6 +405,21 @@
 }
 .chat-result:hover {
     -fx-background-color: #e8f0f8;
+}
+/* The chat open beside the list of chats (ui/ChatList; assumptions register 90): light blue,
+   with a blue edge on the left */
+.chat-item-selected {
+    -fx-background-color: -hkust-light;
+    -fx-border-color: -hkust-blue;
+    -fx-border-width: 0 0 0 4;
+    -fx-border-radius: 12;
+}
+/* The light grey line between the list of chats and the open chat (ui/ChatList) */
+.chat-divider {
+    -fx-background-color: -border;
+    -fx-min-width: 1;
+    -fx-pref-width: 1;
+    -fx-max-width: 1;
 }
 
 /* ---------- Seller portal (controllers/seller/SellerDashboardController) ---------- */

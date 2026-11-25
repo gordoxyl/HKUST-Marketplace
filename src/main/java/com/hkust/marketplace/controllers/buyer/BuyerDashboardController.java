@@ -4,6 +4,7 @@ import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.User;
 import com.hkust.marketplace.services.BrowseService;
 import com.hkust.marketplace.services.ChatService;
+import com.hkust.marketplace.services.Conversation;
 import com.hkust.marketplace.services.Deal;
 import com.hkust.marketplace.services.DealHistoryService;
 import com.hkust.marketplace.services.ListingDetail;
@@ -16,13 +17,13 @@ import com.hkust.marketplace.services.ReviewService;
 import com.hkust.marketplace.services.SellerProfile;
 import com.hkust.marketplace.services.ServiceException;
 import com.hkust.marketplace.ui.ChatList;
-import com.hkust.marketplace.ui.ChatText;
 import com.hkust.marketplace.ui.ChatView;
 import com.hkust.marketplace.ui.ContentHost;
 import com.hkust.marketplace.ui.DealText;
 import com.hkust.marketplace.ui.Dialogs;
 import com.hkust.marketplace.ui.LiveUpdates;
 import com.hkust.marketplace.ui.NotificationBoard;
+import com.hkust.marketplace.ui.NotificationDot;
 import com.hkust.marketplace.ui.ProfileView;
 import com.hkust.marketplace.ui.Refreshable;
 import com.hkust.marketplace.ui.SubScreen;
@@ -83,6 +84,7 @@ public class BuyerDashboardController implements ContentHost {
         autoReturnsToReview().forEach(deal -> autoReturnsSeen.add(deal.offer().getId()));
         // UC12 step 4: when the timer returns an item or sends a reminder, the open screen shows it
         LiveUpdates.setOnDataChanged(() -> contentPane.getScene() != null, this::onDataChanged);
+        NotificationDot.attach(btnNotifications, new NotificationService()); // the unread count on the sidebar
         showBrowse();
     }
 
@@ -119,11 +121,15 @@ public class BuyerDashboardController implements ContentHost {
         pageTitle.setText(title);
     }
 
-    /** Lets shared components open a screen here, such as a listing or a chat thread. */
+    /**
+     * Lets shared components open a screen here, such as a listing or a chat thread. Every screen
+     * change also updates the notification dot, since the buyer's last action may have changed it.
+     */
     @Override
     public void show(String title, Node content) {
         pageTitle.setText(title);
         contentPane.getChildren().setAll(content);
+        NotificationDot.update();
     }
 
     // ========== UC8 Browse Marketplace ==========
@@ -200,12 +206,20 @@ public class BuyerDashboardController implements ContentHost {
     /** UC6: the buyer's chat with the seller about this listing, from the detail screen. */
     private void openChat(Listing listing, Runnable backToListing) {
         try {
-            ChatView chat = new ChatView(chatService, chatService.openForListing(listing.getId()));
-            addOfferOptions(chat);
-            show(ChatText.title(chat.conversation()), new SubScreen("Back to listing", backToListing, chat));
+            Conversation chat = chatService.openForListing(listing.getId());
+            chatScreen().openFrom(chat, "Back to listing", backToListing);
         } catch (ServiceException e) {
             Dialogs.problem(e);
         }
+    }
+
+    /**
+     * The chat screen, with the buyer's chats beside the open one (UC6; assumptions register 90).
+     * The Chats page and every chat the buyer opens elsewhere use it, each chat with the buyer's
+     * offer options.
+     */
+    private ChatList chatScreen() {
+        return new ChatList(chatService, this, this::addOfferOptions);
     }
 
     /**
@@ -261,10 +275,8 @@ public class BuyerDashboardController implements ContentHost {
     /** UC7 A4: the chat thread of a deal. */
     private void openChatOfDeal(Deal deal) {
         try {
-            ChatView chat = new ChatView(chatService, chatService.openForOffer(deal.offer().getId()));
-            addOfferOptions(chat);
-            show(ChatText.title(chat.conversation()),
-                    new SubScreen("Back to My Deals", this::returnToMyDeals, chat));
+            Conversation chat = chatService.openForOffer(deal.offer().getId());
+            chatScreen().openFrom(chat, "Back to My Deals", this::returnToMyDeals);
         } catch (ServiceException e) {
             Dialogs.problem(e);
         }
@@ -325,7 +337,7 @@ public class BuyerDashboardController implements ContentHost {
     @FXML
     private void showChats() {
         setActive(btnChats, "Chats");
-        show("Chats", new ChatList(chatService, this, this::addOfferOptions)); // UC6, shared chat screens
+        show("Chats", chatScreen()); // UC6, the shared chat screen
     }
 
     @FXML

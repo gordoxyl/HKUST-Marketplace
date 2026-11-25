@@ -43,10 +43,10 @@ the client (TA) answered differently: `docs/client-answers.md` wins over the spe
 |---|---|---|
 | Login (3.1) | `AuthService.login(username, password, UserRole.ADMIN)`; seeded `admin` / `Admin@1234` | done |
 | Own profile (3.4) | `ProfileService.updateProfile`, shared `ui/ProfileView`, wired | done |
-| Notification board (3.6) | `NotificationService`, shared `ui/NotificationBoard`, wired; `services/AccountNotices` | board done. The accounts' history: new accounts and users' own profile changes are sent (shared core). The notices of the admin's own edit, deactivate, reactivate and delete are in the pending branch (§9) |
+| Notification board (3.6) | `NotificationService`, shared `ui/NotificationBoard`, wired; `services/AccountNotices` | done: the accounts' history. New accounts and users' own profile changes are sent by the shared core; the admin's own edit, deactivate, reactivate and delete by `AdminUserService` (PR #23) |
 | Listing Review (3.2) | `Listing.approve()/reject()`, `ListingActionRecord`, `ui/ListingCard` (admin view) | done (`AdminListingService.approveListing` / `rejectListing`, reason through `Dialogs.askReason`) |
-| Manage All Listings (3.7) | `Listing.remove()`, setters, `store.addListing`, `DealRules.declineOpenOffers`, `PhotoService` | done (`AdminListingService`: edit, add, remove with a reason, open offers declined); photos in Add / Edit are in the pending branch (§9) |
-| Users (3.3) | `User.setActive`, **`store.deleteAccount`**, `AuditLogEntry`, `store.addAuditLogEntry` | done (`AdminUserService`: details, edit, deactivate, activate, delete with the Audit Log entry); the registration-date filter and the text search inside `findUsers` are in the pending branch (§9) |
+| Manage All Listings (3.7) | `Listing.remove()`, setters, `store.addListing`, `DealRules.declineOpenOffers`, `PhotoService` | done (`AdminListingService`: edit, add with photos, remove with a reason, open offers declined; photos in Add / Edit from PR #23) |
+| Users (3.3) | `User.setActive`, **`store.deleteAccount`**, `AuditLogEntry`, `store.addAuditLogEntry` | done (`AdminUserService`: details, edit, deactivate, activate, delete with the Audit Log entry; the registration-date filter and the text search inside `findUsers` from PR #23) |
 | Seller Ratings (3.8) | `getReviewsForSellerIncludingHidden`, `Review.setHidden`, rating/stat queries, `getReviewerName` (writer's name, "Deleted User" for a deleted buyer) | done (`AdminReputationService`: ratings, reviews with filters, hide with a reason) |
 | All Deals Record (3.5) | `store.getAllOffers`, `store.getListingOf`, `ui/OfferText` | done (`AdminDealService`: filters, details, CSV export). Start Date (client answer #4): a loan's agreed borrow start (`BorrowRequest.getProposedStartDate()` of the accepted request), otherwise `getAcceptedDate()` |
 
@@ -240,6 +240,14 @@ The average rating is recalculated automatically.
 - `ListingCard`: `new ListingCard(listing, UserRole.ADMIN).addActions(approveBtn, rejectBtn)` shows seller
   name + username, submitted date-time, photo count and status; `ListingCard.grid()`.
 - `PhotoFrame`, `NotificationBoard`, `ProfileView`, `ContentHost`.
+- `ListingOverview`: the top of a listing's detail screen, the same as the buyer's: photos, title with badge and
+  price, every field, description. `ListingOverview.card(node)` frames a part below it (§10).
+- `NotificationDot`: the red number of unread notifications on the sidebar's Notifications button (§10).
+- Buttons beside a field that grows (a message box, a search box) keep the width their text needs:
+  `button.setMinWidth(Region.USE_PREF_SIZE)`. Otherwise a narrow row cuts their text to "…" (regression log R15).
+  `PortalScreensTest` fails if any page cuts a button or label short at the app's window size.
+- `UserRole.getDisplayName()`: "Buyer", "Seller", "Admin" for screens (its `toString()` stays "BUYER": the Audit
+  Log's account snapshots record it that way).
 - CSS classes in `css/styles.css`: `card`, `badge` + `badge-live|pending|sold|rejected`, `btn-primary`,
   `btn-outline`, `btn-danger`, `btn-success`, `btn-sm`, `section-title`.
 
@@ -307,26 +315,49 @@ void editOpensTheListingForm() { // app = OffScreenApp.start() in @BeforeAll, ap
 ```
 To fill in and submit a dialog instead, give its answer before the step: `app.answer("Edit listing", form -> form.type(...).press(...))`. The screens use the app's store, which in a test run is a temporary folder with the demo data, shared by all screen tests (storage manual §9.8). Do not depend on what another test changed; a test that changes data adds its own with `testsupport/ScreenData`. Examples to copy: `controllers/buyer/MakeOfferScreensTest`, `MyDealsScreensTest`.
 
-## 9. Known gaps on the admin side (as of 2026-11-25)
+## 9. Known gaps on the admin side (as of 2026-11-25, evening)
 
-On `main`, every admin screen calls its service: `AdminListingService` (PR #10), and `AdminUserService`, `AdminDealService` and `AdminReputationService` (PR #17).
+Tasks 3.1 to 3.8 are all merged. Every admin screen calls its service: `AdminListingService` (PR #10), and
+`AdminUserService`, `AdminDealService` and `AdminReputationService` (PR #17). PR #23 (29193ec) added photos in Add / Edit
+listing, the registration-date filter and the text search on Manage Users, the four Task 3.6 notices to every admin,
+`AdminReputationService.findReviewsForSeller`, their tests, the regression-log entries R12-R14 and the admin acceptance
+scenarios.
 
-**Pending:** `feature-admin-part2-withFixes` (dbc1c41) builds and passes every test, and its fixes were checked through the screens. It merges once one small docs commit is in:
-- **What it adds:**
-  - photos in Add / Edit listing;
-  - the registration-date filter on Manage Users;
-  - the text search inside `AdminUserService.findUsers`;
-  - the four Task 3.6 notices (`AccountNotices.edited / deactivated / activated / deleted`, to every admin);
-  - `AdminReputationService.findReviewsForSeller`;
-  - tests for all of these;
-  - the regression-log entries R12-R14;
-  - the admin acceptance scenarios.
-- **Before it merges:**
-  - delete the empty file `docs/screenshots`, which blocks the `docs/screenshots/` folder;
-  - in `docs/regression-log.md`, put back the heading `## Tooling notes (not code bugs, so no test)` before T1, and fill in R13's and R14's `<date>` and `<AT-ID>` (AT-UC4A-11, AT-UC4A-12);
-  - if it merges after the seller's work, keep both sections where `docs/acceptance-tests.md` conflicts.
-- **Follow-ups after it merges** (none blocking):
-  - move the comment `// not a status: its own flag` back to `filter.withReportedOnly(true)`;
-  - tell the admin when more than 6 photos were chosen, instead of dropping them silently;
-  - remove the runs of 2+ blank lines;
-  - read the review row's data from the service rather than `DataStore` (`createReviewRow`).
+Follow-ups, none of them blocking the build:
+- **The screens' pattern** (the task list's "consistent interface and interaction pattern"): View listing, View user and
+  deal details are text popups, and Add / Edit listing and Edit user are separate windows that close on a refused save
+  (spec A1 / A4 resume in the form). Open them inside the app with a Back link, as the buyer's and seller's screens do;
+  §10 shows View listing with `ListingOverview`.
+- **The date pickers** don't use `Formats.datePickerConverter()`, so a picked date shows in the computer's format.
+- **Wording:** roles in capitals (use `UserRole.getDisplayName()`), "Sale / Loan" beside a filter that says "Sell / Lend",
+  "Apply filters" where the buyer's screens say "Search" and "Reset", a hand-made Back link, and sidebar labels that
+  differ from their pages' titles.
+- **Code:** four compiler warnings from `addAll(X.values())` without the `(Object[])` cast (use
+  `addAll(List.of(X.values()))`); the price is parsed with `Double.parseDouble` instead of `Amounts.parse`; the photo
+  limit message hard-codes "6"; runs of 2+ blank lines; `createReviewRow` reads `DataStore` itself.
+- **Acceptance scenarios:** the section "UC4 View Notifications, admin: account changes by the admin" repeats AT-UC4A-07
+  to 10, which "the accounts' history" already has; AT-UC3U-01/02 use `sam`, who isn't in the demo data; AT-UC3A-02
+  expects an Audit Log entry that approving and rejecting don't make; AT-UC3A-01 says "Sale" where the filter says "Sell".
+- **Already right:** at the app's window size, no admin page cuts a button or label short (`PortalScreensTest`).
+
+## 10. Added on 25 Nov 2026: the shared UI changes, and what the admin portal adds
+
+Five UI changes were made in the shared core, the same in every portal (assumptions registers 89 to 93):
+- **Nothing to do:** the Notification Board has **Mark all as read** (while anything is unread) and a **category
+  filter**. The admins' board is the busiest (every account change, listing submission and report), so Mark all as
+  read helps most here.
+- **Two lines for the unread dot** (the red number on the sidebar's Notifications button):
+  - at the end of `initialize()`: `NotificationDot.attach(btnNotifications, new NotificationService());`
+  - at the end of `show(String title, Node content)`: `NotificationDot.update();`
+
+  An admin's own account action notifies every admin, the one who acted included (F4); the update in `show(...)`
+  shows it on the dot at the next screen.
+- **View listing inside the app (spec 5.1)**, as the buyer's listing screen is, with the shared `ListingOverview`:
+  - `new ListingOverview(ListingSummary.of(listing, UserRole.ADMIN, store), store)` gives the photos, the title with
+    the badge and price, every field and the description;
+  - below it, "Reports (n)" with each report's reason and details in `ListingOverview.card(...)`, then Edit and Remove;
+  - show it with `show(listing.getTitle(), new SubScreen("Back to All Listings", back, page))`, where `back` shows
+    the same All Listings screen again, so its filters stay.
+- **Roles:** show them with `UserRole.getDisplayName()` on the Manage Users cards and in the user details.
+- **Check:** log in as `admin` after a reset: the dot says 1; AT-UC4-08; View on a listing with photos opens inside
+  the app, with the photos and Back to All Listings.

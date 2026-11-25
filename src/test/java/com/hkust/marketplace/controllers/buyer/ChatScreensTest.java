@@ -10,6 +10,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -19,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * (A1), searching (A2), and agreeing to a counter from the chat. Tests named "...WhileLoggedIn"
  * or "...WhileTheFormIsOpen" change the data between two of the buyer's steps, as the admin or
  * the seller would (technical requirements: access control at the API layer, concurrent actions).
+ * The chat screen's list beside the chat (assumptions registers 89 and 90) is tested through its
+ * states: no chat open, a chat open with the list shown, and with the list hidden.
  */
 class ChatScreensTest {
 
@@ -90,6 +93,64 @@ class ChatScreensTest {
         app.press("Chats");
 
         assertEquals(List.of(DEACTIVATED), app.dialogs());
+    }
+
+    // ---------- The list beside the chat (assumptions registers 89 and 90) ----------
+
+    @Test
+    void aChatChosenOnTheChatsPage_hasBackToChats_whichClosesIt_andKeepsTheList() {
+        buyerWithChat("chback", "Chat Back Lamp", "Is the lamp still here?");
+        openChat("chback", "Chat Back Lamp");
+        assertEquals("Chat: Chat Back Lamp", app.pageTitle());
+
+        app.press("← Back to Chats");
+
+        assertEquals("Chats", app.pageTitle());
+        assertTrue(app.shows("Choose a chat to read and write its messages."));
+        assertEquals(List.of("Chat Back Lamp"), app.cardTitles()); // the list alone: no chat's heading beside it
+    }
+
+    @Test
+    void theList_canBeHiddenAndShownAgain_andOpensAnotherChatBesideIt() {
+        buyerWithChat("chsplit", "Chat Split Kettle", "Is the kettle electric?");
+        SaleListing toaster = data.sale("chseller", "Chat Split Toaster", 40);
+        data.message("chsplit", toaster, "chsplit", "Does the toaster work?");
+        openChat("chsplit", "Chat Split Kettle");
+
+        app.press("◀ Hide chats");
+        assertFalse(app.shows("Chat Split Toaster"));
+        assertTrue(app.shows("Is the kettle electric?")); // the chat stays, now the whole width
+
+        app.press("▶ Show chats");
+        app.press("Open Chat", "Chat Split Toaster");
+
+        assertEquals("Chat: Chat Split Toaster", app.pageTitle());
+        assertTrue(app.shows("Does the toaster work?"));
+        assertTrue(app.shows("Chat Split Kettle")); // still in the list beside it
+    }
+
+    @Test
+    void theChatBesideTheList_cutsNoTextShort_atTheAppsWindowSize() {
+        // Regression log R15: beside the list, Send showed only "…", and a long title was cut
+        buyerWithChat("chwidth", "Chat Width Portable Bluetooth Speaker (Stereo)", "Is the speaker loud?");
+        openChat("chwidth", "Chat Width Portable Bluetooth Speaker (Stereo)");
+
+        assertEquals(List.of(), app.cutTexts());
+    }
+
+    @Test
+    void writing_movesTheChatToTheTopOfTheList() {
+        buyerWithChat("chorder", "Chat Order Radio", "Is the radio still for sale?");
+        data.waitUntilAfter(LocalDateTime.now());
+        SaleListing clock = data.sale("chseller", "Chat Order Clock", 15);
+        data.message("chorder", clock, "chorder", "And the clock?");
+        openChat("chorder", "Chat Order Radio");
+        assertEquals("Chat Order Clock", app.cardTitles().get(0)); // the newest chat first
+
+        app.type(COMPOSER, "I'll take the radio.");
+        app.press("Send");
+
+        assertEquals("Chat Order Radio", app.cardTitles().get(0));
     }
 
     // ---------- Writing (steps 3-6, A1) ----------

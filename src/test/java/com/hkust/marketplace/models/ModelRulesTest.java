@@ -185,4 +185,12 @@ class ModelRulesTest {
             assertThrows(IllegalArgumentException.class, () -> new ListingActionRecord("L1", "admin", action, " "));
         }
     }
+
+    @Test
+    void roles_haveDisplayNamesForScreens_andKeepTheirNamesForTheAuditLog() {
+        assertEquals("Buyer", UserRole.BUYER.getDisplayName());
+        assertEquals("Seller", UserRole.SELLER.getDisplayName());
+        assertEquals("Admin", UserRole.ADMIN.getDisplayName());
+        assertEquals("BUYER", UserRole.BUYER.toString()); // the deleted account's snapshot writes "Role: BUYER"
+    }
 }

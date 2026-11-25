@@ -36,6 +36,15 @@ public record Conversation(Listing listing, String buyerUsername, String buyerNa
         entries = List.copyOf(entries);
     }
 
+    /**
+     * True if the other copy is of the same chat: the same listing and the same buyer, whoever
+     * each copy was made for and however old it is. The chat screen marks the open chat in its
+     * list with it (assumptions register 90).
+     */
+    public boolean isSameChat(Conversation other) {
+        return listing.getId().equals(other.listing().getId()) && buyerUsername.equalsIgnoreCase(other.buyerUsername());
+    }
+
     /** True if this copy was made for the buyer, false if for the listing's seller. */
     public boolean viewerIsBuyer() {
         return viewerUsername.equalsIgnoreCase(buyerUsername);

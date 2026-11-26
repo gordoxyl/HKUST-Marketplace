@@ -25,7 +25,7 @@ Scenarios marked *needs Task 2.5* need a seller to accept or counter an offer: l
 after the reset: it adds deals that a seller has already accepted or countered for `alice` (Desk Fan, Free
 Notebooks, Camera Tripod, HDMI Cable, Bluetooth Speaker, Camping Tent), and the scenarios can be run on them.
 
-Scenarios for the other use cases are added as each one is built.
+The buyer's use cases and the shared screens come first, then the seller's and the admin's tasks.
 
 ---
 
@@ -269,7 +269,7 @@ Log in as `diana` and open **Create Listing**. Each scenario starts from a reset
 | AT-2.3-03 | Basic flow, Giveaway | Type Giveaway; fill the required fields; Submit. | Accepted; no price or duration is asked for. | |
 | AT-2.3-04 | Steps 3-4, the type decides the form | Choose Sell, then Lend, then Giveaway. | Price is enabled only for Sell, duration only for Lend, and both are cleared when the type changes. | |
 | AT-2.3-05 | A1 Required fields | Submit with the name empty; then no category; no condition; an empty description; no meet-up location. | "The item name cannot be empty.", "Please choose a category.", "Please choose the item's condition.", "The description cannot be empty.", "Please choose a meet-up location." Nothing is posted. | |
-| AT-2.3-06 | A2 Price | Sell with price `0`, then `-5`, then `abc`, then `99.50`. | Each bad value: "The price must be a positive number, such as 180 or 99.50." The form keeps what was typed; `99.50` is accepted. | |
+| AT-2.3-06 | A2 Price | Sell with price `0`, then `-5`, then `abc`, then `1e3`, then `99.999`, then `99.50`. | Each bad value: "The price must be a positive number, such as 180 or 99.50." The form keeps what was typed; `99.50` is accepted. | |
 | AT-2.3-07 | A3 Duration | Lend with `4` seconds, then `abc`. | "The lending duration must be at least 5 seconds." / "The lending duration must be a whole number of seconds, minutes, hours or days." | |
 | AT-2.3-08 | A4 Photos | Add two images; then (on another listing) choose seven. | The label lists the two photos, the first is the thumbnail. The seventh is refused: "A listing can have at most 6 photos." | |
 | AT-2.3-09 | Leaving the form | Fill the form, then open another sidebar screen without submitting. | Nothing is posted; no notification is sent. | |
@@ -317,7 +317,7 @@ Log in as `charlie` and open **Seller Stats** after a reset: the Sold chemistry 
 | AT-2.8-04 | Step 5, the pie chart | As `alice`, My Deals → calculus → Mark Complete; reopen Seller Stats. | Completed deals 2; the pie shows Sell (2); no Lend or Giveaway slice. | |
 | AT-2.8-05 | A2 No ratings | As `diana`, open Seller Stats. | "Average rating: No ratings yet"; the card shows "—". | |
 | AT-2.8-06 | A3 No completed deals | As `diana` (no completed deal), open Seller Stats. | The pie area says "No completed deals yet." | |
-| AT-2.8-07 | A1 No listings | Register a new seller (or, in a dev run, log in as `seller`) and open Seller Stats. | Every number is 0, "No ratings yet", and the charts area says "There isn't enough data to draw charts yet." | |
+| AT-2.8-07 | A1 No listings | Register a new seller and open Seller Stats. | Every number is 0, "No ratings yet", and the charts area says "There isn't enough data to draw charts yet." | |
 | AT-2.8-08 | SR1 Hidden review | As `admin`, Seller Ratings → hide Charlie's review; as `charlie`, reopen Seller Stats. | Ratings 0 and "No ratings yet"; the hidden review is not counted. | |
 
 ## Manage Reviews (Task 2.9)
@@ -332,7 +332,7 @@ Log in as `charlie` and open **Reviews & Feedback**. After a reset there is one 
 | AT-2.9-04 | A3 Empty reply | Press Reply, clear the box, Send reply. | "The reply cannot be empty."; the form comes back with the empty box. | |
 | AT-2.9-05 | Step 6, flag | Press Flag, OK. Then as `admin`, open Notification Board and Seller Ratings. | "Review flagged"; the card shows "Awaiting moderation" and the button is disabled. The admin has "@charlie flagged a review of 'Organic Chemistry Textbook' as inappropriate." and the review shows "Flagged by seller". | |
 | AT-2.9-06 | A4 Already flagged | Try to flag a review that is already flagged. | The button is disabled; the service answers "This review is already awaiting moderation." | |
-| AT-2.9-07 | A1 No reviews | As a seller with no reviews (a new account, or `seller` in a dev run), open Reviews & Feedback. | "No reviews yet. A buyer can review you after a completed deal." and "Average rating: No ratings yet". | |
+| AT-2.9-07 | A1 No reviews | As a seller with no reviews (a new account), open Reviews & Feedback. | "No reviews yet. A buyer can review you after a completed deal." and "Average rating: No ratings yet". | |
 | AT-2.9-08 | Deleted buyer (client answer #6) | As `admin`, Manage Users → delete `bob`; as `charlie`, reopen Reviews & Feedback. | The review is still shown, "by Deleted User", and the average is unchanged. Replying still works and no notification is sent. | |
 | AT-2.9-09 | A5 Cancel | Press Reply, type something, Cancel. | No message, nothing saved; the card still offers Reply. | |
 

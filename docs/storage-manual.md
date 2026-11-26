@@ -95,7 +95,6 @@ flowchart LR
 | `SeedData` | `data` | Demo data written on the first run (or after the file was set aside), dated in the past by swapping the store's clock |
 | `AccountSnapshot`, `DeletedAccount` | `data` | The text snapshot and result of `deleteAccount` (Audit Log, Manage All User Accounts 6.4.4) |
 | `PhotoService` | `services` | Imports image files (PNG, JPEG, GIF or BMP, recognized by their content) into photo storage. Only sellers and admins may call it |
-| `DevLogin` | `utils` (DEV-ONLY) | `-Dmarketplace.dev=true` (Maven profile `-Pdev`) selects `marketplace-dev.dat` and adds dev accounts when seeding. Removed before release (pre-release checklist) |
 | `MarketplaceApp` | root | Opens the store before the first screen, shows the load-problem warning, starts and stops the borrowing timer |
 | `BorrowingDeadlineService` / `BorrowingDeadlineTimer` | `services` | A second writer thread (every 0.5 s). It reads first and opens a transaction only when there is work, so idle ticks never save |
 | `scripts/reset-data.*`, `scripts/practice-data.*` | `scripts/` | Operator tools (§11) |
@@ -108,15 +107,14 @@ All paths are relative to the **process working directory**: `DataStore.DATA_FOL
 
 | Path | Written by | Content |
 |---|---|---|
-| `marketplace-data/marketplace.dat` | `save` | Encrypted JSON of the whole store (normal runs) |
-| `marketplace-data/marketplace-dev.dat` | `save` | The same for dev runs (`-Dmarketplace.dev=true`) |
-| `marketplace-data/<base>-audit/<logReference>.txt` | `saveAuditSnapshot` | Encrypted UTF-8 text snapshot of a deleted account. `<base>` is the data file's name without `.dat`: `marketplace` or `marketplace-dev` |
+| `marketplace-data/marketplace.dat` | `save` | Encrypted JSON of the whole store |
+| `marketplace-data/<base>-audit/<logReference>.txt` | `saveAuditSnapshot` | Encrypted UTF-8 text snapshot of a deleted account. `<base>` is the data file's name without `.dat`: `marketplace` |
 | `marketplace-data/<base>-photos/<photoId>.img` | `savePhoto` | Encrypted raw image bytes |
 | `<any of the above>.tmp` | every write | Transient: written first, then moved over the target. It survives only if the process dies between the two steps |
 | `marketplace-data/<file>.dat.unreadable-<yyyyMMdd-HHmmss>` | `setAsideUnreadable` | A save file that failed to load, kept under a new name (local wall-clock time) |
 | `marketplace-data/backups/<yyyyMMdd-HHmmss>/` | the scripts | Backups made by `reset-data` (moved files) and `practice-data` (copied save file) |
 
-Each running app uses exactly one data file: dev mode picks `marketplace-dev.dat` (the line is tagged DEV-ONLY in `DataStore.createAppStore`).
+Each running app uses exactly one data file, `marketplace.dat` (`DataStore.createAppStore`).
 
 ---
 
@@ -230,11 +228,10 @@ An abbreviated, illustrative decrypted document. It is not real data, and Jackso
 
 1. `MarketplaceApp.start` calls `DataStore.getInstance()` before showing any screen.
 2. The first call initializes the `AppStore` holder, which runs `createAppStore()`:
-   - It picks `marketplace-dev.dat` if `Boolean.getBoolean("marketplace.dev")` is true, otherwise `marketplace.dat`.
-   - It constructs `new DataStore(Clock.systemDefaultZone(), new EncryptedJsonStorage(folder.resolve(file)))`. The `folder` is the `marketplace.dataFolder` system property if it is set (test runs, §9.8), otherwise `DATA_FOLDER`.
+   - It constructs `new DataStore(Clock.systemDefaultZone(), new EncryptedJsonStorage(folder.resolve("marketplace.dat")))`. The `folder` is the `marketplace.dataFolder` system property if it is set (test runs, §9.8), otherwise `DATA_FOLDER`.
    - It calls `loadOrSeed()`.
 3. `loadOrSeed()`:
-   - **No file:** seeds the demo data with `transaction(() -> SeedData.populate(this))`, so the result is saved once. In dev mode, `DevLogin.seedAccounts` runs inside the same transaction.
+   - **No file:** seeds the demo data with `transaction(() -> SeedData.populate(this))`, so the result is saved once.
    - **Readable file:** `restore(snapshot)` refills the empty store. Ids, dates and `nextId` are kept exactly. `EncryptedJsonStorage` remembers the loaded JSON, so the next save is skipped if nothing changed.
    - **Unreadable file** (a decryption failure, invalid JSON, or a constructor that rejected a loaded value): the file is renamed to `<file>.unreadable-<stamp>`, `getLoadProblem()` explains what happened, and the demo data is seeded as above.
 4. The app store prints a load problem to stderr, and `MarketplaceApp` shows it in a warning dialog.
@@ -783,16 +780,15 @@ To migrate: read the old file with the old code, transform the data, and write i
 ### 11.1 Which file is live
 
 - **Normal run** (`mvnw clean javafx:run`): `marketplace-data/marketplace.dat` in the working directory.
-- **Dev run** (`-Pdev`, which sets `-Dmarketplace.dev=true`): `marketplace-dev.dat`. Its dev accounts are `buyer`, `seller` and `admin`, with the passwords in the README.
 - **Test run** (IntelliJ or Maven): `marketplace.dat` in a new temporary folder `marketplace-test-data-*`, deleted when the run ends (§9.8).
-- The two files never mix.
+- A test run never touches the app's own file.
 
 ### 11.2 Resetting to demo data
 
 Close the app, then run `scripts\reset-data.cmd` (Windows) or `sh scripts/reset-data.sh` (macOS) from the repository root.
 
-- **Options:** `normal` or `dev` resets only that file. `-NoBackup` (Windows) or `--no-backup` (macOS) deletes instead of keeping a backup.
-- **What moves:** the chosen `.dat` file, its `.dat.*` siblings (`.tmp`, `.unreadable-*`), and its `-audit` and `-photos` folders, into `backups/<stamp>/`.
+- **Option:** `-NoBackup` (Windows) or `--no-backup` (macOS) deletes instead of keeping a backup.
+- **What moves:** `marketplace.dat`, its `.dat.*` siblings (`.tmp`, `.unreadable-*`), and the `marketplace-audit` and `marketplace-photos` folders, into `backups/<stamp>/`. Other files in the folder are left alone.
 - **Refusal:** the script refuses while the app runs. Windows looks through `Win32_Process` command lines, and macOS uses `pgrep -f`, both for `com.hkust.marketplace.MarketplaceApp`, because a running app would save its in-memory data straight back.
 - **Afterwards:** the next start seeds fresh demo data.
 
@@ -800,7 +796,7 @@ Close the app, then run `scripts\reset-data.cmd` (Windows) or `sh scripts/reset-
 
 Close the app, then run `scripts\practice-data.cmd` or `sh scripts/practice-data.sh`.
 
-- **Steps:** the script refuses while the app runs, builds the test classes, copies each target save file into `backups/<stamp>/`, then runs `testsupport.PracticeData`. That program opens the real store with `DataStore.getInstance()` from the repository root, adding `-Dmarketplace.dev=true` for the dev file.
+- **Steps:** the script refuses while the app runs, builds the test classes, copies the save file into `backups/<stamp>/`, then runs `testsupport.PracticeData`. That program opens the real store with `DataStore.getInstance()` from the repository root.
 - **What it adds:** deals in every state, made through the real rules (`DealRules`), plus listings in every availability state.
 - **Exit codes:** 0 = added, 2 = already present (`-Force` adds another set), 1 = failure.
 - **Agents** run it only when asked (contract rule 11).
@@ -818,7 +814,6 @@ Backups from the scripts restore the same way.
 
 - **Git:** `/marketplace-data/` is in `.gitignore`. Never commit it or ship it in the submission ZIP: each machine creates its own on the first run.
 - **IntelliJ:** mark `marketplace-data` as *Excluded*. Otherwise its inspections read the encrypted files as text and report "LossyEncoding".
-- **Before release:** the DEV-ONLY dev file name in `DataStore.createAppStore` and the `DevLogin.seedAccounts` call in `SeedData.populate` are removed, as the pre-release checklist requires.
 
 ---
 
@@ -850,7 +845,6 @@ Backups from the scripts restore the same way.
 | `IllegalStateException`: "... already has id ...", "... already has reference ..." or "Account @... was already added." | A record was added twice, or `markAdded` was called by hand | Add each new object once |
 | `IllegalArgumentException: Not a photo id` / `Not an audit log reference` | An id that is not alphanumeric | Pass ids the store issued |
 | `StorageException: Could not save ...` | Disk full, permission, or the file locked by another process (an antivirus scanner, a second app instance) | Changes stay in memory and are saved by the next successful transaction (§6.4) |
-| Dev accounts are missing, or normal data appears in dev | The wrong file is live | Check `-Pdev` / `marketplace.dev` (§11.1) |
 | UI or timer stutters while saving | Big or slow saves under the lock | Keep transactions short. Never block inside one |
 | The script says the app is running | A Java process with `MarketplaceApp` on its command line | Close the app (in IntelliJ, regression log T2: the Stop button can hang at "Terminate batch job") |
 

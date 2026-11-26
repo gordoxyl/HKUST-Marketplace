@@ -173,8 +173,8 @@ class EncryptedJsonStorageTest {
     }
 
     @Test
-    void devData_keepsItsPhotosInItsOwnFolder() {
-        EncryptedJsonStorage dev = new EncryptedJsonStorage(folder.resolve("marketplace-dev.dat"));
-        assertEquals(folder.resolve("marketplace-dev-photos"), dev.getPhotoFolder());
+    void anotherDataFile_keepsItsPhotosInItsOwnFolder() {
+        EncryptedJsonStorage other = new EncryptedJsonStorage(folder.resolve("practice.dat"));
+        assertEquals(folder.resolve("practice-photos"), other.getPhotoFolder());
     }
 }

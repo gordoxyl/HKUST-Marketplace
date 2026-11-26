@@ -226,6 +226,19 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 
 ---
 
+## R19: The registration screens showed their form at the left edge of the window
+
+- **Area / owner:** shared UI: the buyer's registration screen (Gordon) and the seller's (Daniel's), changed together with Gordon's go-ahead for the UI of all three portals. The layout came with the course skeleton (0d1c58a).
+- **Found:** 2026-11-26, in the walkthrough screenshots (`docs/walkthrough.md`, shots 02 and 03). **Fixed:** 2026-11-26.
+- **Input:** start the app at its default size (1200 × 780); Enter as Buyer, then Register here. The same from Enter as Seller.
+- **Correct output:** the form's card in the middle of the window, as on the three login screens.
+- **Output before the fix:** the card against the left edge, its middle 369 px left of the window's middle (the seller's 362 px, beside its scroll bar), with empty background on the right.
+- **Cause:** the 460-pixel width limit sat on the scroll pane's content instead of on the card. A scroll pane puts its content at the top left, so the 460-pixel content stayed there.
+- **Fix:** the scroll pane's content now fills it (`fitToWidth`, `fitToHeight`) and centres the card, which keeps the 460-pixel limit itself. The content's `minHeight` is USE_PREF_SIZE, so a short window still scrolls the form instead of squeezing it (`BuyerRegisterView.fxml`, `SellerRegisterView.fxml`).
+- **Test:** `PortalScreensTest.loginAndRegistrationCards_areCentred` (it measures with `OffScreenApp.offCentre`)
+
+---
+
 ## Tooling notes (not code bugs, so no test)
 
 ### T1: `mvnw test` passed on outdated compiled tests

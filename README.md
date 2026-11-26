@@ -1,28 +1,43 @@
-# HKUST Marketplace — Frontend Demo / Skeleton
+# HKUST Marketplace
 
-A complete **JavaFX + Maven** frontend-only demo of the HKUST Campus Marketplace platform.  
-Designed as a **skeleton / starter code** for students to implement the full project requirements (backend, persistence, real business logic, etc.).
+A desktop marketplace for HKUST students, built with **JavaFX + Maven** by COMP 3111 Group 44 on the course's skeleton.
+Buyers browse listings, make offers, borrow and claim items, chat with sellers, review them and see their deal history;
+sellers post listings and answer offers and borrow requests; the admin reviews listings and manages users, deals and
+ratings. Everything is saved, encrypted, between runs.
 
-## Team Setup (Read This First)
+## Submission documents
 
-> This README came with the course skeleton. Some of the original instructions below are **outdated for our team's repo**. They are kept for reference and marked **⚠️ Outdated for our team**. Where they conflict with this section, follow this section.
+| Required | Where |
+|---|---|
+| Screenshots of the execution, with sample inputs and outputs | [docs/walkthrough.md](docs/walkthrough.md) |
+| Report on the unit testing (100% pass) | [docs/reports/surefire.html](docs/reports/surefire.html) *(added at release)* |
+| Report on the coverage test (>65% branch coverage) | [docs/reports/jacoco-all/index.html](docs/reports/jacoco-all/index.html) (the whole project, screens included) and [docs/reports/jacoco/index.html](docs/reports/jacoco/index.html) (the models, data and services) *(added at release)*; IntelliJ's own coverage run as a cross-check: [docs/screenshots/intellij-coverage.png](docs/screenshots/intellij-coverage.png) *(added at release)*. The policy and the figures: [Reports](#reports) |
+| Documentation on the implemented tasks (JavaDoc) | [docs/reports/apidocs/index.html](docs/reports/apidocs/index.html) *(added at release)* |
+| Supplementary notes | [docs/supplementary-notes.md](docs/supplementary-notes.md) |
 
-### Requirements
-- **JDK 17 or newer** (see [Prerequisites](#prerequisites) below). Maven does **not** need to be installed.
-- Check with `java -version` and `javac -version` (PowerShell on Windows, Terminal on macOS).
+The reports are HTML: after cloning the repository, open them in a browser (GitHub shows them as source code). They
+come from the final build; `.\mvnw.cmd clean verify` makes the same reports again in `target/reports/` (see
+[Reports](#reports)).
 
-### Run from the terminal
-Run from the repository root (the folder containing `pom.xml`):
+## Quick start
+
+**Requirements:** a **JDK 17 or newer**, the full JDK and not only a JRE (for example Temurin 17 or 21 from
+https://adoptium.net/). Check with `java -version` and `javac -version`; if `javac` is missing, install the JDK. Maven does
+**not** need to be installed: the project includes the Maven Wrapper.
+
+**Run the app** from the repository root (the folder containing `pom.xml`):
 
 | OS | Command |
 |----|---------|
 | Windows (PowerShell) | `.\mvnw.cmd clean javafx:run` |
 | macOS (Terminal) | `./mvnw clean javafx:run` |
 
-- **macOS:** wherever this README shows `.\mvnw.cmd`, use `./mvnw` instead.
-- **macOS:** if `./mvnw` says `permission denied`, run `sh mvnw clean javafx:run` instead.
+- The first run downloads Maven and the libraries (it needs internet); then the app window opens.
+- **macOS:** wherever this README shows `.\mvnw.cmd`, use `./mvnw` instead. If `./mvnw` says `permission denied`, run `sh mvnw clean javafx:run`.
+- If Maven is installed and on the PATH, `mvn clean javafx:run` works too.
 
-### Run from IntelliJ IDEA
+**Run from IntelliJ IDEA:**
+
 1. Open the repository folder. If IntelliJ offers to load the Maven project, click **Load** (or right-click `pom.xml` → **Add as Maven Project**).
 2. Wait for dependencies to finish downloading.
 3. Open the **Maven** tool window (right sidebar) → **HKUST Marketplace → Plugins → javafx** → double-click **javafx:run**.
@@ -31,100 +46,10 @@ Optional: for a reusable ▶ button, go to **Run → Edit Configurations… → 
 
 **Stopping the app:** close its window, and Maven finishes by itself. On Windows, IntelliJ's red Stop button can leave the console asking `Terminate batch job (Y/N)?`. If so, type `Y` and press Enter, or click Stop again (regression log T2). To avoid the prompt entirely, set **Settings → Build, Execution, Deployment → Build Tools → Maven → Maven home path** to **Bundled (Maven 3)**.
 
-**Do not** right-click `MarketplaceApp.java` → **Run**. It fails with `Error: JavaFX runtime components are missing, and are required to run this application`, because the project has no `module-info.java` and the IDE puts JavaFX on the classpath. Running through Maven avoids this.
+**Do not** right-click `MarketplaceApp.java` → **Run** (in IntelliJ, VS Code or another editor). It fails with `Error: JavaFX runtime components are missing, and are required to run this application`, because the project has no `module-info.java` and the IDE puts JavaFX on the classpath. Running through Maven avoids this.
 
-### Dev mode: pre-filled logins (DEV-ONLY, remove before release)
-Add `-Pdev` to the run command (`.\mvnw.cmd clean javafx:run -Pdev`, or tick the **dev** profile in IntelliJ's Maven tool window). Each login screen is then pre-filled with a test account, so you only click **Login**:
-
-| Portal | Username | Password |
-|--------|----------|----------|
-| Buyer  | `buyer`  | `Buyer.123`  |
-| Seller | `seller` | `Seller.123` |
-| Admin  | `admin`  | `Admin.123`  |
-
-The `buyer` and `seller` accounts exist only in dev mode, and dev mode gives `admin` the password above. Without `-Pdev` none of this happens. To remove the shortcut, search the code for `DEV-ONLY`.
-
-## Prerequisites
-
-1. **JDK 17 or newer** (full JDK, not only JRE)
-   - Download: https://adoptium.net/ (Temurin 17 or 21 recommended)
-   - After install, open a **new** PowerShell and check:
-     ```powershell
-     java -version
-     javac -version
-     ```
-   - Both commands must work. If `javac` is missing, you only have a JRE — install the JDK.
-
-2. **Maven is optional** — this project includes the **Maven Wrapper** (`mvnw.cmd` on Windows).
-
-## How to Run (Windows)
-
-Open **PowerShell** or **Command Prompt** in the project folder  
-(`...\HKUST-Marketplace\HKUST-Marketplace`):
-
-```powershell
-.\mvnw.cmd clean javafx:run
-```
-
-> **⚠️ Outdated for our team:** our repo has only one `HKUST-Marketplace` folder, so run commands from the repository root (the folder containing `pom.xml`). macOS users: see [Team Setup](#team-setup-read-this-first).
-
-First run downloads Maven automatically (needs internet). Then the app window should open.
-
-### Alternative: if you already installed Maven and added it to PATH
-
-```powershell
-mvn clean javafx:run
-```
-
-### Run from IntelliJ IDEA
-
-1. Open the project folder as a Maven project
-2. Wait for dependencies to download
-3. Open `MarketplaceApp.java` → right-click → **Run**
-
-> **⚠️ Outdated for our team:** step 3 fails with `JavaFX runtime components are missing`. Run through the Maven tool window instead. See [Team Setup](#team-setup-read-this-first).
-
-### Run from VS Code
-
-1. Install **Extension Pack for Java**
-2. Open the folder
-3. Run `MarketplaceApp.java`
-
-> **⚠️ Outdated for our team:** running `MarketplaceApp.java` directly fails for the same reason as in IntelliJ. Use the terminal command in [Team Setup](#team-setup-read-this-first) instead.
-
-## Saved Data
-
-The app keeps its data between runs in the `marketplace-data` folder, which is created in the folder you run the app from (the repository root):
-
-| File | Contents |
-|---|---|
-| `marketplace.dat` | All accounts, listings, offers, chats, reviews, reports, notifications and admin records |
-| `marketplace-audit/<ref>.txt` | Data snapshot of a deleted account, one file per Audit Log entry |
-| `marketplace-photos/<id>.img` | One listing photo per file. Encrypted too, so it can't be opened as a picture outside the app |
-| `marketplace-dev.dat` | The same as `marketplace.dat`, for dev runs (`-Pdev`) only, so dev accounts never mix with normal data |
-
-- **Encrypted, never plain text.** Every file is encrypted with AES-GCM (`data/DataCipher`); the data file is JSON inside. A file that was edited or damaged is detected and refused. The key is built into the code, so any copy of the app can read the files, and so could anyone with the source code.
-- **Saved automatically** after every change. On the first run, or when the folder is missing, the demo data below is created.
-- **Unreadable file:** the app keeps it, renamed `marketplace.dat.unreadable-<date>`, starts with the demo data, and shows a warning.
-- **To reset to the demo data** (for example before a round of testing), close the app and run, from the repository root:
-
-  | OS | Command |
-  |----|---------|
-  | Windows | `scripts\reset-data.cmd` |
-  | macOS | `sh scripts/reset-data.sh` |
-
-  The script moves the current save files into `marketplace-data/backups/<date-time>/`, so a reset can be undone, and the next start of the app creates fresh demo data. Add `normal` or `dev` to reset only that file, and `-NoBackup` (Windows) or `--no-backup` (macOS) to erase instead of keeping a backup. It refuses to run while the app is open, because the running app would save its data straight back.
-- **To add practice data** (deals to try by hand while the seller's screens are not built), close the app and run `scripts\practice-data.cmd` (Windows) or `sh scripts/practice-data.sh` (macOS) from the repository root. It gives `alice` (or `-Buyer <name>`; `buyer` in dev mode) one deal for every button of My Deals, and adds listings in every availability state:
-
-  | Where | What is added |
-  |---|---|
-  | My Deals, current | Desk Fan and Free Notebooks (accepted: **Mark Complete**), Camera Tripod and HDMI Cable (borrowed: **Return Item**; the cable is due 5 minutes after the script ran: a reminder comes after 2.5 minutes and the timer returns it at 5), Bluetooth Speaker and Camping Tent (countered: **Agree to Counter**), Scientific Calculator (pending) |
-  | My Deals, completed | USB-C Hub (not reviewed yet: **Rate Seller**), Umbrella (returned automatically) |
-  | Chats only | Office Chair (declined offer) |
-  | Browse | Mechanical Keyboard, Yoga Mat, Rice Cooker, Lab Coat (available); Study Desk (Reserved), Projector (Lent), Winter Jacket (Claim Pending) held by another buyer |
-
-  The script does what a seller would do (accept, counter, decline) through the app's own rules, backs the save file up to `marketplace-data/backups/<date-time>/` first, and refuses to run while the app is open. It adds nothing if practice data is already there; add `-Force` for another set, or run the reset script to start over. The tool is `testsupport/PracticeData` in the test sources, so it is not part of the app.
-- The folder is in `.gitignore`. Don't commit it or put it in the submission ZIP: each machine makes its own on the first run.
+**Log in** with a demo account (next section). To start again from the demo data, close the app and run
+`scripts\reset-data.cmd` (Windows) or `sh scripts/reset-data.sh` (macOS); see [Saved Data](#saved-data).
 
 ## Demo Credentials
 
@@ -143,8 +68,7 @@ All passwords meet the password rules: at least 8 characters, with at least one 
 ### Shared
 - Welcome screen with role selection (Buyer / Seller / Admin)
 - HKUST branding (logo + colour palette: deep blue `#003974` + gold `#A68137`)
-- Modern card-based UI, icons (Ikonli), consistent sidebars & top bars
-  - **⚠️ Outdated for our team:** Ikonli is not in `pom.xml` and is not used by the code.
+- Card-based UI with the same sidebars and top bars in every portal
 - All data in one store, saved to an encrypted file on this computer after every change (no database server, no network); see [Saved Data](#saved-data) and [Shared Core](#shared-core-read-before-building-a-feature)
 - **Notification Board (UC4), the same in all three portals:** newest first, each with its category, content and time; unread ones marked, with Mark as read on each and **Mark all as read** while anything is unread; a **category filter** offering the categories on the user's board
 - **Unread dot:** a red dot with the number of unread notifications on the sidebar's Notifications button (buyer and seller portals; the admin portal adds it with three lines, see the admin guide). Only marking notifications as read lowers it
@@ -179,6 +103,98 @@ All passwords meet the password rules: at least 8 characters, with at least one 
 - **Seller Ratings (Task 3.8, done):** each seller's average rating and completed deals; their reviews, filtered by rating and date; hide a review with a reason, and the buyer and the seller are told
 - **Notification Board (Task 3.6, done):** the accounts' history (every account change reaches every admin, client question F4), new listings waiting for review and reported listings; Profile
 
+## Saved Data
+
+The app keeps its data between runs in the `marketplace-data` folder, which is created in the folder you run the app from (the repository root):
+
+| File | Contents |
+|---|---|
+| `marketplace.dat` | All accounts, listings, offers, chats, reviews, reports, notifications and admin records |
+| `marketplace-audit/<ref>.txt` | Data snapshot of a deleted account, one file per Audit Log entry |
+| `marketplace-photos/<id>.img` | One listing photo per file. Encrypted too, so it can't be opened as a picture outside the app |
+
+- **Encrypted, never plain text.** Every file is encrypted with AES-GCM (`data/DataCipher`); the data file is JSON inside. A file that was edited or damaged is detected and refused. The key is built into the code, so any copy of the app can read the files, and so could anyone with the source code.
+- **Saved automatically** after every change. On the first run, or when the folder is missing, the demo data below is created.
+- **Unreadable file:** the app keeps it, renamed `marketplace.dat.unreadable-<date>`, starts with the demo data, and shows a warning.
+- **To reset to the demo data** (for example before a round of testing), close the app and run, from the repository root:
+
+  | OS | Command |
+  |----|---------|
+  | Windows | `scripts\reset-data.cmd` |
+  | macOS | `sh scripts/reset-data.sh` |
+
+  The script moves the current save file and its folders into `marketplace-data/backups/<date-time>/`, so a reset can be undone, and the next start of the app creates fresh demo data. Add `-NoBackup` (Windows) or `--no-backup` (macOS) to erase instead of keeping a backup. It refuses to run while the app is open, because the running app would save its data straight back.
+- **To add practice data** (deals to try by hand without first setting them up through the seller's screens), close the app and run `scripts\practice-data.cmd` (Windows) or `sh scripts/practice-data.sh` (macOS) from the repository root. It gives `alice` (or `-Buyer <name>`) one deal for every button of My Deals, and adds listings in every availability state:
+
+  | Where | What is added |
+  |---|---|
+  | My Deals, current | Desk Fan and Free Notebooks (accepted: **Mark Complete**), Camera Tripod and HDMI Cable (borrowed: **Return Item**; the cable is due 5 minutes after the script ran: a reminder comes after 2.5 minutes and the timer returns it at 5), Bluetooth Speaker and Camping Tent (countered: **Agree to Counter**), Scientific Calculator (pending) |
+  | My Deals, completed | USB-C Hub (not reviewed yet: **Rate Seller**), Umbrella (returned automatically) |
+  | Chats only | Office Chair (declined offer) |
+  | Browse | Mechanical Keyboard, Yoga Mat, Rice Cooker, Lab Coat (available); Study Desk (Reserved), Projector (Lent), Winter Jacket (Claim Pending) held by another buyer |
+
+  The script does what a seller would do (accept, counter, decline) through the app's own rules, backs the save file up to `marketplace-data/backups/<date-time>/` first, and refuses to run while the app is open. It adds nothing if practice data is already there; add `-Force` for another set, or run the reset script to start over. The tool is `testsupport/PracticeData` in the test sources, so it is not part of the app.
+- The folder is in `.gitignore`. Don't commit it or put it in the submission ZIP: each machine makes its own on the first run.
+
+## Reports
+
+One command runs all tests and produces every report the submission needs:
+
+| OS | Command |
+|----|---------|
+| Windows | `.\mvnw.cmd clean verify` |
+| macOS | `./mvnw clean verify` |
+
+| Report | Open in a browser |
+|---|---|
+| Unit-test report (every test, pass/fail) | `target/reports/surefire.html` |
+| Coverage of the measured code (>65% branch rule) | `target/reports/jacoco/index.html` |
+| Coverage of everything, screens included (>65% branch rule) | `target/reports/jacoco-all/index.html` |
+| JavaDoc | `target/reports/apidocs/index.html` |
+
+The build **fails** if any test fails, or if **branch coverage drops below 65%** in either coverage report. `target/` is not committed, so run the command again to get fresh reports. JavaDoc checks links, HTML and syntax, but not missing `@param`/`@return` tags on simple methods.
+
+**In IntelliJ:** right-click `src/test/java` → **Run 'Tests in java' with Coverage**. It runs the same tests, the screen tests included, so the screens are measured too. IntelliJ counts branches a little differently from JaCoCo, so its figures can differ slightly. After pulling a change to `pom.xml`, click **Load Maven Changes** first.
+
+**Coverage policy.** The submission asks for ">65% branch coverage" without saying of which code, so the build checks it twice:
+- **Everything**, screens included: the strict reading. The screen tests keep the screens covered; new screen code without tests lowers this figure.
+- **The measured code**: the models, data, services and utils, where all the logic lives. It leaves out the JavaFX screen controllers, `MarketplaceApp` and `SceneManager` (the excluded list is `jacoco.ui.excludes` in `pom.xml`). Screens hold no logic of their own: they read the input, call a tested service and show the result. The screen tests open every page, and the manual acceptance tests check the flows. That only stays true if **screens stay thin**: any check, rule or calculation goes into a service with tests, never into a controller.
+
+Figures on 25 Nov 2026, with all three portals, the shared UI changes and the seller's follow-ups merged (PR #20 to #27): 1296 tests; measured code **96.8% branch** (97.8% line); everything, screens included, **80.6% branch** (81.8% line). By package: services 96.8%, models 98.7%, data 92.4%, shared screens (`ui`) 92.2%, buyer screens 93.5%. The seller's and admin's screens are at 16.2% and 21.1%: the screen tests only open their pages, and their logic is in their tested services.
+
+## How We Build and Test
+
+We use **sandwich integration** (COMP 3111 Lecture 14). The bottom layer (models and `DataStore`) and the top layer (the portal screens from the skeleton) already exist, and we meet in the middle:
+- **The shared middle** (`DealRules`, `NotificationService`, the state machines and the conventions above) is built first, bottom-up, and tested with JUnit tests acting as drivers. It holds the critical subsystems: the deal lifecycle, concurrency and the borrowing-deadline timer.
+- **Each portal** (buyer, seller, admin) is then built in parallel by its owner, one use case at a time: control class plus tests, then the screen.
+
+| Level | What | Where |
+|---|---|---|
+| Unit | Equivalence partitions and boundary values (e.g. rating 0/1/5/6, photos 6/7, borrow time 4 s/5 s); state-based tests for each state machine | `src/test/.../models`, `AccountValidatorTest` |
+| Integration | Use-case flow tests at service level, including flows across roles (offer → accept → complete → review; buyer and seller chatting; the rest of the system after an account is deleted); run all tests again after every change | `DealRulesTest`, `ChatServiceTest`, `AccountDeletionFlowTest`, `DataStoreTest`, `PersistenceTest` |
+| Regression | Every bug found gets a test that reproduces it, with its input and correct output recorded in [docs/regression-log.md](docs/regression-log.md) | e.g. `AppStoreStartupTest` |
+| System | Screen tests: the real screens, in a window nobody sees. A demo user of each portal logs in on the welcome screen and opens every page. Every buyer use case runs through its screens with its alternative flows: forms are filled in and submitted or cancelled as the test says, and other dialogs are answered Cancel. A test that changes data has accounts and listings of its own | `PortalScreensTest`, `controllers/buyer/*ScreensTest` |
+| Acceptance | One manual scenario per flow of each use case, run through the screens; teammates test each other's portals | [docs/acceptance-tests.md](docs/acceptance-tests.md) (every use case of the three portals) |
+
+Which course concept is applied where (boundary/control/entity classes, the barricade, equivalence partitions, boundary values, basis paths, thread and state-based tests) is listed in [docs/course-concepts.md](docs/course-concepts.md).
+
+Test tools in `src/test/.../testsupport`: `TestClock` (a clock the test moves by hand, so a 5-second borrow is tested instantly) and `Fixtures` (accounts and listings in any state, built through the state machine). `OffScreenApp` runs the app's screens for the screen tests: it presses buttons, types into fields, answers dialogs and reads what the screens show. `ScreenData` adds a screen test's own accounts, listings and deals to the data the screens use. `TestDataFolder` gives every test run a new temporary data folder, so the screen tests use the demo data there and never the project's `marketplace-data`. `StoreProbe` is a tiny program a test runs in a separate JVM. Run all tests with `.\mvnw.cmd clean test`: without `clean`, Maven can run outdated compiled tests (regression log T1).
+
+## Further documentation
+
+| Document | What it holds |
+|---|---|
+| [docs/acceptance-tests.md](docs/acceptance-tests.md) | the manual acceptance scenarios, one per flow of each use case of the three portals, with their results |
+| [docs/regression-log.md](docs/regression-log.md) | every bug found, with its input, the correct and the wrong output, its cause and the test that keeps it fixed; tooling notes |
+| [docs/state-machines.md](docs/state-machines.md) | the listing and offer state machines |
+| [docs/client-answers.md](docs/client-answers.md) | the client's (TA's) answers to our questions, and what each one changed |
+| [docs/course-concepts.md](docs/course-concepts.md) | which COMP 3111 concept is applied where |
+| [docs/storage-manual.md](docs/storage-manual.md) | how the encrypted storage works |
+| [docs/shared-core-for-seller.md](docs/shared-core-for-seller.md), [docs/shared-core-for-admin.md](docs/shared-core-for-admin.md) | guides to the shared core for the seller and admin developers |
+| [docs/assumptions-register.md](docs/assumptions-register.md) | the behaviours we decided where the requirements and the spec say nothing; the docs cite them as "assumptions register n" |
+
+The sections after this one (Project Structure, Shared Core, Troubleshooting) are for developers.
+
 ## Project Structure
 
 ```
@@ -186,18 +202,23 @@ HKUST-Marketplace/
 ├── mvnw / mvnw.cmd          ← Maven Wrapper (use these!)
 ├── pom.xml
 ├── README.md
-└── src/main/
-    ├── java/com/hkust/marketplace/
-    │   ├── MarketplaceApp.java
-    │   ├── controllers/     ← JavaFX screens, one package per portal
-    │   ├── data/            ← DataStore (all data, thread-safe) and SeedData (demo data)
-    │   ├── models/          ← domain classes from the class diagram
-    │   ├── services/        ← logic shared by the portals: AuthService, AccessControl, ...
-    │   └── utils/           ← SceneManager, SessionManager
-    └── resources/
-        ├── fxml/
-        ├── css/styles.css
-        └── images/hkust_logo.png
+├── docs/                    ← acceptance tests, regression log, guides, client answers, ...
+├── scripts/                 ← reset-data and practice-data (Windows and macOS)
+└── src/
+    ├── main/
+    │   ├── java/com/hkust/marketplace/
+    │   │   ├── MarketplaceApp.java
+    │   │   ├── controllers/     ← JavaFX screens, one package per portal
+    │   │   ├── data/            ← DataStore (all data, thread-safe), encrypted storage, SeedData (demo data)
+    │   │   ├── models/          ← domain classes from the class diagram
+    │   │   ├── services/        ← one control class per use case, and the shared services (AuthService, AccessControl, DealRules, ...)
+    │   │   ├── ui/              ← screen components shared by the three portals (card, chat, notification board, profile, dialogs, ...)
+    │   │   └── utils/           ← SceneManager, SessionManager
+    │   └── resources/
+    │       ├── fxml/
+    │       ├── css/styles.css
+    │       └── images/hkust_logo.png
+    └── test/java/com/hkust/marketplace/   ← JUnit tests, screen tests (controllers/), test tools (testsupport/)
 ```
 
 ## Shared Core (read before building a feature)
@@ -290,50 +311,6 @@ The screen calls the service and shows any `ServiceException` message to the use
 
 **Storage.** `DataStore` saves everything after every change and loads it at start-up, so keep all data access going through it. Nothing else needs to know about files. See [Saved Data](#saved-data).
 
-## How We Build and Test
-
-We use **sandwich integration** (COMP 3111 Lecture 14). The bottom layer (models and `DataStore`) and the top layer (the portal screens from the skeleton) already exist, and we meet in the middle:
-- **The shared middle** (`DealRules`, `NotificationService`, the state machines and the conventions above) is built first, bottom-up, and tested with JUnit tests acting as drivers. It holds the critical subsystems: the deal lifecycle, concurrency and the borrowing-deadline timer.
-- **Each portal** (buyer, seller, admin) is then built in parallel by its owner, one use case at a time: control class plus tests, then the screen.
-
-| Level | What | Where |
-|---|---|---|
-| Unit | Equivalence partitions and boundary values (e.g. rating 0/1/5/6, photos 6/7, borrow time 4 s/5 s); state-based tests for each state machine | `src/test/.../models`, `AccountValidatorTest` |
-| Integration | Use-case flow tests at service level, including flows across roles (offer → accept → complete → review; buyer and seller chatting; the rest of the system after an account is deleted); run all tests again after every change | `DealRulesTest`, `ChatServiceTest`, `AccountDeletionFlowTest`, `DataStoreTest`, `PersistenceTest` |
-| Regression | Every bug found gets a test that reproduces it, with its input and correct output recorded in [docs/regression-log.md](docs/regression-log.md) | e.g. `AppStoreStartupTest` |
-| System | Screen tests: the real screens, in a window nobody sees. A demo user of each portal logs in on the welcome screen and opens every page. Every buyer use case runs through its screens with its alternative flows: forms are filled in and submitted or cancelled as the test says, and other dialogs are answered Cancel. A test that changes data has accounts and listings of its own | `PortalScreensTest`, `controllers/buyer/*ScreensTest` |
-| Acceptance | One manual scenario per flow of each use case, run through the screens; teammates test each other's portals | [docs/acceptance-tests.md](docs/acceptance-tests.md) (UC4's admin part and UC5 to UC12 so far) |
-
-Which course concept is applied where (boundary/control/entity classes, the barricade, equivalence partitions, boundary values, basis paths, thread and state-based tests) is listed in [docs/course-concepts.md](docs/course-concepts.md).
-
-Test tools in `src/test/.../testsupport`: `TestClock` (a clock the test moves by hand, so a 5-second borrow is tested instantly) and `Fixtures` (accounts and listings in any state, built through the state machine). `OffScreenApp` runs the app's screens for the screen tests: it presses buttons, types into fields, answers dialogs and reads what the screens show. `ScreenData` adds a screen test's own accounts, listings and deals to the data the screens use. `TestDataFolder` gives every test run a new temporary data folder, so the screen tests use the demo data there and never the project's `marketplace-data`. `StoreProbe` is a tiny program a test runs in a separate JVM. Run all tests with `.\mvnw.cmd clean test`: without `clean`, Maven can run outdated compiled tests (regression log T1).
-
-## Reports
-
-One command runs all tests and produces every report the submission needs:
-
-| OS | Command |
-|----|---------|
-| Windows | `.\mvnw.cmd clean verify` |
-| macOS | `./mvnw clean verify` |
-
-| Report | Open in a browser |
-|---|---|
-| Unit-test report (every test, pass/fail) | `target/reports/surefire.html` |
-| Coverage of the measured code (>65% branch rule) | `target/reports/jacoco/index.html` |
-| Coverage of everything, screens included (>65% branch rule) | `target/reports/jacoco-all/index.html` |
-| JavaDoc | `target/reports/apidocs/index.html` |
-
-The build **fails** if any test fails, or if **branch coverage drops below 65%** in either coverage report. `target/` is not committed, so run the command again to get fresh reports. JavaDoc checks links, HTML and syntax, but not missing `@param`/`@return` tags on simple methods.
-
-**In IntelliJ:** right-click `src/test/java` → **Run 'Tests in java' with Coverage**. It runs the same tests, the screen tests included, so the screens are measured too. IntelliJ counts branches a little differently from JaCoCo, so its figures can differ slightly. After pulling a change to `pom.xml`, click **Load Maven Changes** first.
-
-**Coverage policy.** The submission asks for ">65% branch coverage" without saying of which code, so the build checks it twice:
-- **Everything**, screens included: the strict reading. The screen tests keep the screens covered; new screen code without tests lowers this figure.
-- **The measured code**: the models, data, services and utils, where all the logic lives. It leaves out the JavaFX screen controllers, `MarketplaceApp`, `SceneManager` and the dev-only `DevLogin` (the excluded list is `jacoco.ui.excludes` in `pom.xml`). Screens hold no logic of their own: they read the input, call a tested service and show the result. The screen tests open every page, and the manual acceptance tests check the flows. That only stays true if **screens stay thin**: any check, rule or calculation goes into a service with tests, never into a controller.
-
-Figures on 25 Nov 2026, with all three portals, the shared UI changes and the seller's follow-ups merged (PR #20 to #27): 1296 tests; measured code **96.8% branch** (97.8% line); everything, screens included, **80.6% branch** (81.8% line). By package: services 96.8%, models 98.7%, data 92.4%, shared screens (`ui`) 92.2%, buyer screens 93.5%. The seller's and admin's screens are at 16.2% and 21.1%: the screen tests only open their pages, and their logic is in their tested services.
-
 ## Troubleshooting
 
 ### `mvn` is not recognized
@@ -354,16 +331,6 @@ You need a normal desktop session (not a headless server). On Windows this is us
 .\mvnw.cmd clean javafx:run -e
 ```
 Copy the lines that start with `Exception in thread` or `Caused by`.
-
-## For Students — Next Steps (Backend)
-
-> **⚠️ Outdated for our team:** items 1–4 are done: `DataStore`, PBKDF2 password hashing, `AccessControl`, and an encrypted save file instead of a database (see [Saved Data](#saved-data)).
-
-1. Replace `DummyDataService` with real repositories / REST clients
-2. Hash passwords (BCrypt) — never store plaintext
-3. Add JWT / session auth and enforce RBAC on the API
-4. Persist data in a database
-5. Photo upload, chat, auto-return for borrowed items, etc.
 
 ## Licence
 

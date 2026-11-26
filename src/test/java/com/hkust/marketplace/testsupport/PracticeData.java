@@ -4,7 +4,6 @@ import com.hkust.marketplace.data.DataStore;
 import com.hkust.marketplace.models.*;
 import com.hkust.marketplace.services.DealRules;
 import com.hkust.marketplace.services.NotificationService;
-import com.hkust.marketplace.utils.DevLogin;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -247,7 +246,7 @@ public final class PracticeData {
 
     /**
      * Adds the practice data to the app's saved data in the folder it is run from.
-     * Arguments: the buyer's username (default {@code alice}, or {@code buyer} in dev mode),
+     * Arguments: the buyer's username (default {@code alice}),
      * and {@code --force} to add another set although one is already there.
      */
     public static void main(String[] args) {
@@ -259,7 +258,7 @@ public final class PracticeData {
             System.out.println("The saved data could not be read, so nothing was added.");
             System.exit(1);
         }
-        String buyer = chosen != null ? chosen : DevLogin.isEnabled() && store.findUser("buyer") != null ? "buyer" : "alice";
+        String buyer = chosen != null ? chosen : "alice";
         String other = buyer.equalsIgnoreCase("bob") ? "alice" : "bob";
         if (isIn(store) && !force) {
             System.out.println("Practice data is already in this save file. Add --force (-Force on Windows) for "

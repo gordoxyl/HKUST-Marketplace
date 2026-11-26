@@ -113,7 +113,7 @@ public class SellerOfferService {
         counterPrice(seller, offerId, amount.getAsDouble());
     }
 
-    /** The rules shared by the counter, after the price itself was checked. */
+    /** The rules of countering a price, after the price itself was checked. */
     private void counterPrice(Seller seller, String offerId, double price) {
         Offer offer = requireOwnedOffer(offerId, seller);
         if (offer instanceof Claim) {

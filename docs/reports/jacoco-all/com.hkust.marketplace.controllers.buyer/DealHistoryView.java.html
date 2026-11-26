@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DealHistoryView.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.controllers.buyer</a> &gt; <span class="el_source">DealHistoryView.java</span></div><h1>DealHistoryView.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.controllers.buyer;
+
+import com.hkust.marketplace.models.Category;
+import com.hkust.marketplace.services.DealHistoryService;
+import com.hkust.marketplace.services.HistoryEntry;
+import com.hkust.marketplace.services.HistoryQuery;
+import com.hkust.marketplace.services.InvalidDateRangeException;
+import com.hkust.marketplace.services.ServiceException;
+import com.hkust.marketplace.ui.Choices;
+import com.hkust.marketplace.ui.Dialogs;
+import com.hkust.marketplace.ui.Formats;
+import com.hkust.marketplace.ui.HistoryText;
+import com.hkust.marketplace.ui.OfferText;
+import com.hkust.marketplace.ui.Refreshable;
+import javafx.beans.property.ReadOnlyStringWrapper;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.DatePicker;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
+
+import java.util.List;
+import java.util.function.Function;
+
+/**
+ * The Deal History screen (UC11 View Deal History; Task 1.9): every completed deal of the
+ * buyer, newest deal date first, with its item title, seller, deal date, deal type and outcome
+ * (step 2), and a date range, a category and a seller's name to narrow it down (step 3).
+ *
+ * &lt;p&gt;This is the use case's boundary (Lecture 15). Which deals match, in which order, and
+ * whether a date range is valid are decided by {@link DealHistoryService}; the wording is in the
+ * tested {@link HistoryText}, {@link OfferText} and {@link Formats}. The screen keeps what the
+ * buyer chose, and {@link #refresh()} runs it again: the dashboard calls it when the borrowing
+ * timer has returned an item, so the history updates by itself (Special Requirement 1; the
+ * Observer pattern of {@code LiveUpdates}, Lecture 17).
+ *
+ * &lt;p&gt;The dates are picked from a calendar and cannot be typed, so an unreadable date cannot be
+ * entered (Lecture 11: make the error impossible); Reset clears them. A range that starts after
+ * it ends (A2) is reported in red under the dates, not in a dialog: every change searches at
+ * once, so a dialog would interrupt the buyer while they are still moving the range. The message
+ * goes as soon as the range is valid, and the earlier results stay meanwhile ({Refine}). Any
+ * other problem is shown in a dialog, as on every screen. The columns cannot be re-sorted by a
+ * click, so the rows stay newest deal date first (step 2).
+ */
+public class DealHistoryView extends VBox implements Refreshable {
+
+    private final DealHistoryService service;
+
+<span class="fc" id="L56">    private final DatePicker from = datePicker(&quot;From&quot;);</span>
+<span class="fc" id="L57">    private final DatePicker to = datePicker(&quot;To&quot;);</span>
+<span class="fc" id="L58">    private final ComboBox&lt;String&gt; category = Choices.withAll(&quot;All categories&quot;, Category.values());</span>
+<span class="fc" id="L59">    private final TextField seller = new TextField();</span>
+    /** UC11 A2, under the dates; hidden while the range is valid. */
+<span class="fc" id="L61">    private final Label rangeProblem = new Label();</span>
+
+<span class="fc" id="L63">    private final Label summary = new Label();</span>
+<span class="fc" id="L64">    private final TableView&lt;HistoryEntry&gt; table = new TableView&lt;&gt;();</span>
+    /** The last query that was accepted; {@link #refresh()} runs it again. */
+<span class="fc" id="L66">    private HistoryQuery shown = HistoryQuery.ALL;</span>
+    /** True while the controls are being reset, so each change does not start a search of its own. */
+    private boolean resetting;
+
+    public DealHistoryView(DealHistoryService service) {
+<span class="fc" id="L71">        super(14);</span>
+<span class="fc" id="L72">        this.service = service;</span>
+<span class="fc" id="L73">        setPadding(new Insets(4));</span>
+
+<span class="fc" id="L75">        summary.getStyleClass().add(&quot;listing-card-line&quot;);</span>
+<span class="fc" id="L76">        buildTable();</span>
+<span class="fc" id="L77">        VBox.setVgrow(table, Priority.ALWAYS);</span>
+
+<span class="fc" id="L79">        getChildren().addAll(filterBar(), summary, table);</span>
+<span class="fc" id="L80">        refresh();</span>
+<span class="fc" id="L81">    }</span>
+
+    /**
+     * Shows the last accepted query again: when the screen opens (step 2), and when the timer
+     * has returned an item while the screen is open (Special Requirement 1). If the buyer is
+     * still correcting a range (A2), its message stays.
+     */
+    @Override
+    public final void refresh() {
+<span class="fc bfc" id="L90" title="All 2 branches covered.">        String problem = rangeProblem.isVisible() ? rangeProblem.getText() : null;</span>
+<span class="fc" id="L91">        show(shown);</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">        if (problem != null) {</span>
+<span class="fc" id="L93">            showRangeProblem(problem);</span>
+        }
+<span class="fc" id="L95">    }</span>
+
+    // ---------- Refine (UC11 step 3) ----------
+
+    private VBox filterBar() {
+<span class="fc" id="L100">        seller.setPromptText(&quot;Seller's name&quot;);</span>
+<span class="fc" id="L101">        HBox.setHgrow(seller, Priority.ALWAYS);</span>
+<span class="fc" id="L102">        Button search = new Button(&quot;Search&quot;);</span>
+<span class="fc" id="L103">        search.getStyleClass().add(&quot;btn-primary&quot;);</span>
+<span class="fc" id="L104">        search.setOnAction(e -&gt; search());</span>
+<span class="fc" id="L105">        Button reset = new Button(&quot;Reset&quot;);</span>
+<span class="fc" id="L106">        reset.getStyleClass().add(&quot;btn-outline&quot;);</span>
+<span class="fc" id="L107">        reset.setOnAction(e -&gt; reset());</span>
+<span class="fc" id="L108">        HBox top = new HBox(10, seller, search, reset);</span>
+<span class="fc" id="L109">        top.setAlignment(Pos.CENTER_LEFT);</span>
+
+<span class="fc" id="L111">        HBox filters = new HBox(10, new Label(&quot;Deal date:&quot;), from, new Label(&quot;to&quot;), to, category);</span>
+<span class="fc" id="L112">        filters.setAlignment(Pos.CENTER_LEFT);</span>
+<span class="fc" id="L113">        rangeProblem.getStyleClass().add(&quot;field-error&quot;);</span>
+<span class="fc" id="L114">        rangeProblem.setWrapText(true);</span>
+<span class="fc" id="L115">        showRangeProblem(null);</span>
+
+        // Step 5: a change of any filter, and Enter in the seller box, shows the results again
+<span class="pc" id="L118">        seller.setOnAction(e -&gt; search());</span>
+<span class="fc" id="L119">        from.setOnAction(e -&gt; search());</span>
+<span class="fc" id="L120">        to.setOnAction(e -&gt; search());</span>
+<span class="fc" id="L121">        category.setOnAction(e -&gt; search());</span>
+
+<span class="fc" id="L123">        VBox bar = new VBox(10, top, filters, rangeProblem);</span>
+<span class="fc" id="L124">        bar.getStyleClass().add(&quot;card&quot;);</span>
+<span class="fc" id="L125">        bar.setPadding(new Insets(14, 16, 14, 16));</span>
+<span class="fc" id="L126">        return bar;</span>
+    }
+
+    /**
+     * A date picker that takes a date from its calendar only (see the class comment), and shows
+     * it as the table shows deal dates: &quot;21 Nov 2026&quot;.
+     */
+    private static DatePicker datePicker(String prompt) {
+<span class="fc" id="L134">        DatePicker picker = new DatePicker();</span>
+<span class="fc" id="L135">        picker.setPromptText(prompt);</span>
+<span class="fc" id="L136">        picker.setConverter(Formats.datePickerConverter());</span>
+<span class="fc" id="L137">        picker.setEditable(false);</span>
+<span class="fc" id="L138">        picker.setPrefWidth(150);</span>
+<span class="fc" id="L139">        return picker;</span>
+    }
+
+    private void search() {
+<span class="fc bfc" id="L143" title="All 2 branches covered.">        if (resetting) {</span>
+<span class="fc" id="L144">            return;</span>
+        }
+<span class="fc" id="L146">        show(new HistoryQuery(from.getValue(), to.getValue(),</span>
+<span class="fc" id="L147">                Choices.chosen(category, Category.values()), seller.getText()));</span>
+<span class="fc" id="L148">    }</span>
+
+    private void reset() {
+<span class="fc" id="L151">        resetting = true;</span>
+<span class="fc" id="L152">        from.setValue(null);</span>
+<span class="fc" id="L153">        to.setValue(null);</span>
+<span class="fc" id="L154">        category.getSelectionModel().selectFirst();</span>
+<span class="fc" id="L155">        seller.clear();</span>
+<span class="fc" id="L156">        resetting = false;</span>
+<span class="fc" id="L157">        show(HistoryQuery.ALL);</span>
+<span class="fc" id="L158">    }</span>
+
+    // ---------- Show History and Show Results (UC11 steps 2 and 4) ----------
+
+    private void show(HistoryQuery query) {
+        List&lt;HistoryEntry&gt; entries;
+        try {
+<span class="fc" id="L165">            entries = service.find(query);</span>
+<span class="fc" id="L166">        } catch (InvalidDateRangeException e) {</span>
+<span class="fc" id="L167">            showRangeProblem(e.getMessage()); // A2: the earlier results stay, and the buyer corrects the range ({Refine})</span>
+<span class="fc" id="L168">            return;</span>
+<span class="fc" id="L169">        } catch (ServiceException e) {</span>
+<span class="fc" id="L170">            Dialogs.problem(e);</span>
+<span class="fc" id="L171">            return;</span>
+<span class="fc" id="L172">        }</span>
+<span class="fc" id="L173">        showRangeProblem(null);</span>
+<span class="fc" id="L174">        shown = query;</span>
+<span class="fc" id="L175">        summary.setText(HistoryText.resultSummary(entries.size())); // A1 when there are none</span>
+<span class="fc" id="L176">        table.getItems().setAll(entries);</span>
+<span class="fc" id="L177">    }</span>
+
+    /** Shows A2's message under the dates, or hides the line (and its space) when there is none. */
+    private void showRangeProblem(String message) {
+<span class="fc bfc" id="L181" title="All 2 branches covered.">        rangeProblem.setText(message == null ? &quot;&quot; : message);</span>
+<span class="fc bfc" id="L182" title="All 2 branches covered.">        rangeProblem.setVisible(message != null);</span>
+<span class="fc bfc" id="L183" title="All 2 branches covered.">        rangeProblem.setManaged(message != null);</span>
+<span class="fc" id="L184">    }</span>
+
+    // ---------- The table: the columns of Task 1.9 ----------
+
+    private void buildTable() {
+<span class="fc" id="L189">        table.getColumns().add(column(&quot;Item Title&quot;, entry -&gt; entry.listing().getTitle()));</span>
+<span class="fc" id="L190">        table.getColumns().add(column(&quot;Seller&quot;, HistoryEntry::sellerName));</span>
+<span class="fc" id="L191">        table.getColumns().add(column(&quot;Deal Date&quot;, entry -&gt; Formats.date(entry.dealDate())));</span>
+<span class="fc" id="L192">        table.getColumns().add(column(&quot;Deal Type&quot;, entry -&gt; HistoryText.dealType(entry.deal())));</span>
+<span class="fc" id="L193">        table.getColumns().add(column(&quot;Outcome&quot;, entry -&gt; OfferText.status(entry.deal())));</span>
+<span class="fc" id="L194">        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);</span>
+<span class="fc" id="L195">        table.setPlaceholder(new Label()); // the summary above already says when nothing matches (A1)</span>
+<span class="fc" id="L196">    }</span>
+
+    /** A column of text that cannot be re-sorted by a click, so the rows keep the order of step 2. */
+    private static TableColumn&lt;HistoryEntry, String&gt; column(String title, Function&lt;HistoryEntry, String&gt; text) {
+<span class="fc" id="L200">        TableColumn&lt;HistoryEntry, String&gt; column = new TableColumn&lt;&gt;(title);</span>
+<span class="fc" id="L201">        column.setCellValueFactory(cell -&gt; new ReadOnlyStringWrapper(text.apply(cell.getValue())));</span>
+<span class="fc" id="L202">        column.setSortable(false);</span>
+<span class="fc" id="L203">        return column;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

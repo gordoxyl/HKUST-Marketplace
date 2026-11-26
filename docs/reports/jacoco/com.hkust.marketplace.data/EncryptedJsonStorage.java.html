@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EncryptedJsonStorage.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.data</a> &gt; <span class="el_source">EncryptedJsonStorage.java</span></div><h1>EncryptedJsonStorage.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.data;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.Optional;
+
+/**
+ * Saves the data as JSON, encrypted with {@link DataCipher}, in one file; deleted-account
+ * snapshots and listing photos go to encrypted files of their own, in folders next to it:
+ * &lt;pre&gt;
+ * marketplace-data/
+ *   marketplace.dat            all data (encrypted JSON)
+ *   marketplace-audit/G12.txt  data snapshot of audit log entry G12 (encrypted)
+ *   marketplace-photos/I31.img listing photo I31 (encrypted, so it cannot be opened as a picture)
+ * &lt;/pre&gt;
+ * Each save writes a temporary file first and then replaces the old file, so a crash while
+ * saving cannot leave a half-written file. A save is skipped when nothing has changed.
+ */
+public class EncryptedJsonStorage implements Storage {
+
+    private final Path dataFile;
+    private final Path auditFolder;
+    private final Path photoFolder;
+    private final DataCipher cipher;
+<span class="fc" id="L35">    private final ObjectMapper mapper = JsonMapping.newMapper();</span>
+
+    /** The JSON last saved or loaded, so unchanged data is not written again. */
+    private byte[] lastSavedJson;
+
+    /** Storage in the given file, using the built-in key. */
+    public EncryptedJsonStorage(Path dataFile) {
+<span class="fc" id="L42">        this(dataFile, DataCipher.defaultCipher());</span>
+<span class="fc" id="L43">    }</span>
+
+<span class="fc" id="L45">    public EncryptedJsonStorage(Path dataFile, DataCipher cipher) {</span>
+<span class="fc" id="L46">        this.dataFile = dataFile.toAbsolutePath();</span>
+<span class="fc" id="L47">        this.cipher = cipher;</span>
+<span class="fc" id="L48">        String baseName = this.dataFile.getFileName().toString().replaceFirst(&quot;\\.dat$&quot;, &quot;&quot;);</span>
+<span class="fc" id="L49">        this.auditFolder = this.dataFile.resolveSibling(baseName + &quot;-audit&quot;);</span>
+<span class="fc" id="L50">        this.photoFolder = this.dataFile.resolveSibling(baseName + &quot;-photos&quot;);</span>
+<span class="fc" id="L51">    }</span>
+
+    public Path getDataFile() {
+<span class="fc" id="L54">        return dataFile;</span>
+    }
+
+    public Path getAuditFolder() {
+<span class="fc" id="L58">        return auditFolder;</span>
+    }
+
+    public Path getPhotoFolder() {
+<span class="fc" id="L62">        return photoFolder;</span>
+    }
+
+    @Override
+    public synchronized Optional&lt;StoreSnapshot&gt; load() {
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        if (!Files.exists(dataFile)) {</span>
+<span class="fc" id="L68">            return Optional.empty();</span>
+        }
+<span class="fc" id="L70">        byte[] json = cipher.decrypt(readAll(dataFile));</span>
+        try {
+<span class="fc" id="L72">            StoreSnapshot snapshot = mapper.readValue(json, StoreSnapshot.class);</span>
+<span class="fc" id="L73">            lastSavedJson = json;</span>
+<span class="fc" id="L74">            return Optional.of(snapshot);</span>
+<span class="nc" id="L75">        } catch (IOException e) {</span>
+<span class="nc" id="L76">            throw new StorageException(&quot;The save file could not be read: &quot; + e.getMessage(), e);</span>
+        }
+    }
+
+    @Override
+    public synchronized void save(StoreSnapshot snapshot) {
+        byte[] json;
+        try {
+<span class="fc" id="L84">            json = mapper.writeValueAsBytes(snapshot);</span>
+<span class="nc" id="L85">        } catch (JsonProcessingException e) {</span>
+<span class="nc" id="L86">            throw new StorageException(&quot;The data could not be prepared for saving: &quot; + e.getMessage(), e);</span>
+<span class="fc" id="L87">        }</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        if (Arrays.equals(json, lastSavedJson)) {</span>
+<span class="fc" id="L89">            return; // nothing changed since the last save</span>
+        }
+<span class="fc" id="L91">        writeEncrypted(dataFile, json);</span>
+<span class="fc" id="L92">        lastSavedJson = json;</span>
+<span class="fc" id="L93">    }</span>
+
+    @Override
+    public synchronized String setAsideUnreadable() {
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">        if (!Files.exists(dataFile)) {</span>
+<span class="nc" id="L98">            return &quot;there was no save file&quot;;</span>
+        }
+        // The real time is fine here: it only names the file that is moved aside
+<span class="fc" id="L101">        String stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern(&quot;yyyyMMdd-HHmmss&quot;));</span>
+<span class="fc" id="L102">        Path aside = dataFile.resolveSibling(dataFile.getFileName() + &quot;.unreadable-&quot; + stamp);</span>
+        try {
+<span class="fc" id="L104">            Files.move(dataFile, aside);</span>
+<span class="nc" id="L105">        } catch (IOException e) {</span>
+<span class="nc" id="L106">            throw new StorageException(&quot;Could not move the unreadable save file &quot; + dataFile + &quot;: &quot; + e.getMessage(), e);</span>
+<span class="fc" id="L107">        }</span>
+<span class="fc" id="L108">        lastSavedJson = null;</span>
+<span class="fc" id="L109">        return aside.toString();</span>
+    }
+
+    @Override
+    public synchronized void saveAuditSnapshot(String logReference, String snapshot) {
+<span class="fc" id="L114">        writeEncrypted(auditFile(logReference), snapshot.getBytes(StandardCharsets.UTF_8));</span>
+<span class="fc" id="L115">    }</span>
+
+    @Override
+    public synchronized Optional&lt;String&gt; loadAuditSnapshot(String logReference) {
+<span class="fc" id="L119">        Path file = auditFile(logReference);</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">        if (!Files.exists(file)) {</span>
+<span class="fc" id="L121">            return Optional.empty();</span>
+        }
+<span class="fc" id="L123">        return Optional.of(new String(cipher.decrypt(readAll(file)), StandardCharsets.UTF_8));</span>
+    }
+
+    private Path auditFile(String logReference) {
+        // Log references are DataStore ids such as &quot;G12&quot;; anything else could point outside the folder
+<span class="fc bfc" id="L128" title="All 2 branches covered.">        if (!logReference.matches(&quot;[A-Za-z0-9]+&quot;)) {</span>
+<span class="fc" id="L129">            throw new IllegalArgumentException(&quot;Not an audit log reference: &quot; + logReference);</span>
+        }
+<span class="fc" id="L131">        return auditFolder.resolve(logReference + &quot;.txt&quot;);</span>
+    }
+
+    @Override
+    public synchronized void savePhoto(String photoId, byte[] image) {
+<span class="fc" id="L136">        writeEncrypted(photoFile(photoId), image);</span>
+<span class="fc" id="L137">    }</span>
+
+    /** Not synchronized: a saved photo never changes, so photos can be read while data is being saved. */
+    @Override
+    public Optional&lt;byte[]&gt; loadPhoto(String photoId) {
+<span class="fc" id="L142">        Path file = photoFile(photoId);</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">        if (!Files.exists(file)) {</span>
+<span class="fc" id="L144">            return Optional.empty();</span>
+        }
+<span class="fc" id="L146">        return Optional.of(cipher.decrypt(readAll(file)));</span>
+    }
+
+    private Path photoFile(String photoId) {
+        // Photo ids are DataStore ids such as &quot;I31&quot;; anything else could point outside the folder
+<span class="fc bfc" id="L151" title="All 4 branches covered.">        if (photoId == null || !photoId.matches(&quot;[A-Za-z0-9]+&quot;)) {</span>
+<span class="fc" id="L152">            throw new IllegalArgumentException(&quot;Not a photo id: &quot; + photoId);</span>
+        }
+<span class="fc" id="L154">        return photoFolder.resolve(photoId + &quot;.img&quot;);</span>
+    }
+
+    private void writeEncrypted(Path target, byte[] plain) {
+        try {
+<span class="fc" id="L159">            Files.createDirectories(target.getParent());</span>
+<span class="fc" id="L160">            Path temp = target.resolveSibling(target.getFileName() + &quot;.tmp&quot;);</span>
+<span class="fc" id="L161">            Files.write(temp, cipher.encrypt(plain));</span>
+            try {
+<span class="fc" id="L163">                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);</span>
+<span class="nc" id="L164">            } catch (AtomicMoveNotSupportedException e) {</span>
+<span class="nc" id="L165">                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);</span>
+<span class="fc" id="L166">            }</span>
+<span class="nc" id="L167">        } catch (IOException e) {</span>
+<span class="nc" id="L168">            throw new StorageException(&quot;Could not save &quot; + target + &quot;: &quot; + e.getMessage(), e);</span>
+<span class="fc" id="L169">        }</span>
+<span class="fc" id="L170">    }</span>
+
+    private static byte[] readAll(Path file) {
+        try {
+<span class="fc" id="L174">            return Files.readAllBytes(file);</span>
+<span class="nc" id="L175">        } catch (IOException e) {</span>
+<span class="nc" id="L176">            throw new StorageException(&quot;Could not read &quot; + file + &quot;: &quot; + e.getMessage(), e);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

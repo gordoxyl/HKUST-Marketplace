@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SeedData.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.data</a> &gt; <span class="el_source">SeedData.java</span></div><h1>SeedData.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.data;
+
+import com.hkust.marketplace.models.*;
+import com.hkust.marketplace.services.PasswordHasher;
+
+import java.time.Clock;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.List;
+
+/**
+ * Demo accounts and data loaded when the app starts. The README lists the demo logins.
+ * Passwords are stored hashed, like real accounts, and meet the password rules
+ * (UC1 Special Requirement 2).
+ *
+ * The demo data is created as a short story in time order: the store's clock is set back
+ * before each step, so every record gets a believable date (an offer is made before it is
+ * accepted, a deal is completed before it is reviewed), and listings reach their status
+ * through the same state machine events the portals use.
+ */
+public final class SeedData {
+
+    /** Password of the seeded admin account (Task 3). */
+    public static final String ADMIN_PASSWORD = &quot;Admin@1234&quot;;
+
+    /** Password of every seeded demo buyer and seller. */
+    public static final String DEMO_PASSWORD = &quot;Demo@1234&quot;;
+
+    private SeedData() {
+        // Utility class
+    }
+
+    /** Fills an empty store with the demo data. */
+    public static void populate(DataStore store) {
+<span class="fc" id="L36">        Clock realClock = store.getClock();</span>
+<span class="fc" id="L37">        LocalDateTime now = store.now();</span>
+<span class="fc" id="L38">        String demoHash = PasswordHasher.hash(DEMO_PASSWORD);</span>
+
+        // ---------- Accounts (registered a month ago) ----------
+<span class="fc" id="L41">        at(store, now.minusDays(30));</span>
+<span class="fc" id="L42">        store.addUser(new Admin(&quot;admin&quot;, &quot;HKUST Marketplace Admin&quot;, PasswordHasher.hash(ADMIN_PASSWORD)));</span>
+<span class="fc" id="L43">        store.addUser(new Buyer(&quot;alice&quot;, &quot;Alice Chan&quot;, demoHash, &quot;Hall 3&quot;));</span>
+<span class="fc" id="L44">        store.addUser(new Buyer(&quot;bob&quot;, &quot;Bob Wong&quot;, demoHash, &quot;Off-campus&quot;));</span>
+
+<span class="fc" id="L46">        Seller charlie = new Seller(&quot;charlie&quot;, &quot;Charlie Lee&quot;, demoHash);</span>
+<span class="fc" id="L47">        charlie.setBio(&quot;Final year CSE student selling textbooks and gadgets.&quot;);</span>
+<span class="fc" id="L48">        charlie.setPreferredMeetupLocations(List.of(MeetupLocation.LIBRARY, MeetupLocation.ACADEMIC_BUILDING_LG1));</span>
+<span class="fc" id="L49">        store.addUser(charlie);</span>
+
+<span class="fc" id="L51">        Seller diana = new Seller(&quot;diana&quot;, &quot;Diana Ng&quot;, demoHash);</span>
+<span class="fc" id="L52">        diana.setBio(&quot;Selling furniture and kitchen items before graduation.&quot;);</span>
+<span class="fc" id="L53">        diana.setPreferredMeetupLocations(List.of(MeetupLocation.HALL5_LOBBY));</span>
+<span class="fc" id="L54">        store.addUser(diana);</span>
+
+        // ---------- Bob bought the chemistry textbook and reviewed Charlie: Sold ----------
+<span class="fc" id="L57">        at(store, now.minusDays(21));</span>
+<span class="fc" id="L58">        Listing chemistry = approved(store, new SaleListing(&quot;charlie&quot;, &quot;Organic Chemistry Textbook&quot;, Category.TEXTBOOKS,</span>
+                ItemCondition.USED, &quot;Some highlighting, otherwise clean.&quot;, MeetupLocation.LIBRARY, 120));
+<span class="fc" id="L60">        at(store, now.minusDays(20));</span>
+<span class="fc" id="L61">        Offer bobPurchase = store.addOffer(new PriceOffer(chemistry.getId(), &quot;bob&quot;, 120));</span>
+<span class="fc" id="L62">        at(store, now.minusDays(19));</span>
+<span class="fc" id="L63">        bobPurchase.accept(store.now());</span>
+<span class="fc" id="L64">        chemistry.acceptDeal();</span>
+<span class="fc" id="L65">        at(store, now.minusDays(18));</span>
+<span class="fc" id="L66">        bobPurchase.complete(store.now());</span>
+<span class="fc" id="L67">        chemistry.completeDeal();</span>
+<span class="fc" id="L68">        at(store, now.minusDays(17));</span>
+<span class="fc" id="L69">        store.addReview(new Review(bobPurchase.getId(), 5, &quot;Very smooth transaction, book in excellent condition!&quot;));</span>
+<span class="fc" id="L70">        store.addNotification(new Notification(&quot;charlie&quot;, NotificationCategory.REVIEW_RECEIVED,</span>
+                &quot;Bob Wong rated you 5 stars for Organic Chemistry Textbook.&quot;));
+
+        // ---------- Listings that are live now ----------
+<span class="fc" id="L74">        at(store, now.minusDays(6));</span>
+<span class="fc" id="L75">        Listing calculus = approved(store, new SaleListing(&quot;charlie&quot;, &quot;Calculus Textbook (Stewart)&quot;, Category.TEXTBOOKS,</span>
+                ItemCondition.LIKE_NEW, &quot;Barely used, 8th edition. Perfect for MATH 1013.&quot;, MeetupLocation.LIBRARY, 180));
+<span class="fc" id="L77">        at(store, now.minusDays(4));</span>
+<span class="fc" id="L78">        approved(store, new SaleListing(&quot;charlie&quot;, &quot;MacBook Pro Charger 61W&quot;, Category.ELECTRONICS,</span>
+                ItemCondition.USED, &quot;Original Apple charger, works perfectly.&quot;, MeetupLocation.ACADEMIC_BUILDING_LG1, 250));
+<span class="fc" id="L80">        at(store, now.minusDays(3));</span>
+<span class="fc" id="L81">        approved(store, new GiveawayListing(&quot;diana&quot;, &quot;IKEA Desk Lamp&quot;, Category.FURNITURE,</span>
+                ItemCondition.USED, &quot;Good condition, LED bulb included.&quot;, MeetupLocation.HALL5_LOBBY));
+<span class="fc" id="L83">        at(store, now.minusDays(2));</span>
+<span class="fc" id="L84">        Listing calculator = approved(store, new LendListing(&quot;diana&quot;, &quot;Graphing Calculator TI-84&quot;, Category.ELECTRONICS,</span>
+<span class="fc" id="L85">                ItemCondition.LIKE_NEW, &quot;Can lend for one semester.&quot;, MeetupLocation.STUDENT_CENTRE, Duration.ofDays(90)));</span>
+
+        // ---------- Alice's offer on the calculus textbook was accepted: Reserved ----------
+<span class="fc" id="L88">        at(store, now.minusDays(3));</span>
+<span class="fc" id="L89">        Offer aliceOffer = store.addOffer(new PriceOffer(calculus.getId(), &quot;alice&quot;, 160));</span>
+<span class="fc" id="L90">        store.addNotification(new Notification(&quot;charlie&quot;, NotificationCategory.OFFER_RECEIVED,</span>
+                &quot;Alice Chan offered HK$ 160 for Calculus Textbook (Stewart).&quot;));
+<span class="fc" id="L92">        ChatThread aliceChat = store.findThread(&quot;alice&quot;, calculus.getId());</span>
+<span class="fc" id="L93">        aliceChat.addMessage(new Message(&quot;alice&quot;, &quot;Hi, is the textbook still available?&quot;, store.now()));</span>
+<span class="fc" id="L94">        at(store, now.minusDays(2));</span>
+<span class="fc" id="L95">        aliceChat.addMessage(new Message(&quot;charlie&quot;, &quot;Yes! Happy to meet at the Library.&quot;, store.now()));</span>
+<span class="fc" id="L96">        at(store, now.minusDays(1));</span>
+<span class="fc" id="L97">        aliceOffer.accept(store.now());</span>
+<span class="fc" id="L98">        calculus.acceptDeal();</span>
+<span class="fc" id="L99">        store.addNotification(new Notification(&quot;alice&quot;, NotificationCategory.OFFER_UPDATE,</span>
+                &quot;Charlie Lee accepted your price offer for 'Calculus Textbook (Stewart)'.&quot;));
+
+        // ---------- Diana's mini fridge waits for review: Pending Review ----------
+<span class="fc" id="L103">        store.addListing(new SaleListing(&quot;diana&quot;, &quot;Mini Fridge&quot;, Category.FURNITURE,</span>
+                ItemCondition.USED, &quot;Works well, cleaning required.&quot;, MeetupLocation.HALL2_LOBBY, 400));
+<span class="fc" id="L105">        store.addNotification(new Notification(&quot;diana&quot;, NotificationCategory.LISTING_SUBMITTED,</span>
+                &quot;Your listing 'Mini Fridge' is pending review.&quot;));
+<span class="fc" id="L107">        store.addNotification(new Notification(&quot;admin&quot;, NotificationCategory.LISTING_SUBMITTED,</span>
+                &quot;Diana Ng submitted 'Mini Fridge' for review.&quot;));
+
+        // ---------- Bob's borrow request on the calculator waits for Diana: Pending ----------
+<span class="fc" id="L111">        at(store, now.minusHours(1));</span>
+<span class="fc" id="L112">        store.addOffer(new BorrowRequest(calculator.getId(), &quot;bob&quot;, now.plusDays(1), now.plusDays(8)));</span>
+<span class="fc" id="L113">        store.addNotification(new Notification(&quot;diana&quot;, NotificationCategory.OFFER_RECEIVED,</span>
+                &quot;Bob Wong sent a borrow request for Graphing Calculator TI-84.&quot;));
+
+<span class="fc" id="L116">        store.setClock(realClock);</span>
+<span class="fc" id="L117">    }</span>
+
+    /** Adds the listing and approves it, as the admin would. */
+    private static Listing approved(DataStore store, Listing listing) {
+<span class="fc" id="L121">        store.addListing(listing);</span>
+<span class="fc" id="L122">        listing.approve();</span>
+<span class="fc" id="L123">        return listing;</span>
+    }
+
+    /** Sets the store's clock to a fixed moment, so the next records are dated then. */
+    private static void at(DataStore store, LocalDateTime when) {
+<span class="fc" id="L128">        ZoneId zone = store.getClock().getZone();</span>
+<span class="fc" id="L129">        store.setClock(Clock.fixed(when.atZone(zone).toInstant(), zone));</span>
+<span class="fc" id="L130">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

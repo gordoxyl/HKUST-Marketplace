@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HistoryQuery.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">HistoryQuery.java</span></div><h1>HistoryQuery.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.models.Category;
+
+import java.time.LocalDate;
+
+/**
+ * What the buyer chose on Deal History (UC11 step 3): a date range, a category and part of a
+ * seller's name. Every part is optional; {@link #ALL} asks for every completed deal, which is
+ * what the screen shows when it opens (step 2).
+ *
+ * &lt;p&gt;The dates are kept as chosen. {@link DealHistoryService#find} checks their order (A2), so
+ * the check is in one tested place and not in the screen.
+ *
+ * @param from     the first day of the date range, or null for no start
+ * @param to       the last day of the date range, or null for no end
+ * @param category null for every category
+ * @param seller   part of the seller's name as typed; blank for no search
+ */
+public record HistoryQuery(LocalDate from, LocalDate to, Category category, String seller) {
+
+    /** Every completed deal: what Deal History shows when it opens (UC11 step 2). */
+<span class="fc" id="L23">    public static final HistoryQuery ALL = new HistoryQuery(null, null, null, &quot;&quot;);</span>
+
+    /** Nothing typed is stored as blank text, never as null; spaces around the text are dropped. */
+<span class="fc" id="L26">    public HistoryQuery {</span>
+<span class="fc bfc" id="L27" title="All 2 branches covered.">        seller = seller == null ? &quot;&quot; : seller.strip();</span>
+<span class="fc" id="L28">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

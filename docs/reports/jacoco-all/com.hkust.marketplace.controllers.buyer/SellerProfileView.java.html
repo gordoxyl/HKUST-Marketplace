@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SellerProfileView.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.controllers.buyer</a> &gt; <span class="el_source">SellerProfileView.java</span></div><h1>SellerProfileView.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.controllers.buyer;
+
+import com.hkust.marketplace.services.SellerProfile;
+import com.hkust.marketplace.ui.BrowseText;
+import com.hkust.marketplace.ui.ReviewList;
+import javafx.geometry.Insets;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+
+/**
+ * A seller's profile as a buyer sees it (UC8 A3; Task 1.10): full name, bio, average rating,
+ * and the seller's reviews, each with its rating, comment, date and the seller's reply.
+ */
+public class SellerProfileView extends ScrollPane {
+
+<span class="fc" id="L18">    public SellerProfileView(SellerProfile seller) {</span>
+<span class="fc" id="L19">        Label name = new Label(seller.fullName());</span>
+<span class="fc" id="L20">        name.getStyleClass().add(&quot;section-title&quot;);</span>
+<span class="fc" id="L21">        Label username = new Label(&quot;@&quot; + seller.username());</span>
+<span class="fc" id="L22">        username.getStyleClass().add(&quot;listing-card-line&quot;);</span>
+<span class="fc" id="L23">        Label bio = new Label(BrowseText.bio(seller.bio()));</span>
+<span class="fc" id="L24">        bio.setWrapText(true);</span>
+<span class="fc" id="L25">        bio.setMinHeight(Region.USE_PREF_SIZE);</span>
+<span class="fc" id="L26">        bio.getStyleClass().add(&quot;chat-text&quot;);</span>
+
+<span class="fc" id="L28">        VBox about = new VBox(6, name, username, bio);</span>
+<span class="fc" id="L29">        about.getStyleClass().add(&quot;card&quot;);</span>
+<span class="fc" id="L30">        about.setPadding(new Insets(14, 16, 14, 16));</span>
+
+<span class="fc" id="L32">        VBox reviews = new VBox(new ReviewList(seller.rating(), seller.reviews()));</span>
+<span class="fc" id="L33">        reviews.getStyleClass().add(&quot;card&quot;);</span>
+<span class="fc" id="L34">        reviews.setPadding(new Insets(14, 16, 14, 16));</span>
+
+<span class="fc" id="L36">        VBox page = new VBox(16, about, reviews);</span>
+<span class="fc" id="L37">        page.setPadding(new Insets(4, 12, 12, 4));</span>
+<span class="fc" id="L38">        setContent(page);</span>
+<span class="fc" id="L39">        setFitToWidth(true);</span>
+<span class="fc" id="L40">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

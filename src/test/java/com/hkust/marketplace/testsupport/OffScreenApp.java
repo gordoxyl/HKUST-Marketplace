@@ -293,6 +293,21 @@ public final class OffScreenApp {
     }
 
     /**
+     * True if the label with this text and the field with this id or prompt text are on the same
+     * line of the window, as a label beside the field it names: the middle of the label is level
+     * with the field.
+     */
+    public boolean onOneLine(String label, String field) {
+        return read(() -> {
+            Node name = find(root(), Labeled.class, candidate -> textOf(candidate).equals(label));
+            Node box = field(root(), field, 0);
+            Bounds nameOnWindow = name.localToScene(name.getLayoutBounds());
+            Bounds boxOnWindow = box.localToScene(box.getLayoutBounds());
+            return nameOnWindow.getCenterY() >= boxOnWindow.getMinY() && nameOnWindow.getCenterY() <= boxOnWindow.getMaxY();
+        });
+    }
+
+    /**
      * True if the user can type into the field with this id or prompt text, or the first field
      * after the label with this text: false while it, or the form around it, is disabled, and
      * for a read-only field.
@@ -369,12 +384,16 @@ public final class OffScreenApp {
      * without "…", so {@link #cutTexts()} cannot see it.
      */
     public List<String> cutPrompts() {
-        return read(() -> all(root()).stream()
+        return read(() -> cutPrompts(root()));
+    }
+
+    private static List<String> cutPrompts(Node from) {
+        return all(from).stream()
                 .filter(node -> node instanceof TextField && isShown(node))
                 .map(node -> (TextField) node)
                 .filter(OffScreenApp::isPromptCut)
                 .map(TextField::getPromptText)
-                .toList());
+                .toList();
     }
 
     /** True if the field is empty and its hint, in the field's font, is wider than the room inside the field. */
@@ -630,6 +649,11 @@ public final class OffScreenApp {
         /** True if a text in the dialog contains this text. */
         public boolean shows(String text) {
             return all(pane).stream().filter(OffScreenApp::isShown).anyMatch(node -> textOf(node).contains(text));
+        }
+
+        /** The hints of the dialog's empty text fields that are wider than their field, as {@link OffScreenApp#cutPrompts()}. */
+        public List<String> cutPrompts() {
+            return OffScreenApp.cutPrompts(pane);
         }
     }
 

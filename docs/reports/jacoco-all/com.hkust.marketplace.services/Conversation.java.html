@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Conversation.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">Conversation.java</span></div><h1>Conversation.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.Offer;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * The chat between one buyer and the seller of one listing, as one of them sees it (UC6
+ * step 2): the listing, the two people, and the history in the order it was sent. It is a
+ * copy made at one moment; {@link ChatService} returns a new one after each message.
+ *
+ * &lt;p&gt;A buyer who has not written or made an offer yet gets a conversation with no entries.
+ * The chat thread itself is created by the buyer's first message (UC6 step 5) or first offer
+ * (UC5 step 7).
+ *
+ * @param listing        the listing the chat is about
+ * @param buyerUsername  the buyer in this chat; with the listing, this identifies the chat
+ * @param buyerName      the buyer's full name
+ * @param sellerName     the full name of the listing's seller
+ * @param viewerUsername the logged-in participant this copy was made for
+ * @param entries        messages and offers, oldest first
+ */
+public record Conversation(Listing listing, String buyerUsername, String buyerName, String sellerName,
+                           String viewerUsername, List&lt;ChatEntry&gt; entries) {
+
+<span class="fc" id="L30">    public Conversation {</span>
+<span class="fc" id="L31">        Objects.requireNonNull(listing, &quot;listing&quot;);</span>
+<span class="fc" id="L32">        Objects.requireNonNull(buyerUsername, &quot;buyerUsername&quot;);</span>
+<span class="fc" id="L33">        Objects.requireNonNull(buyerName, &quot;buyerName&quot;);</span>
+<span class="fc" id="L34">        Objects.requireNonNull(sellerName, &quot;sellerName&quot;);</span>
+<span class="fc" id="L35">        Objects.requireNonNull(viewerUsername, &quot;viewerUsername&quot;);</span>
+<span class="fc" id="L36">        entries = List.copyOf(entries);</span>
+<span class="fc" id="L37">    }</span>
+
+    /**
+     * True if the other copy is of the same chat: the same listing and the same buyer, whoever
+     * each copy was made for and however old it is. The chat screen marks the open chat in its
+     * list with it (assumptions register 90).
+     */
+    public boolean isSameChat(Conversation other) {
+<span class="fc bfc" id="L45" title="All 4 branches covered.">        return listing.getId().equals(other.listing().getId()) &amp;&amp; buyerUsername.equalsIgnoreCase(other.buyerUsername());</span>
+    }
+
+    /** True if this copy was made for the buyer, false if for the listing's seller. */
+    public boolean viewerIsBuyer() {
+<span class="fc" id="L50">        return viewerUsername.equalsIgnoreCase(buyerUsername);</span>
+    }
+
+    /** The full name of the person the viewer is chatting with. */
+    public String otherPartyName() {
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        return viewerIsBuyer() ? sellerName : buyerName;</span>
+    }
+
+    /** True if the viewer sent this message or made this offer. */
+    public boolean isSentByViewer(ChatEntry entry) {
+<span class="fc" id="L60">        return entry.senderUsername().equalsIgnoreCase(viewerUsername);</span>
+    }
+
+    /** The newest message or offer, or empty if nothing has been sent yet. */
+    public Optional&lt;ChatEntry&gt; lastEntry() {
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        return entries.isEmpty() ? Optional.empty() : Optional.of(entries.get(entries.size() - 1));</span>
+    }
+
+    /**
+     * The offers in this chat that the viewer can act on now, newest first: for the seller the
+     * open ones (Pending, or Countered and waiting for the buyer), for the buyer the ones the
+     * seller countered. The deal actions beside Send are built from this (assumptions register 71).
+     * @return the offers; empty if there are none
+     */
+    public List&lt;Offer&gt; offersToActOn() {
+<span class="fc" id="L75">        List&lt;Offer&gt; offers = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        for (int i = entries.size() - 1; i &gt;= 0; i--) {</span>
+<span class="fc" id="L77">            Offer offer = entries.get(i).offer();</span>
+<span class="fc bfc" id="L78" title="All 4 branches covered.">            if (offer != null &amp;&amp; !actionsFor(offer).isEmpty()) {</span>
+<span class="fc" id="L79">                offers.add(offer);</span>
+            }
+        }
+<span class="fc" id="L82">        return List.copyOf(offers);</span>
+    }
+
+    /** What the viewer can do with one of this chat's offers now; see {@link OfferAction#allowedFor}. */
+    public List&lt;OfferAction&gt; actionsFor(Offer offer) {
+<span class="fc" id="L87">        return OfferAction.allowedFor(offer, viewerIsBuyer());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatList.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">ChatList.java</span></div><h1>ChatList.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.services.ChatService;
+import com.hkust.marketplace.services.Conversation;
+import com.hkust.marketplace.services.ServiceException;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Cursor;
+import javafx.scene.Node;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+
+import java.util.List;
+import java.util.function.Consumer;
+
+/**
+ * The chat screen, the same in the buyer and seller portals (UC6 Chat About Listing; Tasks 1.5
+ * and 2.5): every chat of the logged-in user in a list, the one with the newest message or
+ * offer first, and the chosen chat ({@link ChatView}) beside the list, as in a desktop
+ * messenger, with a light grey line between them. The list can be hidden, to give the chat
+ * the whole width, and shown again (assumptions register 90).
+ * &lt;pre&gt;{@code
+ * show(&quot;Chats&quot;, new ChatList(chatService, this, onOpen));                         // the Chats page
+ * new ChatList(chatService, this, onOpen).openFrom(chat, &quot;Back to listing&quot;, back); // from another screen
+ * }&lt;/pre&gt;
+ * Every chat opens here, with Back above it ({@link SubScreen}): &quot;Back to Chats&quot; when it was
+ * chosen on the Chats page (assumptions register 89), otherwise back to the screen it was
+ * opened from. The use cases open a chat from a listing, a deal or an incoming offer (UC6 step
+ * 1); the Chats page is our addition, and it is how a seller reaches a chat that a buyer
+ * started with a message and no offer (see the assumptions in the supplementary notes).
+ *
+ * &lt;p&gt;{@code onOpen} gets every chat this screen opens, before it is shown, so a portal can add
+ * its own options to it: the buyer's Make Offer and Agree to Counter, the seller's link to
+ * Offers &amp;amp; Requests.
+ */
+public class ChatList extends VBox implements Refreshable {
+
+    /** The Chats page's title, which the page shows again when its chat is closed. */
+    private static final String CHATS_TITLE = &quot;Chats&quot;;
+    private static final String BACK_TO_CHATS = &quot;Back to Chats&quot;;
+    private static final String HIDE_LIST = &quot;◀ Hide chats&quot;;
+    private static final String SHOW_LIST = &quot;▶ Show chats&quot;;
+    private static final double LIST_WIDTH = 340;
+
+    private final ChatService service;
+    private final ContentHost host;
+    private final Consumer&lt;ChatView&gt; onOpen;
+<span class="fc" id="L54">    private final VBox list = new VBox(10);</span>
+<span class="fc" id="L55">    private final ScrollPane listPane = new ScrollPane(list);</span>
+    /** The light grey line between the list and the chat; it hides with the list. */
+<span class="fc" id="L57">    private final Region divider = new Region();</span>
+<span class="fc" id="L58">    private final StackPane chatPane = new StackPane();</span>
+<span class="fc" id="L59">    private final Button toggle = new Button(HIDE_LIST);</span>
+    /** The chats as last loaded, newest first. */
+<span class="fc" id="L61">    private List&lt;Conversation&gt; chats = List.of();</span>
+    /** The chat shown beside the list; null while none is open. */
+    private ChatView open;
+    /** Where Back leads from an open chat: this page's list, unless {@link #openFrom} named another screen. */
+<span class="fc" id="L65">    private String backLabel = BACK_TO_CHATS;</span>
+<span class="fc" id="L66">    private Runnable back = this::closeChat;</span>
+
+    public ChatList(ChatService service, ContentHost host) {
+<span class="nc" id="L69">        this(service, host, view -&gt; { });</span>
+<span class="nc" id="L70">    }</span>
+
+    /**
+     * @param onOpen called with each chat screen this list opens, before it is shown, so a
+     *               portal can add its own options, such as the buyer's
+     *               {@link ChatView#setOnMakeOffer Make Offer}
+     */
+    public ChatList(ChatService service, ContentHost host, Consumer&lt;ChatView&gt; onOpen) {
+<span class="fc" id="L78">        super(10);</span>
+<span class="fc" id="L79">        this.service = service;</span>
+<span class="fc" id="L80">        this.host = host;</span>
+<span class="fc" id="L81">        this.onOpen = onOpen;</span>
+<span class="fc" id="L82">        setPadding(new Insets(4));</span>
+
+<span class="fc" id="L84">        list.setPadding(new Insets(4));</span>
+<span class="fc" id="L85">        listPane.setFitToWidth(true);</span>
+<span class="fc" id="L86">        listPane.setPrefWidth(LIST_WIDTH);</span>
+<span class="fc" id="L87">        listPane.setMinWidth(LIST_WIDTH);</span>
+<span class="fc" id="L88">        toggle.getStyleClass().addAll(&quot;btn-outline&quot;, &quot;btn-sm&quot;);</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        toggle.setOnAction(e -&gt; showList(!listPane.isVisible()));</span>
+<span class="fc" id="L90">        divider.getStyleClass().add(&quot;chat-divider&quot;);</span>
+<span class="fc" id="L91">        HBox.setHgrow(chatPane, Priority.ALWAYS);</span>
+<span class="fc" id="L92">        HBox split = new HBox(12, listPane, divider, chatPane);</span>
+<span class="fc" id="L93">        VBox.setVgrow(split, Priority.ALWAYS);</span>
+<span class="fc" id="L94">        getChildren().addAll(toggle, split);</span>
+
+<span class="fc" id="L96">        showNoChat();</span>
+<span class="fc" id="L97">        refresh();</span>
+<span class="fc" id="L98">    }</span>
+
+    /**
+     * Shows this chat screen as the host's page with the chat open, coming from another screen
+     * (UC6 step 1: from a listing, a deal or an incoming offer). Back leads to that screen.
+     * @param chat      the chat, as {@link ChatService#openForListing} or {@link ChatService#openForOffer} gives it
+     * @param backLabel where Back leads, such as &quot;Back to listing&quot;
+     * @param back      shows that screen again
+     */
+    public void openFrom(Conversation chat, String backLabel, Runnable back) {
+<span class="fc" id="L108">        this.backLabel = backLabel;</span>
+<span class="fc" id="L109">        this.back = back;</span>
+<span class="fc" id="L110">        open(chat);</span>
+<span class="fc" id="L111">    }</span>
+
+    /** Reloads the list of chats and the open chat, for example after the timer changed the data. */
+    @Override
+    public final void refresh() {
+<span class="fc bfc" id="L116" title="All 4 branches covered.">        if (reloadList() &amp;&amp; open != null) {</span>
+<span class="fc" id="L117">            open.refresh();</span>
+        }
+<span class="fc" id="L119">    }</span>
+
+    /** Loads the chats again and lists them; false if they could not be loaded (the problem was shown). */
+    private boolean reloadList() {
+        try {
+<span class="fc" id="L124">            chats = service.getMyConversations();</span>
+<span class="fc" id="L125">        } catch (ServiceException e) {</span>
+<span class="fc" id="L126">            Dialogs.problem(e);</span>
+<span class="fc" id="L127">            return false;</span>
+<span class="fc" id="L128">        }</span>
+<span class="fc" id="L129">        showChats();</span>
+<span class="fc" id="L130">        return true;</span>
+    }
+
+    /** Lists the chats as last loaded, with the open one marked. */
+    private void showChats() {
+<span class="fc" id="L135">        list.getChildren().clear();</span>
+<span class="fc bfc" id="L136" title="All 2 branches covered.">        if (chats.isEmpty()) {</span>
+<span class="fc" id="L137">            Label empty = new Label(&quot;You have no chats yet. A chat starts when a buyer writes to a seller &quot;</span>
+                    + &quot;or makes an offer on a listing.&quot;);
+<span class="fc" id="L139">            empty.setWrapText(true);</span>
+<span class="fc" id="L140">            empty.getStyleClass().add(&quot;text-muted&quot;);</span>
+<span class="fc" id="L141">            list.getChildren().add(empty);</span>
+<span class="fc" id="L142">            return;</span>
+        }
+<span class="fc bfc" id="L144" title="All 2 branches covered.">        for (Conversation chat : chats) {</span>
+<span class="fc" id="L145">            list.getChildren().add(item(chat));</span>
+<span class="fc" id="L146">        }</span>
+<span class="fc" id="L147">    }</span>
+
+    private Node item(Conversation chat) {
+<span class="fc" id="L150">        Label title = new Label(chat.listing().getTitle());</span>
+<span class="fc" id="L151">        title.getStyleClass().add(&quot;listing-card-title&quot;);</span>
+<span class="fc" id="L152">        title.setWrapText(true);</span>
+<span class="fc" id="L153">        Label subtitle = new Label(ChatText.subtitle(chat));</span>
+<span class="fc" id="L154">        subtitle.getStyleClass().add(&quot;listing-card-line&quot;);</span>
+<span class="fc" id="L155">        Label preview = new Label(ChatText.preview(chat));</span>
+<span class="fc" id="L156">        preview.getStyleClass().add(&quot;chat-text&quot;);</span>
+
+<span class="fc" id="L158">        Label time = new Label(chat.lastEntry().map(last -&gt; Formats.dateTime(last.time())).orElse(&quot;&quot;));</span>
+<span class="fc" id="L159">        time.getStyleClass().add(&quot;listing-card-date&quot;);</span>
+<span class="fc" id="L160">        Region spacer = new Region();</span>
+<span class="fc" id="L161">        HBox.setHgrow(spacer, Priority.ALWAYS);</span>
+<span class="fc" id="L162">        Button openButton = new Button(&quot;Open Chat&quot;);</span>
+<span class="fc" id="L163">        openButton.getStyleClass().addAll(&quot;btn-primary&quot;, &quot;btn-sm&quot;);</span>
+<span class="fc" id="L164">        openButton.setMinWidth(Region.USE_PREF_SIZE);</span>
+<span class="fc" id="L165">        openButton.setOnAction(e -&gt; open(chat));</span>
+<span class="fc" id="L166">        HBox bottom = new HBox(8, time, spacer, openButton);</span>
+<span class="fc" id="L167">        bottom.setAlignment(Pos.CENTER_LEFT);</span>
+
+<span class="fc" id="L169">        VBox item = new VBox(4, title, subtitle, preview, bottom);</span>
+<span class="fc" id="L170">        item.getStyleClass().add(&quot;card&quot;);</span>
+<span class="fc bfc" id="L171" title="All 4 branches covered.">        if (open != null &amp;&amp; open.conversation().isSameChat(chat)) {</span>
+<span class="fc" id="L172">            item.getStyleClass().add(&quot;chat-item-selected&quot;);</span>
+        }
+<span class="fc" id="L174">        item.setPadding(new Insets(12, 14, 12, 14));</span>
+<span class="fc" id="L175">        item.setCursor(Cursor.HAND);</span>
+<span class="fc" id="L176">        item.setOnMouseClicked(e -&gt; open(chat));</span>
+<span class="fc" id="L177">        return item;</span>
+    }
+
+    /** Shows the chat beside the list, marks it in the list, and shows the screen with Back above it. */
+    private void open(Conversation chat) {
+<span class="fc" id="L182">        open = new ChatView(service, chat);</span>
+<span class="fc" id="L183">        open.setOnHistoryChanged(this::reloadList); // a message or offer moves this chat to the top</span>
+<span class="fc" id="L184">        onOpen.accept(open);</span>
+<span class="fc" id="L185">        chatPane.getChildren().setAll(open);</span>
+<span class="fc" id="L186">        showToggle(true);</span>
+<span class="fc" id="L187">        showChats();</span>
+<span class="fc" id="L188">        host.show(ChatText.title(chat), new SubScreen(backLabel, back, this));</span>
+<span class="fc" id="L189">    }</span>
+
+    /** &quot;Back to Chats&quot;: the Chats page as it first shows, the list with no chat open. */
+    private void closeChat() {
+<span class="fc" id="L193">        open = null;</span>
+<span class="fc" id="L194">        showNoChat();</span>
+<span class="fc" id="L195">        showList(true);</span>
+<span class="fc" id="L196">        showChats();</span>
+<span class="fc" id="L197">        host.show(CHATS_TITLE, this);</span>
+<span class="fc" id="L198">    }</span>
+
+    /** No chat open: a hint beside the list instead, and nothing to hide the list for. */
+    private void showNoChat() {
+<span class="fc" id="L202">        Label hint = new Label(&quot;Choose a chat to read and write its messages.&quot;);</span>
+<span class="fc" id="L203">        hint.getStyleClass().add(&quot;text-muted&quot;);</span>
+<span class="fc" id="L204">        chatPane.getChildren().setAll(hint);</span>
+<span class="fc" id="L205">        showToggle(false);</span>
+<span class="fc" id="L206">    }</span>
+
+    private void showToggle(boolean shown) {
+<span class="fc" id="L209">        toggle.setVisible(shown);</span>
+<span class="fc" id="L210">        toggle.setManaged(shown);</span>
+<span class="fc" id="L211">    }</span>
+
+    /** Shows or hides the list of chats; while it is hidden, the open chat takes the whole width. */
+    private void showList(boolean shown) {
+<span class="fc" id="L215">        listPane.setVisible(shown);</span>
+<span class="fc" id="L216">        listPane.setManaged(shown);</span>
+<span class="fc" id="L217">        divider.setVisible(shown);</span>
+<span class="fc" id="L218">        divider.setManaged(shown);</span>
+<span class="fc bfc" id="L219" title="All 2 branches covered.">        toggle.setText(shown ? HIDE_LIST : SHOW_LIST);</span>
+<span class="fc" id="L220">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

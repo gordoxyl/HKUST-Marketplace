@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Offer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.models</a> &gt; <span class="el_source">Offer.java</span></div><h1>Offer.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.models;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+/**
+ * A buyer's action on a listing (Offer in the domain class diagram), called a &quot;deal&quot; in the
+ * use cases. Every offer is exactly one of {@link PriceOffer}, {@link BorrowRequest} or
+ * {@link Claim} ({complete, disjoint}).
+ * An offer belongs to the chat thread between its buyer and its listing (UC5 step 7).
+ * The status changes only through the methods below, which enforce:
+ * &lt;ul&gt;
+ *   &lt;li&gt;only a Pending offer can be accepted or countered (Manage Offers &amp;amp; Requests);&lt;/li&gt;
+ *   &lt;li&gt;a Pending or Countered offer can be declined (UC7 Special Requirement 5);&lt;/li&gt;
+ *   &lt;li&gt;only an Accepted offer can be completed, and only once (UC7 Special Requirement 1);&lt;/li&gt;
+ *   &lt;li&gt;{acceptedDate and completedDate can only be set if status = Accepted}.&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+public abstract class Offer {
+
+    private String id;
+    private final String listingId;
+    private final String buyerUsername;
+<span class="fc" id="L24">    private OfferStatus status = OfferStatus.PENDING;</span>
+    private LocalDateTime offerDate;
+    private LocalDateTime acceptedDate;
+    private LocalDateTime completedDate;
+
+<span class="fc" id="L29">    protected Offer(String listingId, String buyerUsername) {</span>
+<span class="fc" id="L30">        this.listingId = Objects.requireNonNull(listingId, &quot;listingId&quot;);</span>
+<span class="fc" id="L31">        this.buyerUsername = Objects.requireNonNull(buyerUsername, &quot;buyerUsername&quot;);</span>
+<span class="fc" id="L32">    }</span>
+
+    /**
+     * True if this kind of offer can be made on the listing: a price offer only on a sale
+     * listing, a borrow request only on a lend listing, and a claim only on a giveaway listing.
+     */
+    public abstract boolean canBeMadeOn(Listing listing);
+
+    /** &quot;price offer&quot;, &quot;borrow request&quot; or &quot;claim&quot;, for messages such as &quot;Your claim on ... was accepted&quot;. */
+    public abstract String getKindName();
+
+    /** Null until the offer is added to DataStore. */
+<span class="fc" id="L44">    public String getId() { return id; }</span>
+
+    /** Called once by DataStore when the offer is added: gives it its id and offer date. */
+    public void markAdded(String id, LocalDateTime offerDate) {
+<span class="fc bfc" id="L48" title="All 2 branches covered.">        if (this.id != null) {</span>
+<span class="fc" id="L49">            throw new IllegalStateException(&quot;Offer already has id &quot; + this.id);</span>
+        }
+<span class="fc" id="L51">        this.id = Objects.requireNonNull(id, &quot;id&quot;);</span>
+<span class="fc" id="L52">        this.offerDate = Objects.requireNonNull(offerDate, &quot;offerDate&quot;);</span>
+<span class="fc" id="L53">    }</span>
+
+<span class="fc" id="L55">    public String getListingId() { return listingId; }</span>
+<span class="fc" id="L56">    public String getBuyerUsername() { return buyerUsername; }</span>
+<span class="fc" id="L57">    public OfferStatus getStatus() { return status; }</span>
+
+    /** Null until the offer is added to DataStore. */
+<span class="fc" id="L60">    public LocalDateTime getOfferDate() { return offerDate; }</span>
+
+    /** Null unless the offer was accepted. */
+<span class="fc" id="L63">    public LocalDateTime getAcceptedDate() { return acceptedDate; }</span>
+
+    /** Null until the deal is completed (marked complete, or the item returned). */
+<span class="fc" id="L66">    public LocalDateTime getCompletedDate() { return completedDate; }</span>
+
+    /** The seller accepts this offer. */
+    public void accept(LocalDateTime when) {
+<span class="fc" id="L70">        requirePending(&quot;accepted&quot;);</span>
+<span class="fc" id="L71">        status = OfferStatus.ACCEPTED;</span>
+<span class="fc" id="L72">        acceptedDate = Objects.requireNonNull(when, &quot;when&quot;);</span>
+<span class="fc" id="L73">    }</span>
+
+    /** The seller, or the system, declines this offer. */
+    public void decline() {
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        if (!isOpen()) {</span>
+<span class="fc" id="L78">            throw new IllegalStateException(&quot;Only a pending or countered offer can be declined.&quot;);</span>
+        }
+<span class="fc" id="L80">        status = OfferStatus.DECLINED;</span>
+<span class="fc" id="L81">    }</span>
+
+    /** Used by the subclasses' counter methods, after they check the counter terms. */
+    protected void markCountered() {
+<span class="fc" id="L85">        requirePending(&quot;countered&quot;);</span>
+<span class="fc" id="L86">        status = OfferStatus.COUNTERED;</span>
+<span class="fc" id="L87">    }</span>
+
+    /** Records when an accepted deal was completed. */
+    public void complete(LocalDateTime when) {
+<span class="fc bfc" id="L91" title="All 4 branches covered.">        if (status != OfferStatus.ACCEPTED || completedDate != null) {</span>
+<span class="fc" id="L92">            throw new IllegalStateException(&quot;Only an accepted deal that is not yet completed can be completed.&quot;);</span>
+        }
+<span class="fc" id="L94">        completedDate = Objects.requireNonNull(when, &quot;when&quot;);</span>
+<span class="fc" id="L95">    }</span>
+
+    /** Pending or Countered: still waiting for an answer. */
+    public boolean isOpen() {
+<span class="fc bfc" id="L99" title="All 4 branches covered.">        return status == OfferStatus.PENDING || status == OfferStatus.COUNTERED;</span>
+    }
+
+    /** Has a completion date (glossary: &quot;Completed deal&quot;). */
+    public boolean isCompleted() {
+<span class="fc bfc" id="L104" title="All 2 branches covered.">        return completedDate != null;</span>
+    }
+
+    /** A current deal on My Deals: open, or accepted and not yet completed (UC7 step 2). */
+    public boolean isCurrent() {
+<span class="fc bfc" id="L109" title="All 6 branches covered.">        return isOpen() || (status == OfferStatus.ACCEPTED &amp;&amp; !isCompleted());</span>
+    }
+
+    /** Accept and counter both start from Pending (Offer state machine); decline and complete check their own states. */
+    private void requirePending(String action) {
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        if (status != OfferStatus.PENDING) {</span>
+<span class="fc" id="L115">            throw new IllegalStateException(&quot;Only a pending offer can be &quot; + action + &quot;.&quot;);</span>
+        }
+<span class="fc" id="L117">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

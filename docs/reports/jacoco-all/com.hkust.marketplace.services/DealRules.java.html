@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DealRules.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">DealRules.java</span></div><h1>DealRules.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.*;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * The deal lifecycle that all three portals share: what happens to a listing, its other
+ * offers and the people involved when a deal is accepted, completed or returned, or when a
+ * listing's open offers must be declined. See docs/state-machines.md.
+ *
+ * &lt;p&gt;Who calls what:
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@link #accept} — the seller's Manage Offers &amp;amp; Requests (step 3.3).&lt;/li&gt;
+ *   &lt;li&gt;{@link #declineOpenOffers} — the seller's Manage Listings (A3), the admin's listing
+ *       removal (5.5.4) and account deactivation or deletion (6.2.4, 6.4.4).&lt;/li&gt;
+ *   &lt;li&gt;{@link #complete} — the buyer's Manage My Deals (UC7 steps 6-8).&lt;/li&gt;
+ *   &lt;li&gt;{@link #returnItem} — the buyer's self-return (UC7 A2) and the borrowing-deadline
+ *       timer (UC12 step 3).&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;This is a control class for business logic, not tied to one actor. It does not check
+ * the logged-in user: the calling service checks the role first ({@link AccessControl}),
+ * then calls these methods. Each method is one atomic step, and it can also run inside the
+ * caller's transaction.
+ */
+public class DealRules {
+
+    private final DataStore store;
+    private final NotificationService notifications;
+
+    public DealRules() {
+<span class="nc" id="L35">        this(DataStore.getInstance());</span>
+<span class="nc" id="L36">    }</span>
+
+<span class="fc" id="L38">    public DealRules(DataStore store) {</span>
+<span class="fc" id="L39">        this.store = store;</span>
+<span class="fc" id="L40">        this.notifications = new NotificationService(store);</span>
+<span class="fc" id="L41">    }</span>
+
+    /**
+     * The seller accepts a pending offer, borrow request or claim (Manage Offers &amp;amp; Requests
+     * 3.3.3-3.3.6; UC7 Special Requirement 5): the offer is Accepted, the listing becomes
+     * Reserved (sale, giveaway) or Lent (lend), every other open offer on the listing is
+     * declined, and each affected buyer is notified.
+     * @throws ServiceException if the offer is not pending, the listing is no longer Live (A2),
+     *         or it is a borrow request whose period has already ended
+     */
+    public void accept(Offer offer) {
+<span class="fc" id="L52">        store.transaction(() -&gt; {</span>
+<span class="fc" id="L53">            Listing listing = store.getListingOf(offer);</span>
+<span class="fc bfc" id="L54" title="All 2 branches covered.">            if (offer.getStatus() != OfferStatus.PENDING) {</span>
+<span class="fc" id="L55">                throw new ServiceException(&quot;Only a pending &quot; + offer.getKindName() + &quot; can be accepted.&quot;);</span>
+            }
+            // Checked on the status, not isAvailable(): a giveaway is &quot;unavailable&quot; exactly because of the claim being accepted
+<span class="fc bfc" id="L58" title="All 2 branches covered.">            if (listing.getStatus() != ListingStatus.LIVE) {</span>
+<span class="fc" id="L59">                throw new ServiceException(&quot;This listing is no longer available.&quot;);</span>
+            }
+            // A borrow period that is over cannot begin: the item would be lent and returned
+            // automatically at once, with a completion date before its acceptance (regression log R8)
+<span class="fc bfc" id="L63" title="All 4 branches covered.">            if (offer instanceof BorrowRequest request &amp;&amp; !store.now().isBefore(request.getDueDate())) {</span>
+<span class="fc" id="L64">                throw new ServiceException(&quot;The borrow period of this request has already ended. &quot;</span>
+                        + &quot;Decline it, or counter with new dates.&quot;);
+            }
+<span class="fc" id="L67">            offer.accept(store.now());</span>
+<span class="fc" id="L68">            listing.acceptDeal();</span>
+<span class="fc" id="L69">            declineOpenOffers(listing, NotificationCategory.OFFER_UPDATE, &quot;the seller accepted another offer&quot;);</span>
+<span class="fc" id="L70">            notifications.send(offer.getBuyerUsername(), NotificationCategory.OFFER_UPDATE,</span>
+<span class="fc" id="L71">                    store.getFullName(listing.getSellerUsername()) + &quot; accepted your &quot; + offer.getKindName()</span>
+<span class="fc" id="L72">                            + &quot; for '&quot; + listing.getTitle() + &quot;'.&quot;);</span>
+<span class="fc" id="L73">        });</span>
+<span class="fc" id="L74">    }</span>
+
+    /**
+     * Declines every pending or countered offer on the listing and notifies each buyer:
+     * &quot;Your claim for 'Desk Lamp' was declined because {because}.&quot;
+     * @param category OFFER_UPDATE normally, or LISTING_REMOVED when the admin removed the listing (Task 1.8)
+     * @param because  why, completing the sentence, such as &quot;the admin removed the listing&quot;
+     * @return the offers that were declined
+     */
+    public List&lt;Offer&gt; declineOpenOffers(Listing listing, NotificationCategory category, String because) {
+<span class="fc" id="L84">        return store.transaction(() -&gt; {</span>
+<span class="fc" id="L85">            List&lt;Offer&gt; declined = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L86" title="All 2 branches covered.">            for (Offer other : store.getOffersForListing(listing.getId())) {</span>
+<span class="fc bfc" id="L87" title="All 2 branches covered.">                if (other.isOpen()) {</span>
+<span class="fc" id="L88">                    other.decline();</span>
+<span class="fc" id="L89">                    declined.add(other);</span>
+<span class="fc" id="L90">                    notifications.send(other.getBuyerUsername(), category, &quot;Your &quot; + other.getKindName()</span>
+<span class="fc" id="L91">                            + &quot; for '&quot; + listing.getTitle() + &quot;' was declined because &quot; + because + &quot;.&quot;);</span>
+                }
+<span class="fc" id="L93">            }</span>
+<span class="fc" id="L94">            return declined;</span>
+        });
+    }
+
+    /**
+     * The buyer marks an accepted price offer or claim complete (UC7 steps 6-8): the deal gets
+     * today's completion date, the listing becomes Sold or Given (or stays Removed), and the
+     * seller is notified.
+     * @throws IllegalArgumentException for a borrow request, which is completed by returning the item
+     * @throws ServiceException if the deal is not accepted or is already completed
+     */
+    public void complete(Offer deal) {
+<span class="fc bfc" id="L106" title="All 2 branches covered.">        if (deal instanceof BorrowRequest) {</span>
+<span class="fc" id="L107">            throw new IllegalArgumentException(&quot;A borrow request is completed by returning the item (UC7 Special Requirement 1).&quot;);</span>
+        }
+<span class="fc" id="L109">        store.transaction(() -&gt; {</span>
+<span class="fc bfc" id="L110" title="All 4 branches covered.">            if (deal.getStatus() != OfferStatus.ACCEPTED || deal.isCompleted()) {</span>
+<span class="fc" id="L111">                throw new ServiceException(&quot;Only an accepted deal that is not yet completed can be marked complete.&quot;);</span>
+            }
+<span class="fc" id="L113">            Listing listing = store.getListingOf(deal);</span>
+<span class="fc" id="L114">            deal.complete(store.now());</span>
+<span class="fc" id="L115">            listing.completeDeal();</span>
+<span class="fc" id="L116">            notifications.send(listing.getSellerUsername(), NotificationCategory.DEAL_COMPLETED,</span>
+<span class="fc" id="L117">                    store.getFullName(deal.getBuyerUsername()) + &quot; marked the deal for '&quot; + listing.getTitle() + &quot;' complete.&quot;);</span>
+<span class="fc" id="L118">        });</span>
+<span class="fc" id="L119">    }</span>
+
+    /**
+     * Returns a borrowed item, either by the buyer (UC7 A2) or automatically when the borrowing
+     * period ends (UC12 step 3). The listing becomes Live again unless the admin removed it,
+     * and the seller is notified; for an automatic return the buyer is notified too.
+     * Only the first return counts (UC12 Special Requirement 5).
+     *
+     * &lt;p&gt;Checking that a self-return happens before the due date (UC7 Special Requirement 3)
+     * is the caller's job, because only Manage My Deals has that rule.
+     *
+     * @param automatic true for UC12: the completion date is the due date and the deal is marked auto-returned
+     * @throws ServiceException if the request is not accepted or the item was already returned
+     */
+    public void returnItem(BorrowRequest request, boolean automatic) {
+<span class="fc" id="L134">        store.transaction(() -&gt; {</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">            if (request.getStatus() != OfferStatus.ACCEPTED) {</span>
+<span class="fc" id="L136">                throw new ServiceException(&quot;Only an accepted borrow request can be returned.&quot;);</span>
+            }
+<span class="fc bfc" id="L138" title="All 2 branches covered.">            if (request.isCompleted()) {</span>
+<span class="fc" id="L139">                throw new ServiceException(&quot;This item has already been returned.&quot;);</span>
+            }
+<span class="fc" id="L141">            Listing listing = store.getListingOf(request);</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">            if (automatic) {</span>
+<span class="fc" id="L143">                request.autoReturn();</span>
+            } else {
+<span class="fc" id="L145">                request.complete(store.now());</span>
+            }
+<span class="fc" id="L147">            listing.completeDeal();</span>
+
+<span class="fc" id="L149">            String buyerName = store.getFullName(request.getBuyerUsername());</span>
+<span class="fc bfc" id="L150" title="All 2 branches covered.">            if (automatic) {</span>
+                // The buyer may not be using the app now, so the notification invites the
+                // rating that follows every return (client answer #3; UC10 step 1)
+<span class="fc" id="L153">                notifications.send(request.getBuyerUsername(), NotificationCategory.DEAL_COMPLETED,</span>
+<span class="fc" id="L154">                        &quot;'&quot; + listing.getTitle() + &quot;' was returned automatically because the borrowing period ended. &quot;</span>
+                                + &quot;You can rate the seller from My Deals.&quot;);
+<span class="fc" id="L156">                notifications.send(listing.getSellerUsername(), NotificationCategory.DEAL_COMPLETED,</span>
+<span class="fc" id="L157">                        &quot;'&quot; + listing.getTitle() + &quot;', borrowed by &quot; + buyerName</span>
+                                + &quot;, was returned automatically because the borrowing period ended.&quot;);
+            } else {
+<span class="fc" id="L160">                notifications.send(listing.getSellerUsername(), NotificationCategory.DEAL_COMPLETED,</span>
+<span class="fc" id="L161">                        buyerName + &quot; returned '&quot; + listing.getTitle() + &quot;'.&quot;);</span>
+            }
+<span class="fc" id="L163">        });</span>
+<span class="fc" id="L164">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

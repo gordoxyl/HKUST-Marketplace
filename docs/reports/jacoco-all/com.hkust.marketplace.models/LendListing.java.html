@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LendListing.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.models</a> &gt; <span class="el_source">LendListing.java</span></div><h1>LendListing.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.models;
+
+import java.time.Duration;
+import java.util.Objects;
+import java.util.StringJoiner;
+
+/** A listing lent out for a period (LendListing in the domain class diagram). */
+public class LendListing extends Listing {
+
+    private Duration lendingDuration;
+
+    public LendListing(String sellerUsername, String title, Category category, ItemCondition condition,
+                       String description, MeetupLocation meetupLocation, Duration lendingDuration) {
+<span class="fc" id="L14">        super(sellerUsername, title, category, condition, description, meetupLocation);</span>
+<span class="fc" id="L15">        setLendingDuration(lendingDuration);</span>
+<span class="fc" id="L16">    }</span>
+
+    @Override
+    public ListingType getType() {
+<span class="fc" id="L20">        return ListingType.LEND;</span>
+    }
+
+    @Override
+    public String getPriceDisplay() {
+<span class="fc" id="L25">        return &quot;Borrow&quot;;</span>
+    }
+
+    @Override
+    protected ListingStatus statusWhenDealAccepted() {
+<span class="fc" id="L30">        return ListingStatus.LENT;</span>
+    }
+
+    /** A returned item can be lent again. */
+    @Override
+    protected ListingStatus statusWhenDealCompleted() {
+<span class="fc" id="L36">        return ListingStatus.LIVE;</span>
+    }
+
+<span class="fc" id="L39">    public Duration getLendingDuration() { return lendingDuration; }</span>
+
+    /**
+     * @throws IllegalArgumentException if the duration is shorter than
+     *         {@link BorrowRequest#MIN_BORROW_TIME} (Create Listings A3)
+     */
+    public void setLendingDuration(Duration lendingDuration) {
+<span class="fc" id="L46">        Objects.requireNonNull(lendingDuration, &quot;lendingDuration&quot;);</span>
+<span class="fc bfc" id="L47" title="All 2 branches covered.">        if (lendingDuration.compareTo(BorrowRequest.MIN_BORROW_TIME) &lt; 0) {</span>
+<span class="fc" id="L48">            throw new IllegalArgumentException(&quot;The lending duration must be at least &quot;</span>
+<span class="fc" id="L49">                    + formatDuration(BorrowRequest.MIN_BORROW_TIME) + &quot;.&quot;);</span>
+        }
+<span class="fc" id="L51">        this.lendingDuration = lendingDuration;</span>
+<span class="fc" id="L52">    }</span>
+
+    /** The lending duration as text, such as &quot;90 days&quot; or &quot;5 seconds&quot;. */
+    public String getDurationDisplay() {
+<span class="fc" id="L56">        return formatDuration(lendingDuration);</span>
+    }
+
+    /** A duration as text, such as &quot;1 day 2 hours&quot; or &quot;5 seconds&quot;. */
+    public static String formatDuration(Duration duration) {
+<span class="fc" id="L61">        StringJoiner parts = new StringJoiner(&quot; &quot;);</span>
+<span class="fc" id="L62">        addUnit(parts, duration.toDays(), &quot;day&quot;);</span>
+<span class="fc" id="L63">        addUnit(parts, duration.toHoursPart(), &quot;hour&quot;);</span>
+<span class="fc" id="L64">        addUnit(parts, duration.toMinutesPart(), &quot;minute&quot;);</span>
+<span class="fc" id="L65">        addUnit(parts, duration.toSecondsPart(), &quot;second&quot;);</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">        return parts.length() == 0 ? &quot;0 seconds&quot; : parts.toString();</span>
+    }
+
+    private static void addUnit(StringJoiner parts, long amount, String unit) {
+<span class="fc bfc" id="L70" title="All 2 branches covered.">        if (amount &gt; 0) {</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">            parts.add(amount + &quot; &quot; + unit + (amount == 1 ? &quot;&quot; : &quot;s&quot;));</span>
+        }
+<span class="fc" id="L73">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

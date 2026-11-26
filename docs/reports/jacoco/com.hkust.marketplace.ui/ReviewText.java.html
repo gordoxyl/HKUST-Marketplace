@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReviewText.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">ReviewText.java</span></div><h1>ReviewText.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.models.Review;
+import com.hkust.marketplace.models.RatingSummary;
+import com.hkust.marketplace.services.ReviewForm;
+
+import java.util.Optional;
+
+/**
+ * How a seller's rating and reviews read on every screen that shows them: the listing detail
+ * screen and the seller's profile (UC8 step 7 and A3), and the seller's and admin's own review
+ * screens; and the wording of the buyer's review form (UC10). Kept apart from the JavaFX code
+ * so it can be unit-tested.
+ */
+public final class ReviewText {
+
+    private ReviewText() {
+        // Utility class
+    }
+
+    /** The heading above a seller's reviews: &quot;Seller rating: 4.5 / 5 (2 ratings)&quot; or &quot;Seller rating: No ratings yet&quot;. */
+    public static String ratingHeading(RatingSummary rating) {
+<span class="fc" id="L23">        return &quot;Seller rating: &quot; + Formats.averageRating(rating);</span>
+    }
+
+    /** A review's rating and date: &quot;★★★★☆ · 09 Nov 2026&quot;. */
+    public static String header(Review review) {
+<span class="fc" id="L28">        return Formats.stars(review.getRating()) + &quot; · &quot; + Formats.date(review.getReviewDate());</span>
+    }
+
+    /** The buyer's comment, or &quot;No comment.&quot; for a rating without one. */
+    public static String comment(Review review) {
+<span class="fc bfc" id="L33" title="All 2 branches covered.">        return review.getComment() == null ? &quot;No comment.&quot; : review.getComment();</span>
+    }
+
+    /** &quot;Seller's reply: Thank you!&quot;, or empty if the seller has not replied. */
+    public static Optional&lt;String&gt; reply(Review review) {
+<span class="fc" id="L38">        return Optional.ofNullable(review.getSellerReply()).map(reply -&gt; &quot;Seller's reply: &quot; + reply);</span>
+    }
+
+    // ---------- Review Seller (UC10), the buyer's form ----------
+
+    /** The review form's heading, with the seller and the listing (UC10 step 3). */
+    public static String formHeader(ReviewForm form) {
+<span class="fc" id="L45">        return &quot;Rate and review &quot; + form.sellerName() + &quot;\nfor '&quot; + form.listingTitle() + &quot;'&quot;;</span>
+    }
+
+    /** The rating chosen so far in the form: &quot;★★★★☆ 4 of 5&quot;, or a reminder while none is chosen (step 4). */
+    public static String chosenRating(Integer rating) {
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        return rating == null ? &quot;Choose 1 to 5 stars.&quot; : Formats.stars(rating) + &quot; &quot; + rating + &quot; of &quot; + Review.MAX_RATING;</span>
+    }
+
+    /** What the buyer is told once the review is recorded (step 10). */
+    public static String submitted(ReviewForm form) {
+<span class="fc" id="L55">        return &quot;Thank you. Your review of &quot; + form.sellerName() + &quot; was submitted. It now shows on the &quot;</span>
+                + &quot;seller's profile and on each of their listings.&quot;;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

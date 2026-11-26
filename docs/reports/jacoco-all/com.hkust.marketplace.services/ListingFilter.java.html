@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ListingFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">ListingFilter.java</span></div><h1>ListingFilter.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.models.Category;
+import com.hkust.marketplace.models.ListingStatus;
+import com.hkust.marketplace.models.ListingType;
+
+import java.time.LocalDate;
+
+/**
+ * The filter options of the admin's listing list (Manage Marketplace Listings, step 2).
+ * A null field (or false for reportedOnly) means &quot;no filter on this&quot;. &quot;Reported&quot; is not a
+ * listing status, so it is its own flag; with a status set, both must match.
+ *
+ * @param status       one listing status, or null for all
+ * @param reportedOnly true to show only listings that have at least one report
+ * @param category     one category, or null for all
+ * @param type         one listing type, or null for all
+ * @param seller       text matched against the seller's username or full name, ignoring case; null or blank for all
+ * @param fromDate     first posted day, inclusive, or null
+ * @param toDate       last posted day, inclusive, or null
+ */
+<span class="fc" id="L22">public record ListingFilter(ListingStatus status, boolean reportedOnly, Category category,</span>
+                            ListingType type, String seller, LocalDate fromDate, LocalDate toDate) {
+
+    /** No filter: every listing. */
+    public static ListingFilter none() {
+<span class="fc" id="L27">        return new ListingFilter(null, false, null, null, null, null, null);</span>
+    }
+
+    public ListingFilter withStatus(ListingStatus value) {
+<span class="fc" id="L31">        return new ListingFilter(value, reportedOnly, category, type, seller, fromDate, toDate);</span>
+    }
+
+    public ListingFilter withReportedOnly(boolean value) {
+<span class="fc" id="L35">        return new ListingFilter(status, value, category, type, seller, fromDate, toDate);</span>
+    }
+
+    public ListingFilter withCategory(Category value) {
+<span class="fc" id="L39">        return new ListingFilter(status, reportedOnly, value, type, seller, fromDate, toDate);</span>
+    }
+
+    public ListingFilter withType(ListingType value) {
+<span class="fc" id="L43">        return new ListingFilter(status, reportedOnly, category, value, seller, fromDate, toDate);</span>
+    }
+
+    public ListingFilter withSeller(String value) {
+<span class="fc" id="L47">        return new ListingFilter(status, reportedOnly, category, type, value, fromDate, toDate);</span>
+    }
+
+    public ListingFilter withDateRange(LocalDate from, LocalDate to) {
+<span class="fc" id="L51">        return new ListingFilter(status, reportedOnly, category, type, seller, from, to);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

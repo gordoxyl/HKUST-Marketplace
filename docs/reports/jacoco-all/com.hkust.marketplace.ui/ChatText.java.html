@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatText.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">ChatText.java</span></div><h1>ChatText.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.services.ChatEntry;
+import com.hkust.marketplace.services.Conversation;
+
+/**
+ * The wording of the shared chat screens ({@link ChatView}, {@link ChatList}), kept apart
+ * from the JavaFX code so it can be unit-tested.
+ */
+public final class ChatText {
+
+    /** The longest preview of a message on the Chats screen and in search results. */
+    static final int PREVIEW_LENGTH = 70;
+
+    private ChatText() {
+        // Utility class
+    }
+
+    /** The page title of a chat: &quot;Chat: Desk Lamp&quot;. */
+    public static String title(Conversation conversation) {
+<span class="fc" id="L22">        return &quot;Chat: &quot; + conversation.listing().getTitle();</span>
+    }
+
+    /** What the chat is about and with whom: &quot;Sell · HK$ 180 · with Charlie Lee&quot;. */
+    public static String subtitle(Conversation conversation) {
+<span class="fc" id="L27">        return conversation.listing().getType().getDisplayName() + &quot; · &quot; + conversation.listing().getPriceDisplay()</span>
+<span class="fc" id="L28">                + &quot; · with &quot; + conversation.otherPartyName();</span>
+    }
+
+    /** &quot;You&quot; for the viewer's own messages and offers, otherwise the sender's full name. */
+    public static String who(Conversation conversation, ChatEntry entry) {
+<span class="fc bfc" id="L33" title="All 2 branches covered.">        return conversation.isSentByViewer(entry) ? &quot;You&quot; : entry.senderName();</span>
+    }
+
+    /** The sender and time shown above every message and offer (UC6 step 2): &quot;You · 09 Nov 2026 14:05&quot;. */
+    public static String header(Conversation conversation, ChatEntry entry) {
+<span class="fc" id="L38">        return who(conversation, entry) + &quot; · &quot; + Formats.dateTime(entry.time());</span>
+    }
+
+    /** The message itself, or what an offer proposed, such as &quot;Price offer: HK$ 160&quot;. */
+    public static String body(ChatEntry entry) {
+<span class="fc bfc" id="L43" title="All 2 branches covered.">        return entry.isOffer() ? OfferText.summary(entry.offer()) : entry.content();</span>
+    }
+
+    /** One line about the chat's newest message or offer, for the Chats screen: &quot;You: Is it still available?&quot;. */
+    public static String preview(Conversation conversation) {
+<span class="fc" id="L48">        return conversation.lastEntry()</span>
+<span class="fc" id="L49">                .map(last -&gt; who(conversation, last) + &quot;: &quot; + Formats.preview(body(last), PREVIEW_LENGTH))</span>
+<span class="fc" id="L50">                .orElse(&quot;No messages yet&quot;);</span>
+    }
+
+    /**
+     * The result of a search (UC6 A2 step 2): &quot;No messages contain 'lamp'.&quot;,
+     * &quot;1 message contains 'lamp'.&quot; or &quot;3 messages contain 'lamp'.&quot;.
+     */
+    public static String searchSummary(String keyword, int matches) {
+<span class="fc" id="L58">        String quoted = &quot;'&quot; + keyword.strip() + &quot;'&quot;;</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (matches &lt;= 0) {</span>
+<span class="fc" id="L60">            return &quot;No messages contain &quot; + quoted + &quot;.&quot;;</span>
+        }
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        return matches == 1 ? &quot;1 message contains &quot; + quoted + &quot;.&quot; : matches + &quot; messages contain &quot; + quoted + &quot;.&quot;;</span>
+    }
+
+    // ---------- Deal actions beside Send (assumptions register 71) ----------
+
+    /** The buyer's deal action while the seller has countered, and the title of its dialog. */
+    public static final String AGREE_TO_COUNTER = &quot;Agree to Counter&quot;;
+    /** The button in that dialog that agrees to the chosen counter. */
+    public static final String AGREE = &quot;Agree&quot;;
+
+    /** The buyer's button while the seller has countered: &quot;Agree to Counter (1)&quot;. */
+    public static String agreeButton(int countered) {
+<span class="fc" id="L74">        return AGREE_TO_COUNTER + &quot; (&quot; + countered + &quot;)&quot;;</span>
+    }
+
+    /**
+     * The seller's button while the chat has open offers: &quot;Respond in Offers &amp;amp; Requests (2)&quot;.
+     * It is a link: the seller answers offers only on Offers &amp;amp; Requests (Task 2.5).
+     */
+    public static String respondButton(int waiting) {
+<span class="fc" id="L82">        return &quot;Respond in Offers &amp; Requests (&quot; + waiting + &quot;)&quot;;</span>
+    }
+
+    /**
+     * The heading of the Agree to Counter dialog: whose counters, and the listing. &quot;Agree to a
+     * counter from Sam Lee&quot; with &quot;'Calculus Textbook', newest first&quot; under it; the order is
+     * mentioned only when there is more than one counter.
+     */
+    public static String choiceHeading(Conversation conversation, int counters) {
+<span class="fc" id="L91">        return &quot;Agree to a counter from &quot; + conversation.otherPartyName() + &quot;\n'&quot; + conversation.listing().getTitle()</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">                + &quot;'&quot; + (counters &gt; 1 ? &quot;, newest first&quot; : &quot;&quot;);</span>
+    }
+
+    /**
+     * One countered offer in that dialog: the buyer's terms, the seller's counter, and when the
+     * offer was made: &quot;HK$ 150 → HK$ 170 · 18 Nov 2026 22:13&quot;.
+     */
+    public static String choice(Offer offer) {
+<span class="fc" id="L100">        return OfferText.terms(offer) + OfferText.counterTerms(offer).map(counter -&gt; &quot; → &quot; + counter).orElse(&quot;&quot;)</span>
+<span class="fc" id="L101">                + &quot; · &quot; + Formats.dateTime(offer.getOfferDate());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

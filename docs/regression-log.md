@@ -75,7 +75,7 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 - **Output before the fix:** it still read "Hello, Alice Chan" until the next login, although the profile itself was saved correctly.
 - **Cause:** each dashboard set its greeting once, when it opened, and the shared profile screen had no way to tell the dashboard that the name changed.
 - **Fix:** `ProfileView` takes an action to run after every successful save, and each dashboard passes its own `showGreeting`.
-- **Test:** none automated: this is a screen-only fault, and screens have no automated tests (README, "Reports"). The input steps above are a **manual acceptance check**, for all three portals. That the name itself is saved is covered by `ProfileServiceTest`.
+- **Test:** `BuyerAccountScreensTest.profile_newName_isSaved_andTheGreetingShowsItAtOnce` (the buyer's greeting right after Save). The seller's and admin's greetings stay a **manual acceptance check** with the input steps above. That the name itself is saved is covered by `ProfileServiceTest`.
 
 ## R7: A listing was hidden when its seller's username was typed in another case
 
@@ -229,7 +229,7 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 ## R19: The registration screens showed their form at the left edge of the window
 
 - **Area / owner:** shared UI: the buyer's registration screen (Gordon) and the seller's (Daniel's), changed together with Gordon's go-ahead for the UI of all three portals. The layout came with the course skeleton (0d1c58a).
-- **Found:** 2026-11-26, in the walkthrough screenshots (`docs/walkthrough.md`, shots 02 and 03). **Fixed:** 2026-11-26.
+- **Found:** 2026-11-26, in the walkthrough screenshots (`docs/walkthrough.md`, shots 02 and 03). **Fixed:** 2026-11-26 (10f9920).
 - **Input:** start the app at its default size (1200 × 780); Enter as Buyer, then Register here. The same from Enter as Seller.
 - **Correct output:** the form's card in the middle of the window, as on the three login screens.
 - **Output before the fix:** the card against the left edge, its middle 369 px left of the window's middle (the seller's 362 px, beside its scroll bar), with empty background on the right.
@@ -242,7 +242,7 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 ## R20: Editing a lend listing, the duration's hint was cut to "Leave empty to keep 1 da"
 
 - **Area / owner:** Admin (`AdminDashboardController`, Edit listing), Jack's. Left over from R16's fix (51a26e7), which made the hint name the duration.
-- **Found:** 2026-11-26, in Gordon's review of 51a26e7 (a picture of the Edit form). **Fixed:** 2026-11-26.
+- **Found:** 2026-11-26, in Gordon's review of 51a26e7 (a picture of the Edit form). **Fixed:** 2026-11-26 (01eddf7).
 - **Input:** at the app's window size (1200 × 780), as `admin`, All Listings → Edit on a Lend listing whose duration is 36 hours.
 - **Correct output:** the empty duration box shows its whole hint, "Leave empty to keep 1 day 12 hours", beside the unit box.
 - **Output before the fix:** it showed "Leave empty to keep 1 da", so the duration itself could not be read. Reproduced off screen: the test got the cut hints `[Leave empty to keep 1 day 12 hours]` instead of `[]`.
@@ -253,7 +253,7 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 ## R21: The admin's review rows left out the seller's reply
 
 - **Area / owner:** Admin (`AdminDashboardController`, Seller Ratings → View Reviews), Jack's.
-- **Found:** 2026-11-26, in Gordon's review of 51a26e7 (through the screens, off screen). **Fixed:** 2026-11-26.
+- **Found:** 2026-11-26, in Gordon's review of 51a26e7 (through the screens, off screen). **Fixed:** 2026-11-26 (01eddf7).
 - **Input:** a completed deal whose buyer reviewed it with "Nice mug" and whose seller replied "Thanks for buying!"; as `admin`, Seller Ratings → View Reviews on that seller.
 - **Correct output:** under the comment, "Seller's reply: Thanks for buying!", as on the buyer's screens (the seller's own page shows "Your reply: …"). Spec, Manage Reviews 3.1.5: the reply is shown wherever the review is displayed.
 - **Output before the fix:** only the stars, the writer, the item, the deal's date and the comment; the test found no "Seller's reply: Thanks for buying!" on the screen.
@@ -264,13 +264,46 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 ## R22: The admin's user search box was too narrow for its hint
 
 - **Area / owner:** Admin (`AdminDashboardController`, Manage Users), Jack's.
-- **Found:** 2026-11-26, by R20's new check of hints, once the check of every page used it too (`PortalScreensTest`). **Fixed:** 2026-11-26.
+- **Found:** 2026-11-26, by R20's new check of hints, once the check of every page used it too (`PortalScreensTest`). **Fixed:** 2026-11-26 (01eddf7).
 - **Input:** at the app's window size (1200 × 780), as `admin`, open Manage Users.
 - **Correct output:** the empty search box shows its whole hint, "Search username or name...", with room to spare.
 - **Output before the fix:** the hint needed 169.7 px and the box had 169 px inside its padding: at the app's font (Segoe UI, 14 px) the last dot reached the box's edge, and a wider font, as on another system, cuts the hint. The test got `{Manage Users=[Search username or name...]}` instead of `{}`.
 - **Cause:** a fixed width, `setPrefWidth(200)`, chosen without the app's font and padding, as with R17's `setPrefWidth(100)`.
 - **Fix:** the width is given in characters (`setPrefColumnCount(18)`), so it grows with the font; the hint now has 65 px to spare.
 - **Test:** `PortalScreensTest.adminPortal_everyPageOpens`, which checks every page of the admin portal with `OffScreenApp.cutTextsOnEveryPage()`; that method now looks at hints as well (`cutPrompts()`), on every page of the three portals.
+
+## R23: The time boxes of the two borrow forms cut their hint
+
+- **Area / owner:** Buyer (`controllers/buyer/OfferDialogs`, Request Borrow), Gordon's, and Seller (`SellerDashboardController`, Counter borrow request), Daniel's: the same line in each.
+- **Found:** 2026-11-26, in the review of the admin fixes: the hint needs 130 px, and the box had 119 px inside its padding. **Fixed:** 2026-11-26.
+- **Input:** as a buyer, View Details on a Lend listing → Request Borrow → clear a time box. As a seller, Offers & Requests → Counter on a borrow request → clear a time box.
+- **Correct output:** the empty box shows its whole hint, "HH:mm or HH:mm:ss".
+- **Output before the fix:** the hint was cut at the box's edge. Both tests got the cut hints `[HH:mm or HH:mm:ss, HH:mm or HH:mm:ss]` instead of none.
+- **Cause:** as in R22: a fixed width, `setPrefWidth(150)`, chosen without the app's font and padding.
+- **Fix:** the width is given in characters (`setPrefColumnCount(12)`), so it grows with the font; the hint has 27 px to spare. `OffScreenApp.Form.cutPrompts()` checks a dialog's hints; a one-off check of every dialog the test suite opens found no other cut hint.
+- **Test:** `MakeOfferScreensTest.borrowRequest_theEmptiedTimeBoxesShowTheirWholeHint`, `SellerScreensTest.counterABorrowRequest_theEmptiedTimeBoxesShowTheirWholeHint`
+
+## R24: In the admin portal, the timer replaced an open form and reset All Listings' filters
+
+- **Area / owner:** Admin (`AdminDashboardController.refreshCurrentScreen`), Jack's.
+- **Found:** 2026-11-26, in the review of the admin fixes; the seller's dashboard already guarded against it. **Fixed:** 2026-11-26.
+- **Input:** as `admin`, All Listings → + Add Listing → type a title; then the borrowing-deadline timer changes the data (a reminder or a return; in the tests `OffScreenApp.dataChanged()`). Also: All Listings filtered by a seller, then the timer.
+- **Correct output:** the form stays as typed. All Listings shows the new data and keeps its filter.
+- **Output before the fix:** the form was replaced by a new All Listings page, losing what was typed: the test got the page title "All Listings" instead of "Add Listing". A filtered All Listings came back unfiltered. Edit listing, the user and deal screens and a seller's reviews were replaced the same way.
+- **Cause:** the refresh rebuilt the page of the active sidebar button, which stays active while a form or a detail screen is open.
+- **Fix:** as in the seller's dashboard: each list page says how it is brought up to date (All Listings runs its search again), and a screen opened with `show(...)`, a form or a detail screen, is left as it is.
+- **Test:** `AdminListingScreensTest.aTimerEvent_keepsTheAddListingFormAsTyped`, `AdminListingScreensTest.aTimerEvent_bringsAllListingsUpToDate_andKeepsItsFilter`
+
+## R25: Manage Users' filter bar put "Reg. From:" on one line and its box on the next
+
+- **Area / owner:** Admin (`AdminDashboardController`, Manage Users), Jack's screen. Caused by R22's fix (01eddf7).
+- **Found:** 2026-11-26, in the retaken walkthrough screenshot 31. **Fixed:** 2026-11-26.
+- **Input:** at the app's window size (1200 × 780), as `admin`, open Manage Users.
+- **Correct output:** each filter's label beside its box ("Reg. From:" with its date box, "Reg. To:" with its own).
+- **Output before the fix:** R22 widened the search box by 66 px, so the filter bar no longer fitted on one line and wrapped between "Reg. From:" and its date box. The test found the label and the box on different lines.
+- **Cause:** the labels and their boxes were separate items of the wrapping filter bar, so a wrap could fall between them.
+- **Fix:** each label and its box are one item (`labelled(...)`, as the buyer's Browse filters do with `group(...)`), so the bar wraps between filters, never inside one. The new `OffScreenApp.onOneLine(label, field)` checks it.
+- **Test:** `AdminListingScreensTest.manageUsers_eachFilterLabelStaysBesideItsBox`
 
 ---
 

@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">ChatService.java</span></div><h1>ChatService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.Buyer;
+import com.hkust.marketplace.models.ChatThread;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.Message;
+import com.hkust.marketplace.models.NotificationCategory;
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.models.Seller;
+import com.hkust.marketplace.models.User;
+import com.hkust.marketplace.models.UserRole;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * UC6 Chat About Listing, shared by the Buyer and the Seller (Tasks 1.5 and 2.5): the private
+ * chat between one buyer and the seller of one listing.
+ *
+ * &lt;p&gt;How a screen uses it:
+ * &lt;pre&gt;{@code
+ * Conversation chat = chatService.openForListing(listing.getId());   // buyer, from the listing detail
+ * Conversation chat = chatService.openForOffer(offer.getId());       // buyer from My Deals, seller from an offer
+ * chat = chatService.send(chat, &quot;Is it still available?&quot;);           // returns the updated chat
+ * List&lt;ChatEntry&gt; matches = chatService.search(chat, &quot;available&quot;);   // A2
+ * }&lt;/pre&gt;
+ *
+ * &lt;p&gt;Rules enforced here, for every call, whatever the screen does:
+ * &lt;ul&gt;
+ *   &lt;li&gt;Only the chat's buyer and the listing's seller can read, write or search it
+ *       (Special Requirement 1). The admin cannot.&lt;/li&gt;
+ *   &lt;li&gt;Only the buyer starts a chat, with the first message or offer, and only on a live
+ *       listing, one that Browse shows. An existing chat stays open to both of them
+ *       whatever happens to the listing later, so its history is retained.&lt;/li&gt;
+ *   &lt;li&gt;An empty message is refused (A1). The other party is notified of every message
+ *       (step 6; Special Requirement 4 for sellers).&lt;/li&gt;
+ *   &lt;li&gt;There is no way to edit or delete a message (Special Requirement 2). A chat is
+ *       deleted only together with a participant's account, by the admin
+ *       ({@code DataStore.deleteAccount}).&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+public class ChatService {
+
+    private final DataStore store;
+    private final NotificationService notifications;
+
+    public ChatService() {
+<span class="fc" id="L52">        this(DataStore.getInstance());</span>
+<span class="fc" id="L53">    }</span>
+
+<span class="fc" id="L55">    public ChatService(DataStore store) {</span>
+<span class="fc" id="L56">        this.store = store;</span>
+<span class="fc" id="L57">        this.notifications = new NotificationService(store);</span>
+<span class="fc" id="L58">    }</span>
+
+    // ========== Opening a chat (UC6 steps 1-2) ==========
+
+    /**
+     * The logged-in buyer's chat about a listing, opened from the listing detail screen. If
+     * the buyer has not started one yet, the chat is empty, and nothing is stored until the
+     * first message.
+     * @throws ServiceException if the listing does not exist, or the buyer has no chat about
+     *         it and it is not on the marketplace
+     */
+    public Conversation openForListing(String listingId) {
+<span class="fc" id="L70">        Buyer buyer = AccessControl.requireBuyer();</span>
+<span class="fc" id="L71">        return load(buyer, listingId, buyer.getUsername());</span>
+    }
+
+    /**
+     * The chat an offer, borrow request or claim belongs to: opened by the buyer from My Deals
+     * (UC7 A4), or by the seller from the incoming offer (Manage Offers &amp;amp; Requests 3.6).
+     * @throws ServiceException      if the offer does not exist
+     * @throws AccessDeniedException if the logged-in user is neither the offer's buyer nor the listing's seller
+     */
+    public Conversation openForOffer(String offerId) {
+<span class="fc" id="L81">        User viewer = requireChatUser();</span>
+<span class="fc" id="L82">        Offer offer = store.findOffer(offerId);</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        if (offer == null) {</span>
+<span class="fc" id="L84">            throw new ServiceException(&quot;This offer no longer exists.&quot;);</span>
+        }
+<span class="fc" id="L86">        return load(viewer, offer.getListingId(), offer.getBuyerUsername());</span>
+    }
+
+    /**
+     * Every chat of the logged-in buyer or seller, the one with the newest message or offer
+     * first. A seller sees the chats buyers started on the seller's listings.
+     */
+    public List&lt;Conversation&gt; getMyConversations() {
+<span class="fc" id="L94">        User viewer = requireChatUser();</span>
+<span class="fc" id="L95">        return store.read(() -&gt; {</span>
+<span class="fc bfc" id="L96" title="All 2 branches covered.">            List&lt;ChatThread&gt; threads = viewer instanceof Buyer</span>
+<span class="fc" id="L97">                    ? store.getThreadsForBuyer(viewer.getUsername())</span>
+<span class="fc" id="L98">                    : store.getThreadsForSeller(viewer.getUsername());</span>
+<span class="fc" id="L99">            return threads.stream()</span>
+<span class="fc" id="L100">                    .map(thread -&gt; conversation(viewer, store.findListing(thread.getListingId()),</span>
+<span class="fc" id="L101">                            thread.getBuyerUsername(), thread))</span>
+<span class="fc" id="L102">                    .sorted(Comparator.comparing(ChatService::lastActivity).reversed()) // stable: equal times keep their order</span>
+<span class="fc" id="L103">                    .toList();</span>
+        });
+    }
+
+    /** The same chat with its current history, for example after the other party wrote. */
+    public Conversation reload(Conversation conversation) {
+<span class="fc" id="L109">        return load(requireChatUser(), conversation.listing().getId(), conversation.buyerUsername());</span>
+    }
+
+    // ========== Writing a message (UC6 steps 3-6) ==========
+
+    /**
+     * Sends a message in the chat as the logged-in participant: stores it with the sender and
+     * the current time, creating the chat thread first if this is the buyer's first message
+     * on the listing, and notifies the other party.
+     * @param text the message; spaces and line breaks around it are dropped
+     * @return the chat with the new message
+     * @throws ServiceException if the message is empty (A1); nothing is stored then
+     */
+    public Conversation send(Conversation conversation, String text) {
+<span class="fc" id="L123">        User sender = requireChatUser();</span>
+<span class="fc" id="L124">        String listingId = conversation.listing().getId();</span>
+<span class="fc" id="L125">        String buyerUsername = conversation.buyerUsername();</span>
+<span class="fc" id="L126">        return store.transaction(() -&gt; {</span>
+<span class="fc" id="L127">            Listing listing = requireParticipant(sender, listingId, buyerUsername);</span>
+<span class="fc bfc" id="L128" title="All 2 branches covered.">            String content = text == null ? &quot;&quot; : text.strip();</span>
+<span class="fc bfc" id="L129" title="All 2 branches covered.">            if (content.isEmpty()) {</span>
+<span class="fc" id="L130">                throw new ServiceException(&quot;Please write a message before sending.&quot;); // A1</span>
+            }
+<span class="fc" id="L132">            ChatThread thread = threadIfStarted(sender, listing, buyerUsername);</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">            if (thread == null) {</span>
+<span class="fc" id="L134">                thread = store.getOrCreateThread(buyerUsername, listingId); // the buyer's first message (step 5)</span>
+            }
+<span class="fc" id="L136">            thread.addMessage(new Message(sender.getUsername(), content, store.now()));</span>
+
+<span class="fc bfc" id="L138" title="All 2 branches covered.">            String otherParty = sender instanceof Buyer ? listing.getSellerUsername() : thread.getBuyerUsername();</span>
+<span class="fc" id="L139">            notifications.send(otherParty, NotificationCategory.NEW_MESSAGE,</span>
+<span class="fc" id="L140">                    sender.getFullName() + &quot; sent you a message about '&quot; + listing.getTitle() + &quot;'.&quot;);</span>
+<span class="fc" id="L141">            return conversation(sender, listing, buyerUsername, thread);</span>
+        });
+    }
+
+    // ========== Searching the history (UC6 A2) ==========
+
+    /**
+     * The messages in the chat that contain the keyword, oldest first, each with its sender,
+     * time and position in the history. Upper and lower case are treated as the same. Offers
+     * are not searched: they have no text.
+     * @return the matching messages; empty if no message contains the keyword
+     * @throws ServiceException if no keyword is given
+     */
+    public List&lt;ChatEntry&gt; search(Conversation conversation, String keyword) {
+<span class="fc" id="L155">        Conversation current = reload(conversation);</span>
+<span class="fc bfc" id="L156" title="All 2 branches covered.">        String wanted = keyword == null ? &quot;&quot; : keyword.strip().toLowerCase(Locale.ROOT);</span>
+<span class="fc bfc" id="L157" title="All 2 branches covered.">        if (wanted.isEmpty()) {</span>
+<span class="fc" id="L158">            throw new ServiceException(&quot;Please enter a keyword to search for.&quot;);</span>
+        }
+<span class="fc" id="L160">        return current.entries().stream()</span>
+<span class="fc bfc" id="L161" title="All 4 branches covered.">                .filter(entry -&gt; !entry.isOffer() &amp;&amp; entry.content().toLowerCase(Locale.ROOT).contains(wanted))</span>
+<span class="fc" id="L162">                .toList();</span>
+    }
+
+    // ========== Rules ==========
+
+    /** Chat is for buyers and sellers; the admin takes no part in it. */
+    private static User requireChatUser() {
+<span class="fc" id="L169">        return AccessControl.requireRole(UserRole.BUYER, UserRole.SELLER);</span>
+    }
+
+    /** The chat between the buyer and the listing as the viewer sees it, after checking that the viewer may. */
+    private Conversation load(User viewer, String listingId, String buyerUsername) {
+<span class="fc" id="L174">        return store.read(() -&gt; {</span>
+<span class="fc" id="L175">            Listing listing = requireParticipant(viewer, listingId, buyerUsername);</span>
+<span class="fc" id="L176">            return conversation(viewer, listing, buyerUsername, threadIfStarted(viewer, listing, buyerUsername));</span>
+        });
+    }
+
+    /**
+     * Special Requirement 1: the viewer must be the chat's buyer or the listing's seller.
+     * @return the listing
+     */
+    private Listing requireParticipant(User viewer, String listingId, String buyerUsername) {
+<span class="fc" id="L185">        Listing listing = store.findListing(listingId);</span>
+<span class="fc bfc" id="L186" title="All 2 branches covered.">        if (listing == null) {</span>
+<span class="fc" id="L187">            throw new ServiceException(&quot;This listing no longer exists.&quot;);</span>
+        }
+<span class="fc bfc" id="L189" title="All 4 branches covered.">        boolean isBuyer = viewer instanceof Buyer &amp;&amp; viewer.getUsername().equalsIgnoreCase(buyerUsername);</span>
+<span class="fc bfc" id="L190" title="All 4 branches covered.">        boolean isSeller = viewer instanceof Seller &amp;&amp; viewer.getUsername().equalsIgnoreCase(listing.getSellerUsername());</span>
+<span class="fc bfc" id="L191" title="All 4 branches covered.">        if (!isBuyer &amp;&amp; !isSeller) {</span>
+<span class="fc" id="L192">            throw new AccessDeniedException(&quot;Only the buyer and the listing's seller can open this chat.&quot;);</span>
+        }
+<span class="fc" id="L194">        return listing;</span>
+    }
+
+    /**
+     * The chat thread, or null if the buyer has not started it yet. In that case only the
+     * buyer may go on, and only on a live listing: the chat is started from the listing detail
+     * screen, which shows live listings only (UC6 step 1 and precondition).
+     */
+    private ChatThread threadIfStarted(User viewer, Listing listing, String buyerUsername) {
+<span class="fc" id="L203">        ChatThread thread = store.findThread(buyerUsername, listing.getId());</span>
+<span class="fc bfc" id="L204" title="All 2 branches covered.">        if (thread == null) {</span>
+<span class="fc bfc" id="L205" title="All 2 branches covered.">            if (!(viewer instanceof Buyer)) {</span>
+<span class="fc" id="L206">                throw new ServiceException(&quot;There is no chat with this buyer about this listing.&quot;);</span>
+            }
+<span class="fc bfc" id="L208" title="All 2 branches covered.">            if (!store.isLive(listing)) {</span>
+<span class="fc" id="L209">                throw new ServiceException(&quot;This listing is not on the marketplace, so a new chat cannot be started.&quot;);</span>
+            }
+        }
+<span class="fc" id="L212">        return thread;</span>
+    }
+
+    /** @param thread null for a chat the buyer has not started yet, which has no history */
+    private Conversation conversation(User viewer, Listing listing, String buyerUsername, ChatThread thread) {
+<span class="fc" id="L217">        return new Conversation(listing, buyerUsername, store.getFullName(buyerUsername),</span>
+<span class="fc" id="L218">                store.getFullName(listing.getSellerUsername()), viewer.getUsername(),</span>
+<span class="fc bfc" id="L219" title="All 2 branches covered.">                thread != null ? history(thread) : List.of());</span>
+    }
+
+    /**
+     * The thread's messages and offers in the order they were sent (UC6 step 2, Special
+     * Requirement 3). An offer made at the same moment as a message is listed before it.
+     */
+    private List&lt;ChatEntry&gt; history(ChatThread thread) {
+<span class="fc" id="L227">        record Line(String sender, LocalDateTime time, String content, Offer offer) { }</span>
+
+<span class="fc" id="L229">        List&lt;Line&gt; lines = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L230" title="All 2 branches covered.">        for (Offer offer : store.getOffersInThread(thread)) {</span>
+<span class="fc" id="L231">            lines.add(new Line(offer.getBuyerUsername(), offer.getOfferDate(), null, offer));</span>
+<span class="fc" id="L232">        }</span>
+<span class="fc bfc" id="L233" title="All 2 branches covered.">        for (Message message : thread.getMessages()) {</span>
+<span class="fc" id="L234">            lines.add(new Line(message.getSenderUsername(), message.getSentAt(), message.getContent(), null));</span>
+<span class="fc" id="L235">        }</span>
+<span class="fc" id="L236">        lines.sort(Comparator.comparing(Line::time)); // stable, so equal times keep the order above</span>
+
+<span class="fc" id="L238">        List&lt;ChatEntry&gt; entries = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L239" title="All 2 branches covered.">        for (Line line : lines) {</span>
+<span class="fc" id="L240">            entries.add(new ChatEntry(entries.size(), line.sender(), store.getFullName(line.sender()),</span>
+<span class="fc" id="L241">                    line.time(), line.content(), line.offer()));</span>
+<span class="fc" id="L242">        }</span>
+<span class="fc" id="L243">        return entries;</span>
+    }
+
+    /** When the chat last had a message or offer; a chat with neither sorts last. */
+    private static LocalDateTime lastActivity(Conversation conversation) {
+<span class="fc" id="L248">        return conversation.lastEntry().map(ChatEntry::time).orElse(LocalDateTime.MIN);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

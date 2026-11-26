@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ListingCard.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">ListingCard.java</span></div><h1>ListingCard.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.UserRole;
+import javafx.geometry.Pos;
+import javafx.scene.Cursor;
+import javafx.scene.Node;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBase;
+import javafx.scene.control.Label;
+import javafx.scene.input.MouseButton;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+
+import java.util.Collection;
+
+/**
+ * The listing card, the same in all three portals (non-functional requirement: shared
+ * components for cards). It shows the thumbnail, listing type, price, title, category and
+ * condition, seller, meet-up location, date and a status badge (UC8 step 2; Tasks 1.3, 2.4,
+ * 3.2), and below them the buttons the screen adds:
+ * &lt;pre&gt;{@code
+ * FlowPane grid = ListingCard.grid();
+ * for (Listing listing : store.getLiveListings()) {
+ *     ListingCard card = new ListingCard(listing, UserRole.BUYER);
+ *     card.setOnOpen(() -&gt; openDetail(listing));   // click the card
+ *     card.addActions(offerButton);                // any buttons the screen needs
+ *     grid.getChildren().add(card);
+ * }
+ * }&lt;/pre&gt;
+ * What each line says, and when the card is greyed out, comes from the tested
+ * {@link ListingSummary}; this class only lays it out.
+ */
+public class ListingCard extends VBox {
+
+    /** The width of every card, so cards line up in a grid. */
+    public static final double WIDTH = 260;
+
+    private static final double THUMBNAIL_WIDTH = WIDTH - 32;
+    private static final double THUMBNAIL_HEIGHT = 140;
+
+    private final ListingSummary summary;
+<span class="fc" id="L47">    private final HBox actions = new HBox(8);</span>
+
+    /** A card for a listing in the app's store, as seen by a user with the given role. */
+    public ListingCard(Listing listing, UserRole viewer) {
+<span class="fc" id="L51">        this(ListingSummary.of(listing, viewer, DataStore.getInstance()), DataStore.getInstance());</span>
+<span class="fc" id="L52">    }</span>
+
+    /** @param store the store that holds the listing's photos, for the thumbnail */
+    public ListingCard(ListingSummary summary, DataStore store) {
+<span class="fc" id="L56">        super(8);</span>
+<span class="fc" id="L57">        this.summary = summary;</span>
+<span class="fc" id="L58">        getStyleClass().add(&quot;listing-card&quot;);</span>
+<span class="fc" id="L59">        setPrefWidth(WIDTH);</span>
+<span class="fc" id="L60">        setMaxWidth(WIDTH);</span>
+
+        // Top row: listing type and status badges, then the price; none of them is ever cut short
+<span class="fc" id="L63">        Label type = new Label(summary.typeText());</span>
+<span class="fc" id="L64">        type.getStyleClass().addAll(&quot;badge&quot;, &quot;badge-type&quot;);</span>
+<span class="fc" id="L65">        Label badge = new Label(summary.badgeText());</span>
+<span class="fc" id="L66">        badge.getStyleClass().addAll(&quot;badge&quot;, summary.badgeStyle());</span>
+<span class="fc" id="L67">        Region spacer = new Region();</span>
+<span class="fc" id="L68">        HBox.setHgrow(spacer, Priority.ALWAYS);</span>
+<span class="fc" id="L69">        Label price = new Label(summary.priceText());</span>
+<span class="fc" id="L70">        price.getStyleClass().add(&quot;listing-card-price&quot;);</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">        for (Label fixed : new Label[] {type, badge, price}) {</span>
+<span class="fc" id="L72">            fixed.setMinWidth(Region.USE_PREF_SIZE);</span>
+        }
+<span class="fc" id="L74">        HBox top = new HBox(6, type, badge, spacer, price);</span>
+<span class="fc" id="L75">        top.setAlignment(Pos.CENTER_LEFT);</span>
+
+<span class="fc" id="L77">        Label title = new Label(summary.title());</span>
+<span class="fc" id="L78">        title.getStyleClass().add(&quot;listing-card-title&quot;);</span>
+<span class="fc" id="L79">        title.setWrapText(true);</span>
+
+<span class="fc" id="L81">        PhotoFrame thumbnail = new PhotoFrame(store, summary.thumbnail().orElse(null), THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT);</span>
+<span class="fc" id="L82">        getChildren().addAll(thumbnail, top, title, line(summary.detailsText()));</span>
+<span class="fc" id="L83">        summary.sellerText().ifPresent(text -&gt; getChildren().add(line(text)));</span>
+<span class="fc" id="L84">        getChildren().add(line(summary.locationText()));</span>
+<span class="fc" id="L85">        summary.photosText().ifPresent(text -&gt; getChildren().add(line(text)));</span>
+
+<span class="fc" id="L87">        Label date = new Label(summary.dateText());</span>
+<span class="fc" id="L88">        date.getStyleClass().add(&quot;listing-card-date&quot;);</span>
+<span class="fc" id="L89">        getChildren().add(date);</span>
+
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        if (summary.greyedOut()) {</span>
+<span class="fc" id="L92">            getStyleClass().add(&quot;listing-card-unavailable&quot;);</span>
+        }
+<span class="fc" id="L94">    }</span>
+
+    /** A wrapping grid with the usual spacing, for a screen that shows several cards. */
+    public static FlowPane grid() {
+<span class="fc" id="L98">        FlowPane grid = new FlowPane(16, 16);</span>
+<span class="fc" id="L99">        grid.setPrefWrapLength(3 * WIDTH + 2 * 16);</span>
+<span class="fc" id="L100">        return grid;</span>
+    }
+
+    /** A grid already holding the given cards. */
+    public static FlowPane grid(Collection&lt;? extends ListingCard&gt; cards) {
+<span class="nc" id="L105">        FlowPane grid = grid();</span>
+<span class="nc" id="L106">        grid.getChildren().addAll(cards);</span>
+<span class="nc" id="L107">        return grid;</span>
+    }
+
+    /** What the card shows; for example {@code summary().available()} to enable a buyer's action button. */
+    public ListingSummary summary() {
+<span class="nc" id="L112">        return summary;</span>
+    }
+
+    /** Adds buttons in a row at the bottom of the card, in the order given. */
+    public ListingCard addActions(Button... buttons) {
+<span class="pc bpc" id="L117" title="1 of 2 branches missed.">        if (!getChildren().contains(actions)) {</span>
+<span class="fc" id="L118">            actions.setAlignment(Pos.CENTER_LEFT);</span>
+<span class="fc" id="L119">            getChildren().add(actions);</span>
+        }
+<span class="fc" id="L121">        actions.getChildren().addAll(buttons);</span>
+<span class="fc" id="L122">        return this;</span>
+    }
+
+    /**
+     * Runs the action when the card is clicked, such as opening the listing detail screen (UC8
+     * step 5). A click on one of the card's buttons runs only that button.
+     */
+    public ListingCard setOnOpen(Runnable open) {
+<span class="fc" id="L130">        setCursor(Cursor.HAND);</span>
+<span class="fc" id="L131">        setOnMouseClicked(event -&gt; {</span>
+<span class="pc bpc" id="L132" title="1 of 4 branches missed.">            if (event.getButton() == MouseButton.PRIMARY &amp;&amp; !isOnButton(event.getTarget())) {</span>
+<span class="fc" id="L133">                open.run();</span>
+            }
+<span class="fc" id="L135">        });</span>
+<span class="fc" id="L136">        return this;</span>
+    }
+
+    private boolean isOnButton(Object target) {
+<span class="pc bpc" id="L140" title="2 of 6 branches missed.">        for (Node node = target instanceof Node n ? n : null; node != null &amp;&amp; node != this; node = node.getParent()) {</span>
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">            if (node instanceof ButtonBase) {</span>
+<span class="nc" id="L142">                return true;</span>
+            }
+        }
+<span class="fc" id="L145">        return false;</span>
+    }
+
+    private static Label line(String text) {
+<span class="fc" id="L149">        Label label = new Label(text);</span>
+<span class="fc" id="L150">        label.getStyleClass().add(&quot;listing-card-line&quot;);</span>
+<span class="fc" id="L151">        label.setWrapText(true);</span>
+<span class="fc" id="L152">        return label;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

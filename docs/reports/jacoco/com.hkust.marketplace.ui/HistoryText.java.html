@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HistoryText.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">HistoryText.java</span></div><h1>HistoryText.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.models.BorrowRequest;
+import com.hkust.marketplace.models.Claim;
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.models.PriceOffer;
+
+/**
+ * The wording of the Deal History screen (UC11), kept apart from the JavaFX code so it can be
+ * unit-tested. A deal's outcome reads as {@link OfferText#status} says (Special Requirement 4),
+ * and its deal date as {@link Formats#date}.
+ */
+public final class HistoryText {
+
+    /**
+     * UC11 A1, both when the buyer has no completed deal yet ({Show History}) and when none
+     * matches the filters ({Show Results}).
+     */
+    public static final String NO_DEALS = &quot;No deals match. A deal appears here once it is completed.&quot;;
+
+    private HistoryText() {
+        // Utility class
+    }
+
+    /** The line above the table: &quot;1 deal&quot;, &quot;3 deals&quot;, or {@link #NO_DEALS} when there are none (A1). */
+    public static String resultSummary(int count) {
+<span class="fc bfc" id="L27" title="All 2 branches covered.">        if (count &lt;= 0) {</span>
+<span class="fc" id="L28">            return NO_DEALS;</span>
+        }
+<span class="fc bfc" id="L30" title="All 2 branches covered.">        return count == 1 ? &quot;1 deal&quot; : count + &quot; deals&quot;;</span>
+    }
+
+    /**
+     * The deal type, as the buyer sees it (Special Requirement 3; Task 1.9): &quot;Bought&quot; for a price
+     * offer, &quot;Borrowed&quot; for a borrow request and &quot;Received&quot; for a claim.
+     * @throws IllegalArgumentException for any other kind of deal, so that a new kind is never
+     *         shown under a wrong name (fail fast, Lecture 11)
+     */
+    public static String dealType(Offer deal) {
+<span class="fc bfc" id="L40" title="All 2 branches covered.">        if (deal instanceof PriceOffer) {</span>
+<span class="fc" id="L41">            return &quot;Bought&quot;;</span>
+        }
+<span class="fc bfc" id="L43" title="All 2 branches covered.">        if (deal instanceof BorrowRequest) {</span>
+<span class="fc" id="L44">            return &quot;Borrowed&quot;;</span>
+        }
+<span class="fc bfc" id="L46" title="All 2 branches covered.">        if (deal instanceof Claim) {</span>
+<span class="fc" id="L47">            return &quot;Received&quot;;</span>
+        }
+<span class="fc" id="L49">        throw new IllegalArgumentException(&quot;Unknown kind of deal: &quot; + deal.getClass().getName());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

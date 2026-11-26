@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SellerRegisterController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.controllers.seller</a> &gt; <span class="el_source">SellerRegisterController.java</span></div><h1>SellerRegisterController.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.controllers.seller;
+
+import com.hkust.marketplace.models.MeetupLocation;
+import com.hkust.marketplace.services.AccountValidator;
+import com.hkust.marketplace.services.AuthService;
+import com.hkust.marketplace.utils.SceneManager;
+import javafx.fxml.FXML;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.FlowPane;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Task 2.1 Seller Registration: creates a seller account from the form.
+ *
+ * &lt;p&gt;The form asks for a username, full name, password, confirm password, any number of
+ * preferred meet-up locations, and an optional bio. All checks (unique username across
+ * buyer/seller/admin, password strength, matching passwords) are in the shared, tested
+ * {@link AuthService}; this screen only collects the input, shows the service's error
+ * message, and clears the form after success.
+ *
+ * &lt;p&gt;&lt;b&gt;Task 2.1 changes&lt;/b&gt; (everything else here was already in the original skeleton):
+ * the meet-up field is now a set of check boxes, so a seller can pick more than one
+ * location (the spec says &quot;location(s)&quot;); the password rules are shown under the password
+ * field; and the new {@link #clearForm()} helper resets the form. Validation, hashing,
+ * error messages and navigation are unchanged.
+ */
+<span class="fc" id="L33">public class SellerRegisterController {</span>
+
+    @FXML private TextField usernameField;
+    @FXML private TextField fullNameField;
+    @FXML private PasswordField passwordField;
+    @FXML private PasswordField confirmPasswordField;
+    @FXML private FlowPane meetupChoices;
+    @FXML private TextArea bioArea;
+    /** Task 2.1: shows the password rules under the password field. */
+    @FXML private Label passwordRulesLabel;
+    @FXML private Label errorLabel;
+    @FXML private Label successLabel;
+
+    /** Task 2.1: one check box per predefined HKUST location, in the same order every time. */
+<span class="fc" id="L47">    private final List&lt;CheckBox&gt; meetupBoxes = new ArrayList&lt;&gt;();</span>
+
+    /** Task 2.1: builds the location check boxes and shows the password rules under the field. */
+    @FXML
+    public void initialize() {
+<span class="fc" id="L52">        passwordRulesLabel.setText(AccountValidator.PASSWORD_RULES);</span>
+<span class="fc bfc" id="L53" title="All 2 branches covered.">        for (MeetupLocation location : MeetupLocation.values()) {</span>
+<span class="fc" id="L54">            CheckBox box = new CheckBox(location.getDisplayName());</span>
+<span class="fc" id="L55">            box.setUserData(location);</span>
+<span class="fc" id="L56">            meetupBoxes.add(box);</span>
+<span class="fc" id="L57">            meetupChoices.getChildren().add(box);</span>
+        }
+<span class="fc" id="L59">    }</span>
+
+    /** UC &quot;Register as Seller&quot;: validates through AuthService and creates the account. */
+    @FXML
+    private void handleRegister() {
+<span class="nc" id="L64">        hideMessages();</span>
+<span class="nc" id="L65">        List&lt;MeetupLocation&gt; locations = selectedMeetupLocations(); // Task 2.1: every ticked location</span>
+
+<span class="nc" id="L67">        String error = new AuthService().registerSeller(usernameField.getText().trim(),</span>
+<span class="nc" id="L68">                fullNameField.getText(), passwordField.getText(), confirmPasswordField.getText(),</span>
+<span class="nc" id="L69">                bioArea.getText(), locations);</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">        if (error != null) {</span>
+<span class="nc" id="L71">            showError(error);</span>
+<span class="nc" id="L72">            return;</span>
+        }
+
+<span class="nc" id="L75">        showSuccess(&quot;Seller account created! You can now login.&quot;);</span>
+<span class="nc" id="L76">        clearForm();</span>
+<span class="nc" id="L77">    }</span>
+
+    /** Task 2.1: the locations the seller ticked, in the order they appear on the form. */
+    private List&lt;MeetupLocation&gt; selectedMeetupLocations() {
+<span class="nc" id="L81">        return meetupBoxes.stream()</span>
+<span class="nc" id="L82">                .filter(CheckBox::isSelected)</span>
+<span class="nc" id="L83">                .map(box -&gt; (MeetupLocation) box.getUserData())</span>
+<span class="nc" id="L84">                .toList();</span>
+    }
+
+    /** Task 2.1: empties the form after a successful registration (the clears were inline before). */
+    private void clearForm() {
+<span class="nc" id="L89">        usernameField.clear();</span>
+<span class="nc" id="L90">        fullNameField.clear();</span>
+<span class="nc" id="L91">        passwordField.clear();</span>
+<span class="nc" id="L92">        confirmPasswordField.clear();</span>
+<span class="nc" id="L93">        bioArea.clear();</span>
+<span class="nc" id="L94">        meetupBoxes.forEach(box -&gt; box.setSelected(false));</span>
+<span class="nc" id="L95">    }</span>
+
+    private void showError(String msg) {
+<span class="nc" id="L98">        errorLabel.setText(msg);</span>
+<span class="nc" id="L99">        errorLabel.setVisible(true);</span>
+<span class="nc" id="L100">        errorLabel.setManaged(true);</span>
+<span class="nc" id="L101">    }</span>
+
+    private void showSuccess(String msg) {
+<span class="nc" id="L104">        successLabel.setText(msg);</span>
+<span class="nc" id="L105">        successLabel.setVisible(true);</span>
+<span class="nc" id="L106">        successLabel.setManaged(true);</span>
+<span class="nc" id="L107">    }</span>
+
+    private void hideMessages() {
+<span class="nc" id="L110">        errorLabel.setVisible(false);</span>
+<span class="nc" id="L111">        errorLabel.setManaged(false);</span>
+<span class="nc" id="L112">        successLabel.setVisible(false);</span>
+<span class="nc" id="L113">        successLabel.setManaged(false);</span>
+<span class="nc" id="L114">    }</span>
+
+<span class="nc" id="L116">    @FXML private void goLogin() { SceneManager.showSellerLogin(); }</span>
+<span class="nc" id="L117">    @FXML private void goWelcome() { SceneManager.showWelcome(); }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -249,7 +249,7 @@ The average rating is recalculated automatically.
 - A text field narrower than its hint (prompt text) cuts the hint at its edge, without "…": let the field take its
   row's free width (`HBox.setHgrow(field, Priority.ALWAYS)`), or give its width in characters (`setPrefColumnCount`)
   rather than pixels. `OffScreenApp.cutPrompts()` finds such hints, and `PortalScreensTest` checks every page for them
-  (regression log R20, R22).
+  (regression log R20, R22, R23).
 - `UserRole.getDisplayName()`: "Buyer", "Seller", "Admin" for screens (its `toString()` stays "BUYER": the Audit
   Log's account snapshots record it that way).
 - CSS classes in `css/styles.css`: `card`, `badge` + `badge-live|pending|sold|rejected`, `btn-primary`,
@@ -335,7 +335,7 @@ named the roles with `UserRole.getDisplayName()`, made Remove ask first on both 
 typed ("250"), and kept the filters when going back to All Listings. After it, on 26 Nov: Edit listing shows and saves
 the condition (assumptions register 94); Add listing takes a price only for Sell and a duration only for Lend, as the
 seller's Create Listing does; the review rows show the seller's reply (R21); the duration's hint (R20) and the user
-search box's hint (R22) show in full; and the comments that numbered the review notes now say what the code does.
+search box's hint (R22) show in full; the timer no longer replaces an open form or detail screen (R24); Manage Users' filter labels stay beside their boxes (R25); and the comments that numbered the review notes now say what the code does.
 
 Follow-ups, none of them blocking the build:
 - **Optional:** parse the price in `AdminListingService` (the barricade) rather than in the screen; `createReviewRow`

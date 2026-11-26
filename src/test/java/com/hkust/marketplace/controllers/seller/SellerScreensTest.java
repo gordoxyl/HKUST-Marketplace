@@ -1,6 +1,7 @@
 package com.hkust.marketplace.controllers.seller;
 
 import com.hkust.marketplace.data.SeedData;
+import com.hkust.marketplace.models.LendListing;
 import com.hkust.marketplace.models.Listing;
 import com.hkust.marketplace.models.NotificationCategory;
 import com.hkust.marketplace.models.SaleListing;
@@ -11,6 +12,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,6 +58,27 @@ class SellerScreensTest {
         assertEquals(0, dot());
         app.press("My Listings");
         assertEquals(0, dot());
+    }
+
+    @Test
+    void counterABorrowRequest_theEmptiedTimeBoxesShowTheirWholeHint() {
+        data.seller("r23seller", "R23 Seller");
+        data.buyer("r23buyer", "R23 Buyer");
+        LendListing kayak = data.lend("r23seller", "R23 Kayak", Duration.ofDays(2));
+        LocalDateTime start = app.store().now().plusDays(1);
+        data.borrowRequest("r23buyer", kayak, start, start.plusDays(1));
+        List<List<String>> cut = new ArrayList<>();
+        app.answer("Counter borrow request", form -> {
+            form.type("HH:mm or HH:mm:ss", 0, "").type("HH:mm or HH:mm:ss", 1, ""); // the hint shows once a time is cleared
+            cut.add(form.cutPrompts());
+            form.press("Cancel");
+        });
+        app.logIn("Enter as Seller", "r23seller", SeedData.DEMO_PASSWORD);
+        app.press("Offers & Requests");
+
+        app.press("Counter");
+
+        assertEquals(List.of(List.of()), cut); // R23: "HH:mm or HH:mm:ss" in full
     }
 
     @Test

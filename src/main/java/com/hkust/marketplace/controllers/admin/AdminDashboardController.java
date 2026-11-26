@@ -35,6 +35,8 @@ public class AdminDashboardController implements ContentHost {
     private final AdminListingService listingService = new AdminListingService();
     private final AdminUserService userService = new AdminUserService();
     private Runnable listingsReload = () -> {};
+    /** Brings the page shown up to date when the timer changed the data; null for a form or a detail screen, which it must not replace. */
+    private Runnable reloadCurrentScreen;
     private final AdminDealService dealService = new AdminDealService();
     private List<DealRecord> currentDeals = List.of();
     private final AdminReputationService reputationService = new AdminReputationService();
@@ -56,11 +58,7 @@ public class AdminDashboardController implements ContentHost {
     }
 
     private void refreshCurrentScreen() {
-        if (currentActiveBtn == btnReview) showReview();
-        else if (currentActiveBtn == btnAllListings) showAllListings();
-        else if (currentActiveBtn == btnUsers) showUsers();
-        else if (currentActiveBtn == btnDeals) showDeals();
-        else if (currentActiveBtn == btnRatings) showRatings();
+        if (reloadCurrentScreen != null) reloadCurrentScreen.run();
     }
 
     private void showGreeting() {
@@ -80,6 +78,7 @@ public class AdminDashboardController implements ContentHost {
     public void show(String title, Node content) {
         pageTitle.setText(title);
         contentPane.getChildren().setAll(content);
+        reloadCurrentScreen = null;
         NotificationDot.update();
     }
 
@@ -90,6 +89,7 @@ public class AdminDashboardController implements ContentHost {
     private void showReview() {
         setActive(btnReview, "Listing Review");
         contentPane.getChildren().clear();
+        reloadCurrentScreen = this::showReview;
 
         VBox root = new VBox(14);
         root.setPadding(new Insets(4));
@@ -258,6 +258,7 @@ public class AdminDashboardController implements ContentHost {
         scroll.setFitToWidth(true);
         allListingsScreen = scroll;
         contentPane.getChildren().add(scroll);
+        reloadCurrentScreen = () -> listingsReload.run(); // the same search again, so the filters stay
     }
 
     /** Back to All Listings as last shown, with its filters, and with its results brought up to date. */
@@ -265,6 +266,7 @@ public class AdminDashboardController implements ContentHost {
         setActive(btnAllListings, "All Listings");
         listingsReload.run();
         show("All Listings", allListingsScreen);
+        reloadCurrentScreen = () -> listingsReload.run();
     }
 
     /**
@@ -524,6 +526,7 @@ public class AdminDashboardController implements ContentHost {
     private void showUsers() {
         setActive(btnUsers, "Manage Users");
         contentPane.getChildren().clear();
+        reloadCurrentScreen = this::showUsers;
 
         VBox root = new VBox(12);
         root.setPadding(new Insets(4));
@@ -552,9 +555,9 @@ public class AdminDashboardController implements ContentHost {
         Button resetBtn = new Button("Reset");
         resetBtn.getStyleClass().addAll("btn-outline", "btn-sm");
 
-        FlowPane filterBar = new FlowPane(10, 8, searchField, new Label("Role:"), roleBox,
-                new Label("Status:"), statusBox, new Label("Reg. From:"), fromDate,
-                new Label("Reg. To:"), toDate, searchBtn, resetBtn);
+        FlowPane filterBar = new FlowPane(10, 8, searchField, labelled("Role:", roleBox),
+                labelled("Status:", statusBox), labelled("Reg. From:", fromDate),
+                labelled("Reg. To:", toDate), searchBtn, resetBtn);
         filterBar.setAlignment(Pos.CENTER_LEFT);
 
         VBox results = new VBox(10);
@@ -611,6 +614,15 @@ public class AdminDashboardController implements ContentHost {
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
         contentPane.getChildren().add(scroll);
+    }
+
+    /** A filter's label with its box, which stay together on one line when the filter bar wraps. */
+    private static HBox labelled(String label, Node box) {
+        Label name = new Label(label);
+        name.setMinWidth(Region.USE_PREF_SIZE);
+        HBox pair = new HBox(6, name, box);
+        pair.setAlignment(Pos.CENTER_LEFT);
+        return pair;
     }
 
     private HBox createUserRow(User u, Runnable reload) {
@@ -799,6 +811,7 @@ public class AdminDashboardController implements ContentHost {
     private void showDeals() {
         setActive(btnDeals, "All Deals");
         contentPane.getChildren().clear();
+        reloadCurrentScreen = this::showDeals;
 
         VBox root = new VBox(12);
         root.setPadding(new Insets(4));
@@ -993,6 +1006,7 @@ public class AdminDashboardController implements ContentHost {
     private void showRatings() {
         setActive(btnRatings, "Seller Ratings");
         contentPane.getChildren().clear();
+        reloadCurrentScreen = this::showRatings;
 
         VBox root = new VBox(12);
         root.setPadding(new Insets(4));

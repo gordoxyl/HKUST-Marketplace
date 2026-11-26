@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Choices.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">Choices.java</span></div><h1>Choices.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import javafx.scene.control.ComboBox;
+
+/**
+ * Filter choices of the form &quot;All categories&quot; followed by the values of an enum, as the buyer's
+ * Browse Marketplace (UC8 step 3) and Deal History (UC11 step 3) screens use them. A screen
+ * shows the values' display names, and asks for the chosen value back, or null for &quot;all&quot;.
+ * &lt;pre&gt;{@code
+ * ComboBox&lt;String&gt; category = Choices.withAll(&quot;All categories&quot;, Category.values());
+ * Category chosen = Choices.chosen(category, Category.values()); // null when &quot;All categories&quot; is chosen
+ * }&lt;/pre&gt;
+ * Moved out of {@code BrowseView} when Deal History became its second user, so that both
+ * screens offer their choices the same way (Lecture 10, refactoring: remove a duplicate at its
+ * second use). The behaviour is unchanged.
+ */
+public final class Choices {
+
+    private Choices() {
+        // Utility class
+    }
+
+    /** A choice of &quot;all&quot;, selected, followed by the values' display names ({@code toString()}). */
+    public static ComboBox&lt;String&gt; withAll(String all, Enum&lt;?&gt;[] values) {
+<span class="fc" id="L25">        ComboBox&lt;String&gt; box = new ComboBox&lt;&gt;();</span>
+<span class="fc" id="L26">        box.getItems().add(all);</span>
+<span class="fc bfc" id="L27" title="All 2 branches covered.">        for (Enum&lt;?&gt; value : values) {</span>
+<span class="fc" id="L28">            box.getItems().add(value.toString());</span>
+        }
+<span class="fc" id="L30">        box.getSelectionModel().selectFirst();</span>
+<span class="fc" id="L31">        return box;</span>
+    }
+
+    /**
+     * The value chosen in a box made by {@link #withAll}, or null when &quot;all&quot; is chosen.
+     * @param values the same values, in the same order, as the box was made with
+     */
+    public static &lt;E&gt; E chosen(ComboBox&lt;String&gt; box, E[] values) {
+<span class="fc" id="L39">        return valueAt(box.getSelectionModel().getSelectedIndex(), values);</span>
+    }
+
+    /**
+     * The value at a position of such a box: position 0 is &quot;all&quot; (null), position 1 the first
+     * value. A box with nothing selected reports position -1, which also means &quot;all&quot;.
+     */
+    static &lt;E&gt; E valueAt(int index, E[] values) {
+<span class="fc bfc" id="L47" title="All 2 branches covered.">        return index &lt;= 0 ? null : values[index - 1];</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

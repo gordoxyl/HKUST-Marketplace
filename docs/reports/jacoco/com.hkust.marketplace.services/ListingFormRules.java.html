@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ListingFormRules.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">ListingFormRules.java</span></div><h1>ListingFormRules.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.models.BorrowRequest;
+import com.hkust.marketplace.models.Category;
+import com.hkust.marketplace.models.ItemCondition;
+import com.hkust.marketplace.models.LendListing;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.MeetupLocation;
+
+import java.time.Duration;
+import java.util.OptionalDouble;
+
+/**
+ * The field checks the listing forms share: Create Listings (Task 2.3) and Manage Listings
+ * (Task 2.4). Both write the same fields, so they must refuse the same input with the same
+ * message; keeping the checks here means the two forms cannot drift apart.
+ *
+ * &lt;p&gt;Only field contents are checked here. Whether the seller may change a given listing at
+ * all (ownership, locked status) belongs to {@link SellerListingService}.
+ */
+final class ListingFormRules {
+
+    private ListingFormRules() {
+        // Utility class
+    }
+
+    /** A1: every field the form asks for, whatever the listing type. */
+    static void requireCommonFields(String title, Category category, ItemCondition condition,
+                                    String description, MeetupLocation meetupLocation) {
+<span class="pc bpc" id="L30" title="1 of 4 branches missed.">        if (title == null || title.isBlank()) {</span>
+<span class="fc" id="L31">            throw new ServiceException(&quot;The item name cannot be empty.&quot;);</span>
+        }
+<span class="fc bfc" id="L33" title="All 2 branches covered.">        if (category == null) {</span>
+<span class="fc" id="L34">            throw new ServiceException(&quot;Please choose a category.&quot;);</span>
+        }
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        if (condition == null) {</span>
+<span class="fc" id="L37">            throw new ServiceException(&quot;Please choose the item's condition.&quot;);</span>
+        }
+<span class="pc bpc" id="L39" title="1 of 4 branches missed.">        if (description == null || description.isBlank()) {</span>
+<span class="fc" id="L40">            throw new ServiceException(&quot;The description cannot be empty.&quot;);</span>
+        }
+<span class="fc bfc" id="L42" title="All 2 branches covered.">        if (meetupLocation == null) {</span>
+<span class="fc" id="L43">            throw new ServiceException(&quot;Please choose a meet-up location.&quot;);</span>
+        }
+<span class="fc" id="L45">    }</span>
+
+    /**
+     * A2: the asking price of a Sell listing, exactly as it was typed. The text is untrusted
+     * input, so it is parsed here at the barricade with {@link Amounts#parse}: digits with up to
+     * two decimals, such as &quot;180&quot; or &quot;99.50&quot;; &quot;1e3&quot;, &quot;NaN&quot; and &quot;abc&quot; are refused.
+     * @return the price as a number
+     */
+    static double requirePriceText(String typedPrice) {
+<span class="fc" id="L54">        OptionalDouble price = Amounts.parse(typedPrice);</span>
+<span class="fc bfc" id="L55" title="All 4 branches covered.">        if (price.isEmpty() || price.getAsDouble() &lt;= 0) {</span>
+<span class="fc" id="L56">            throw new ServiceException(&quot;The price must be a positive number, such as 180 or 99.50.&quot;);</span>
+        }
+<span class="fc" id="L58">        return price.getAsDouble();</span>
+    }
+
+    /** A3: how long a Lend listing may be borrowed, at least the minimum borrow time. */
+    static void requireLendingDuration(Duration lendingDuration) {
+<span class="fc bfc" id="L63" title="All 2 branches covered.">        if (lendingDuration == null</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">                || lendingDuration.compareTo(BorrowRequest.MIN_BORROW_TIME) &lt; 0) {</span>
+<span class="fc" id="L65">            throw new ServiceException(&quot;The lending duration must be at least &quot;</span>
+<span class="fc" id="L66">                    + LendListing.formatDuration(BorrowRequest.MIN_BORROW_TIME) + &quot;.&quot;);</span>
+        }
+<span class="fc" id="L68">    }</span>
+
+    /** A4: a listing can show at most {@link Listing#MAX_PHOTOS} photos. */
+    static void requirePhotoCount(int count) {
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (count &gt; Listing.MAX_PHOTOS) {</span>
+<span class="fc" id="L73">            throw new ServiceException(&quot;A listing can have at most &quot; + Listing.MAX_PHOTOS + &quot; photos.&quot;);</span>
+        }
+<span class="fc" id="L75">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

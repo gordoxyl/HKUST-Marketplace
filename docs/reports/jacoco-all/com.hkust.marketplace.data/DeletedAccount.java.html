@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DeletedAccount.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.data</a> &gt; <span class="el_source">DeletedAccount.java</span></div><h1>DeletedAccount.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.data;
+
+import com.hkust.marketplace.models.ChatThread;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.Notification;
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.models.User;
+
+import java.util.List;
+
+/**
+ * What {@link DataStore#deleteAccount} deleted and cancelled. The admin's Delete User keeps
+ * the snapshot in the Audit Log and uses the lists to notify the users who are affected
+ * (Manage All User Accounts and Reputation 6.4.4):
+ * &lt;pre&gt;{@code
+ * DeletedAccount deleted = store.deleteAccount(username);
+ * store.addAuditLogEntry(new AuditLogEntry(admin.getUsername(), username, &quot;Delete account&quot;,
+ *         reason, deleted.snapshot()));
+ * }&lt;/pre&gt;
+ * The reviews the user wrote are not in it: they are kept, and their writer is shown as
+ * {@value DataStore#DELETED_USER} (client answer 6, 16 Nov 2026).
+ *
+ * @param user            the deleted account
+ * @param chatThreads     the deleted chat threads the user took part in, with their messages
+ * @param notifications   the deleted notifications from the user's board
+ * @param declinedOffers  the offers that were still open and were declined: the user's own,
+ *                        and those on the user's listings
+ * @param removedListings the user's listings that became Removed
+ * @param snapshot        all of the above as text, as it was just before the deletion, for
+ *                        the Audit Log entry's data snapshot; the password hash is left out
+ */
+public record DeletedAccount(User user, List&lt;ChatThread&gt; chatThreads, List&lt;Notification&gt; notifications,
+                             List&lt;Offer&gt; declinedOffers, List&lt;Listing&gt; removedListings, String snapshot) {
+
+<span class="fc" id="L35">    public DeletedAccount {</span>
+<span class="fc" id="L36">        chatThreads = List.copyOf(chatThreads);</span>
+<span class="fc" id="L37">        notifications = List.copyOf(notifications);</span>
+<span class="fc" id="L38">        declinedOffers = List.copyOf(declinedOffers);</span>
+<span class="fc" id="L39">        removedListings = List.copyOf(removedListings);</span>
+<span class="fc" id="L40">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

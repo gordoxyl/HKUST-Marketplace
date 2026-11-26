@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OfferDialogs.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.controllers.buyer</a> &gt; <span class="el_source">OfferDialogs.java</span></div><h1>OfferDialogs.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.controllers.buyer;
+
+import com.hkust.marketplace.models.BorrowRequest;
+import com.hkust.marketplace.models.LendListing;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.ui.Dialogs;
+import com.hkust.marketplace.ui.Formats;
+import com.hkust.marketplace.ui.TextInputs;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.DatePicker;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.VBox;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Optional;
+
+/**
+ * The forms of Make Offer (UC5 step 4, {Enter Terms}): one for the price of a price offer,
+ * one for the period of a borrow request. A claim has no form.
+ *
+ * &lt;p&gt;These are boundary classes only (Lecture 15): they collect what the buyer typed and hand
+ * it over unchecked. Whether a price or a period is acceptable is decided by
+ * {@code OfferService}. Each form returns empty when the buyer cancels (A4).
+ */
+final class OfferDialogs {
+
+<span class="fc" id="L32">    private static final ButtonType SUBMIT = new ButtonType(&quot;Submit&quot;, ButtonBar.ButtonData.OK_DONE);</span>
+
+    private OfferDialogs() {
+        // Utility class
+    }
+
+    /**
+     * A borrow period exactly as it stands in the form: the chosen dates and the typed times.
+     * Kept as entered, so that a form shown again has what the buyer typed, to be corrected.
+     */
+<span class="fc" id="L42">    record Period(LocalDate startDate, String startTime, LocalDate endDate, String endTime) {</span>
+
+        /** The form's contents for a suggested period; either part may be null. */
+        static Period of(LocalDateTime start, LocalDateTime end) {
+<span class="pc bpc" id="L46" title="1 of 2 branches missed.">            return new Period(start == null ? null : start.toLocalDate(), Formats.timeOfDay(start),</span>
+<span class="pc bpc" id="L47" title="1 of 2 branches missed.">                    end == null ? null : end.toLocalDate(), Formats.timeOfDay(end));</span>
+        }
+
+        /** The start as a date and time, or null if the date is missing or the time is not a time of day. */
+        LocalDateTime start() {
+<span class="fc" id="L52">            return TextInputs.dateTime(startDate, startTime).orElse(null);</span>
+        }
+
+        /** The end as a date and time, or null if the date is missing or the time is not a time of day. */
+        LocalDateTime end() {
+<span class="fc" id="L57">            return TextInputs.dateTime(endDate, endTime).orElse(null);</span>
+        }
+    }
+
+    /**
+     * Asks for the price of a price offer.
+     * @param price what the price box starts with: a suggestion, or what the buyer typed before
+     * @return the price as typed, or empty if the buyer cancelled
+     */
+    static Optional&lt;String&gt; askPrice(Listing listing, String price) {
+<span class="fc" id="L67">        TextField priceBox = new TextField(price);</span>
+<span class="fc" id="L68">        priceBox.setPromptText(&quot;such as 150 or 99.50&quot;);</span>
+<span class="fc" id="L69">        Label asking = Dialogs.hint(&quot;The seller asks &quot; + listing.getPriceDisplay() + &quot;. The seller can accept, decline or &quot;</span>
+                + &quot;counter your offer.&quot;);
+
+<span class="fc" id="L72">        Dialog&lt;ButtonType&gt; dialog = dialog(&quot;Make Offer&quot;, &quot;Your price offer for '&quot; + listing.getTitle() + &quot;'&quot;);</span>
+<span class="fc" id="L73">        dialog.getDialogPane().setContent(new VBox(8, new Label(&quot;Your price (HK$)&quot;), priceBox, asking));</span>
+<span class="fc" id="L74">        dialog.setOnShown(e -&gt; priceBox.requestFocus());</span>
+<span class="fc" id="L75">        return dialog.showAndWait().filter(SUBMIT::equals).map(button -&gt; priceBox.getText());</span>
+    }
+
+    /**
+     * Asks for the period of a borrow request: a date and a time of day for the start and for
+     * the end. Seconds can be typed, because the shortest period is a few seconds. The dates
+     * read as on every other screen, &quot;21 Nov 2026&quot;, whether chosen from the calendar or typed.
+     * @param period what the boxes start with: a suggestion, or what the buyer entered before
+     * @return the period as entered, or empty if the buyer cancelled
+     */
+    static Optional&lt;Period&gt; askPeriod(Listing listing, Period period) {
+<span class="fc" id="L86">        DatePicker startDate = datePicker(period.startDate());</span>
+<span class="fc" id="L87">        TextField startTime = new TextField(period.startTime());</span>
+<span class="fc" id="L88">        DatePicker endDate = datePicker(period.endDate());</span>
+<span class="fc" id="L89">        TextField endTime = new TextField(period.endTime());</span>
+<span class="fc bfc" id="L90" title="All 2 branches covered.">        for (TextField time : new TextField[] {startTime, endTime}) {</span>
+<span class="fc" id="L91">            time.setPromptText(&quot;HH:mm or HH:mm:ss&quot;);</span>
+<span class="fc" id="L92">            time.setPrefColumnCount(12); // room for the whole hint, and wider with a bigger font</span>
+        }
+
+<span class="fc" id="L95">        GridPane form = new GridPane();</span>
+<span class="fc" id="L96">        form.setHgap(10);</span>
+<span class="fc" id="L97">        form.setVgap(8);</span>
+<span class="fc" id="L98">        form.addRow(0, new Label(&quot;Start&quot;), startDate, startTime);</span>
+<span class="fc" id="L99">        form.addRow(1, new Label(&quot;End&quot;), endDate, endTime);</span>
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">        String lending = listing instanceof LendListing lend</span>
+<span class="pc" id="L101">                ? &quot;The seller lends it for &quot; + lend.getDurationDisplay() + &quot;. &quot; : &quot;&quot;;</span>
+<span class="fc" id="L102">        Label rules = Dialogs.hint(lending + &quot;The period cannot start in the past and must last at least &quot;</span>
+<span class="fc" id="L103">                + LendListing.formatDuration(BorrowRequest.MIN_BORROW_TIME) + &quot;.&quot;);</span>
+
+<span class="fc" id="L105">        Dialog&lt;ButtonType&gt; dialog = dialog(&quot;Request Borrow&quot;, &quot;Your borrow request for '&quot; + listing.getTitle() + &quot;'&quot;);</span>
+<span class="fc" id="L106">        dialog.getDialogPane().setContent(new VBox(10, form, rules));</span>
+<span class="fc" id="L107">        return dialog.showAndWait().filter(SUBMIT::equals).map(button -&gt; new Period(</span>
+<span class="fc" id="L108">                shownDate(startDate), startTime.getText(), shownDate(endDate), endTime.getText()));</span>
+    }
+
+    /**
+     * A date picker that shows and reads its date in the form every screen uses, &quot;21 Nov 2026&quot;
+     * ({@link Formats#datePickerConverter()}), and suggests that form while it is empty.
+     */
+    private static DatePicker datePicker(LocalDate date) {
+<span class="fc" id="L116">        DatePicker picker = new DatePicker(date);</span>
+<span class="fc" id="L117">        picker.setConverter(Formats.datePickerConverter());</span>
+<span class="fc" id="L118">        picker.setPromptText(&quot;such as 21 Nov 2026&quot;);</span>
+<span class="fc" id="L119">        return picker;</span>
+    }
+
+    /**
+     * The date the picker shows now. A picker takes in typed text only on Enter or when it
+     * loses focus, so a date typed just before Submit is read from the text here: the form never
+     * sends a date other than the one on the screen. Text that is not a date gives no date,
+     * which {@code OfferService} reports (A3).
+     */
+    private static LocalDate shownDate(DatePicker picker) {
+<span class="fc" id="L129">        return picker.getConverter().fromString(picker.getEditor().getText());</span>
+    }
+
+    /** A Make Offer form: Submit, or Cancel (A4). */
+    private static Dialog&lt;ButtonType&gt; dialog(String title, String header) {
+<span class="fc" id="L134">        return Dialogs.form(title, header, SUBMIT, ButtonType.CANCEL);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

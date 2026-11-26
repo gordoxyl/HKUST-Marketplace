@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Listing.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.models</a> &gt; <span class="el_source">Listing.java</span></div><h1>Listing.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.models;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+
+/**
+ * An item a seller posts (Listing in the domain class diagram).
+ * Every listing is exactly one of {@link SaleListing}, {@link LendListing} or
+ * {@link GiveawayListing} ({complete, disjoint}), so the type cannot change after posting.
+ *
+ * &lt;p&gt;&lt;b&gt;Status.&lt;/b&gt; The status changes only through the event methods in the state machine
+ * section below (approve, reject, resubmit, acceptDeal, completeDeal, withdraw, remove).
+ * Each one refuses a change the state machine does not allow, so an impossible status, such
+ * as a sale listing that is &quot;Lent&quot;, cannot happen. The diagram and the use case behind each
+ * event are in docs/state-machines.md.
+ *
+ * The seller is stored by username, so listings can later be saved to files
+ * without object cycles. The username is kept in lower case without surrounding spaces, as
+ * accounts keep it, whatever way it was typed (for example by the admin in Add Listing).
+ */
+public abstract class Listing {
+
+    /** A listing has at most 6 photos (Task 2.3). */
+    public static final int MAX_PHOTOS = 6;
+
+    private String id;
+    private final String sellerUsername;
+    private String title;
+    private Category category;
+    private ItemCondition condition;
+    private String description;
+<span class="fc" id="L35">    private List&lt;String&gt; photos = new ArrayList&lt;&gt;();</span>
+    private MeetupLocation meetupLocation;
+    private LocalDateTime postedDate;
+<span class="fc" id="L38">    private ListingStatus status = ListingStatus.PENDING_REVIEW;</span>
+    private int viewCount;
+
+    /** A new listing is Pending Review until the admin approves it (Create Listings step 11). */
+    protected Listing(String sellerUsername, String title, Category category, ItemCondition condition,
+<span class="fc" id="L43">                      String description, MeetupLocation meetupLocation) {</span>
+        // Kept the way accounts keep their username, so &quot;Sam&quot; or &quot; sam &quot; is the seller @sam (regression log R7)
+<span class="fc" id="L45">        this.sellerUsername = Objects.requireNonNull(sellerUsername, &quot;sellerUsername&quot;).trim().toLowerCase(Locale.ROOT);</span>
+<span class="fc" id="L46">        this.title = Objects.requireNonNull(title, &quot;title&quot;);</span>
+<span class="fc" id="L47">        this.category = Objects.requireNonNull(category, &quot;category&quot;);</span>
+<span class="fc" id="L48">        this.condition = Objects.requireNonNull(condition, &quot;condition&quot;);</span>
+<span class="fc" id="L49">        this.description = description;</span>
+<span class="fc" id="L50">        this.meetupLocation = Objects.requireNonNull(meetupLocation, &quot;meetupLocation&quot;);</span>
+<span class="fc" id="L51">    }</span>
+
+    /** Sell, Lend or Giveaway, matching the subclass. */
+    public abstract ListingType getType();
+
+    /** Short price text for listing cards, such as &quot;HK$ 180&quot;, &quot;Borrow&quot; or &quot;Free&quot;. */
+    public abstract String getPriceDisplay();
+
+    /** Null until the listing is added to DataStore. */
+<span class="fc" id="L60">    public String getId() { return id; }</span>
+
+    /** Called once by DataStore when the listing is added: gives it its id and posted date. */
+    public void markAdded(String id, LocalDateTime postedDate) {
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        if (this.id != null) {</span>
+<span class="fc" id="L65">            throw new IllegalStateException(&quot;Listing already has id &quot; + this.id);</span>
+        }
+<span class="fc" id="L67">        this.id = Objects.requireNonNull(id, &quot;id&quot;);</span>
+<span class="fc" id="L68">        this.postedDate = Objects.requireNonNull(postedDate, &quot;postedDate&quot;);</span>
+<span class="fc" id="L69">    }</span>
+
+<span class="fc" id="L71">    public String getSellerUsername() { return sellerUsername; }</span>
+
+<span class="fc" id="L73">    public String getTitle() { return title; }</span>
+<span class="fc" id="L74">    public void setTitle(String title) { this.title = Objects.requireNonNull(title, &quot;title&quot;); }</span>
+
+<span class="fc" id="L76">    public Category getCategory() { return category; }</span>
+<span class="fc" id="L77">    public void setCategory(Category category) { this.category = Objects.requireNonNull(category, &quot;category&quot;); }</span>
+
+<span class="fc" id="L79">    public ItemCondition getCondition() { return condition; }</span>
+<span class="fc" id="L80">    public void setCondition(ItemCondition condition) { this.condition = Objects.requireNonNull(condition, &quot;condition&quot;); }</span>
+
+<span class="fc" id="L82">    public String getDescription() { return description; }</span>
+<span class="fc" id="L83">    public void setDescription(String description) { this.description = description; }</span>
+
+    /** The ids of the stored photos ({@code PhotoService}), in order ({ordered}); the first is the thumbnail. */
+<span class="fc" id="L86">    public List&lt;String&gt; getPhotos() { return List.copyOf(photos); }</span>
+
+    /** @throws IllegalArgumentException if there are more than {@link #MAX_PHOTOS} photos */
+    public void setPhotos(List&lt;String&gt; photos) {
+<span class="fc bfc" id="L90" title="All 2 branches covered.">        if (photos.size() &gt; MAX_PHOTOS) {</span>
+<span class="fc" id="L91">            throw new IllegalArgumentException(&quot;A listing can have at most &quot; + MAX_PHOTOS + &quot; photos.&quot;);</span>
+        }
+<span class="fc" id="L93">        this.photos = new ArrayList&lt;&gt;(photos);</span>
+<span class="fc" id="L94">    }</span>
+
+    /** The first photo, or null if there are none (Task 1.3). */
+    public String getThumbnail() {
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        return photos.isEmpty() ? null : photos.get(0);</span>
+    }
+
+<span class="fc" id="L101">    public MeetupLocation getMeetupLocation() { return meetupLocation; }</span>
+    public void setMeetupLocation(MeetupLocation meetupLocation) {
+<span class="fc" id="L103">        this.meetupLocation = Objects.requireNonNull(meetupLocation, &quot;meetupLocation&quot;);</span>
+<span class="fc" id="L104">    }</span>
+
+    /** Null until the listing is added to DataStore. */
+<span class="fc" id="L107">    public LocalDateTime getPostedDate() { return postedDate; }</span>
+
+<span class="fc" id="L109">    public ListingStatus getStatus() { return status; }</span>
+
+<span class="fc" id="L111">    public int getViewCount() { return viewCount; }</span>
+
+    /** Opening the listing detail screen adds one view (UC8 Special Requirement 2). */
+<span class="fc" id="L114">    public void incrementViewCount() { viewCount++; }</span>
+
+    // ========== State machine (docs/state-machines.md) ==========
+
+    /** The status while a deal on this listing is accepted but not completed: Reserved or Lent. */
+    protected abstract ListingStatus statusWhenDealAccepted();
+
+    /** The status once that deal is completed: Sold, Given, or Live again for a returned item. */
+    protected abstract ListingStatus statusWhenDealCompleted();
+
+    /**
+     * True if the seller can no longer edit or delete the listing: it is Reserved, Sold, Lent,
+     * Given or Removed (Manage Listings A2).
+     */
+    public boolean isLocked() {
+<span class="fc bfc" id="L129" title="All 2 branches covered.">        return switch (status) {</span>
+<span class="fc" id="L130">            case RESERVED, SOLD, LENT, GIVEN, REMOVED -&gt; true;</span>
+<span class="fc" id="L131">            case PENDING_REVIEW, LIVE, REJECTED -&gt; false;</span>
+        };
+    }
+
+    /**
+     * The admin approves the listing, so it goes Live (Manage Marketplace Listings 5.2).
+     * A listing the admin adds is approved right after it is created (5.6.4).
+     */
+    public void approve() {
+<span class="fc" id="L140">        requireStatus(ListingStatus.PENDING_REVIEW, &quot;approved&quot;);</span>
+<span class="fc" id="L141">        status = ListingStatus.LIVE;</span>
+<span class="fc" id="L142">    }</span>
+
+    /** The admin rejects the listing; the reason is kept in a ListingActionRecord (5.3). */
+    public void reject() {
+<span class="fc" id="L146">        requireStatus(ListingStatus.PENDING_REVIEW, &quot;rejected&quot;);</span>
+<span class="fc" id="L147">        status = ListingStatus.REJECTED;</span>
+<span class="fc" id="L148">    }</span>
+
+    /** The seller saved changes, so the listing waits for review again (Manage Listings 3.1.6). */
+    public void resubmit() {
+<span class="fc" id="L152">        requireUnlocked(&quot;edited&quot;);</span>
+<span class="fc" id="L153">        status = ListingStatus.PENDING_REVIEW;</span>
+<span class="fc" id="L154">    }</span>
+
+    /** The seller deleted the listing. It stays stored with status Removed (Manage Listings 3.2.4). */
+    public void withdraw() {
+<span class="fc" id="L158">        requireUnlocked(&quot;deleted&quot;);</span>
+<span class="fc" id="L159">        status = ListingStatus.REMOVED;</span>
+<span class="fc" id="L160">    }</span>
+
+    /**
+     * The admin removed the listing (Manage Marketplace Listings 5.5.4). This is allowed until the
+     * listing is Sold, Given or already Removed. A deal accepted before the removal can still be
+     * completed, and the listing then stays Removed (UC12 A1; assumption for Reserved listings).
+     */
+    public void remove() {
+<span class="fc bfc" id="L168" title="All 2 branches covered.">        if (!canBeRemoved()) {</span>
+<span class="fc" id="L169">            throw new IllegalStateException(&quot;A &quot; + status.getDisplayName().toLowerCase() + &quot; listing cannot be removed.&quot;);</span>
+        }
+<span class="fc" id="L171">        status = ListingStatus.REMOVED;</span>
+<span class="fc" id="L172">    }</span>
+
+    /** True unless the listing is Sold, Given or already Removed: those stay as they are, as records. */
+    public boolean canBeRemoved() {
+<span class="fc bfc" id="L176" title="All 6 branches covered.">        return status != ListingStatus.SOLD &amp;&amp; status != ListingStatus.GIVEN &amp;&amp; status != ListingStatus.REMOVED;</span>
+    }
+
+    /**
+     * The seller accepted an offer, borrow request or claim: the listing becomes Reserved for a
+     * sale or giveaway, or Lent for a lend listing (UC7 Special Requirement 5).
+     */
+    public void acceptDeal() {
+<span class="fc" id="L184">        requireStatus(ListingStatus.LIVE, &quot;reserved or lent&quot;);</span>
+<span class="fc" id="L185">        status = statusWhenDealAccepted();</span>
+<span class="fc" id="L186">    }</span>
+
+    /**
+     * The accepted deal was completed: a sale becomes Sold, a giveaway Given, and a returned
+     * lend listing Live again (UC7 steps 6 and A2, UC12 step 3). If the admin removed the
+     * listing in the meantime, it stays Removed (UC7 A2, UC12 A1).
+     */
+    public void completeDeal() {
+<span class="fc bfc" id="L194" title="All 2 branches covered.">        if (status == ListingStatus.REMOVED) {</span>
+<span class="fc" id="L195">            return;</span>
+        }
+<span class="fc" id="L197">        requireStatus(statusWhenDealAccepted(), &quot;completed&quot;);</span>
+<span class="fc" id="L198">        status = statusWhenDealCompleted();</span>
+<span class="fc" id="L199">    }</span>
+
+    private void requireStatus(ListingStatus required, String action) {
+<span class="fc bfc" id="L202" title="All 2 branches covered.">        if (status != required) {</span>
+<span class="fc" id="L203">            throw new IllegalStateException(&quot;Only a &quot; + required.getDisplayName().toLowerCase()</span>
+<span class="fc" id="L204">                    + &quot; listing can be &quot; + action + &quot;, but this one is &quot; + status.getDisplayName().toLowerCase() + &quot;.&quot;);</span>
+        }
+<span class="fc" id="L206">    }</span>
+
+    private void requireUnlocked(String action) {
+<span class="fc bfc" id="L209" title="All 2 branches covered.">        if (isLocked()) {</span>
+<span class="fc" id="L210">            throw new IllegalStateException(&quot;A &quot; + status.getDisplayName().toLowerCase()</span>
+                    + &quot; listing can no longer be &quot; + action + &quot;.&quot;);
+        }
+<span class="fc" id="L213">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

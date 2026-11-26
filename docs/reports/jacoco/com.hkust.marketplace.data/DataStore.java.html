@@ -1,0 +1,871 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataStore.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.data</a> &gt; <span class="el_source">DataStore.java</span></div><h1>DataStore.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.data;
+
+import com.hkust.marketplace.models.*;
+
+import java.nio.file.Path;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+
+/**
+ * The single store for every user, listing, offer, chat thread, review, report,
+ * notification and admin record (Technical Requirement: data structures for users,
+ * listings, offers, chats, ratings and notifications).
+ *
+ * &lt;p&gt;&lt;b&gt;Thread safety.&lt;/b&gt; Every method runs under one lock. To make several reads and
+ * writes one atomic step, wrap them in {@link #transaction}; for example, the final
+ * availability check and the recording of an offer (UC5 Special Requirement 2):
+ * &lt;pre&gt;{@code
+ * boolean claimed = store.transaction(() -&gt; {
+ *     if (!store.isAvailable(listing)) return false;
+ *     store.addOffer(new Claim(listing.getId(), buyer.getUsername()));
+ *     return true;
+ * });
+ * }&lt;/pre&gt;
+ * Change model objects you got from the store inside a transaction too, because the
+ * borrowing-deadline timer (UC12) changes them from another thread.
+ *
+ * &lt;p&gt;&lt;b&gt;Time.&lt;/b&gt; Every date the system records comes from {@link #now()}, which reads the
+ * store's clock. Records are dated when they are added (a listing's posted date, an offer's
+ * offer date, a notification's timestamp, ...). Tests give the store a clock they control,
+ * so time-based rules such as the 5-second borrow (UC12) are tested without waiting.
+ *
+ * &lt;p&gt;&lt;b&gt;Storage.&lt;/b&gt; The app's store ({@link #getInstance()}) saves everything to an encrypted
+ * file after every change and loads it at start-up ({@link EncryptedJsonStorage}). A change
+ * is saved when the outermost {@link #transaction} or add method finishes; reads never save.
+ * Stores made with {@code new DataStore(...)} and no storage, as in the tests, keep their
+ * data in memory only.
+ *
+ * &lt;p&gt;&lt;b&gt;Access control.&lt;/b&gt; This class does not check roles. Service methods check the
+ * logged-in user with {@code AccessControl} before calling it (UC2 Special Requirement 3).
+ *
+ * &lt;p&gt;Lists returned by this class are copies: changing a list does not change the store.
+ */
+public class DataStore {
+
+    /** Where the app keeps its saved data, relative to the folder the app is started from. */
+<span class="fc" id="L50">    public static final Path DATA_FOLDER = Path.of(&quot;marketplace-data&quot;);</span>
+
+    /**
+     * The system property that moves the app's saved data from {@link #DATA_FOLDER} to another
+     * folder. The tests set it ({@code testsupport/TestDataFolder}), so a test run that opens the
+     * app's screens never reads or changes the data in the project folder.
+     */
+    public static final String DATA_FOLDER_PROPERTY = &quot;marketplace.dataFolder&quot;;
+
+    /**
+     * How screens name the writer of a review whose account was deleted. The review is kept
+     * and its writer is shown as &quot;Deleted User&quot; (client answer 6, 16 Nov 2026); see
+     * {@link #getReviewerName}.
+     */
+    public static final String DELETED_USER = &quot;Deleted User&quot;;
+
+<span class="fc" id="L66">    private final ReentrantLock lock = new ReentrantLock();</span>
+    private final Storage storage;
+    private String loadProblem;
+
+<span class="fc" id="L70">    private final Map&lt;String, User&gt; users = new LinkedHashMap&lt;&gt;();</span>
+    /** Usernames of deleted accounts. They are never given out again; see {@link #deleteAccount}. */
+<span class="fc" id="L72">    private final Set&lt;String&gt; retiredUsernames = new LinkedHashSet&lt;&gt;();</span>
+<span class="fc" id="L73">    private final Map&lt;String, Listing&gt; listings = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L74">    private final Map&lt;String, Offer&gt; offers = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L75">    private final Map&lt;String, ChatThread&gt; threads = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L76">    private final Map&lt;String, Review&gt; reviews = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L77">    private final Map&lt;String, Report&gt; reports = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L78">    private final List&lt;Notification&gt; notifications = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L79">    private final List&lt;ListingActionRecord&gt; listingActions = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L80">    private final List&lt;AuditLogEntry&gt; auditLog = new ArrayList&lt;&gt;();</span>
+    /** Listing photos of a store without storage (tests); with storage, each photo is a file. */
+<span class="fc" id="L82">    private final Map&lt;String, byte[]&gt; photosInMemory = new HashMap&lt;&gt;();</span>
+
+<span class="fc" id="L84">    private int nextId = 1;</span>
+    private volatile Clock clock;
+
+    /** An empty in-memory store using the computer's clock. The app uses {@link #getInstance()}. */
+    public DataStore() {
+<span class="fc" id="L89">        this(Clock.systemDefaultZone());</span>
+<span class="fc" id="L90">    }</span>
+
+    /** An empty in-memory store using the given clock; tests pass a clock they can move forward. */
+    public DataStore(Clock clock) {
+<span class="fc" id="L94">        this(clock, null);</span>
+<span class="fc" id="L95">    }</span>
+
+    /**
+     * An empty store that saves every change to the storage. Call {@link #loadOrSeed()} to
+     * load what was saved before.
+     */
+<span class="fc" id="L101">    public DataStore(Clock clock, Storage storage) {</span>
+<span class="fc" id="L102">        this.clock = Objects.requireNonNull(clock, &quot;clock&quot;);</span>
+<span class="fc" id="L103">        this.storage = storage;</span>
+<span class="fc" id="L104">    }</span>
+
+    /**
+     * The app's store: the saved data, or the demo data from {@link SeedData} on the first run.
+     * This is the Singleton pattern (Lecture 18) with lazy creation, adapted for testing: the
+     * app uses only this one instance, but the constructors stay public so that each test can
+     * make a store of its own.
+     */
+    public static DataStore getInstance() {
+<span class="fc" id="L113">        return AppStore.INSTANCE;</span>
+    }
+
+    /**
+     * Holds the app's store, created the first time {@link #getInstance()} is called. It is in
+     * its own class so that making other stores (as tests do) never loads or writes the app's
+     * save file: Java creates INSTANCE only when this class is first used.
+     */
+    private static final class AppStore {
+<span class="fc" id="L122">        static final DataStore INSTANCE = createAppStore();</span>
+    }
+
+    private static DataStore createAppStore() {
+<span class="fc" id="L126">        Path folder = Path.of(System.getProperty(DATA_FOLDER_PROPERTY, DATA_FOLDER.toString()));</span>
+<span class="fc" id="L127">        DataStore store = new DataStore(Clock.systemDefaultZone(), new EncryptedJsonStorage(folder.resolve(&quot;marketplace.dat&quot;)));</span>
+<span class="fc" id="L128">        store.loadOrSeed();</span>
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">        if (store.getLoadProblem() != null) {</span>
+            // Only the app's store logs this; MarketplaceApp also shows it in a dialog
+<span class="nc" id="L131">            System.err.println(&quot;[DataStore] &quot; + store.getLoadProblem());</span>
+        }
+<span class="fc" id="L133">        return store;</span>
+    }
+
+    // ========== Time ==========
+
+    /** The current date and time, from the store's clock. Use this instead of LocalDateTime.now(). */
+    public LocalDateTime now() {
+<span class="fc" id="L140">        return LocalDateTime.now(clock);</span>
+    }
+
+    public Clock getClock() {
+<span class="fc" id="L144">        return clock;</span>
+    }
+
+    /** Replaces the clock. Only for SeedData (to date the demo records) and tests. */
+    public void setClock(Clock clock) {
+<span class="fc" id="L149">        this.clock = Objects.requireNonNull(clock, &quot;clock&quot;);</span>
+<span class="fc" id="L150">    }</span>
+
+    // ========== Transactions ==========
+
+    /**
+     * Runs work as one atomic step and returns its result. Transactions may be nested; when
+     * the outermost one finishes without an exception, the data is saved.
+     */
+    public &lt;T&gt; T transaction(Supplier&lt;T&gt; work) {
+<span class="fc" id="L159">        lock.lock();</span>
+        try {
+<span class="fc" id="L161">            T result = work.get();</span>
+<span class="fc bfc" id="L162" title="All 2 branches covered.">            if (lock.getHoldCount() == 1) {</span>
+<span class="fc" id="L163">                persist();</span>
+            }
+<span class="fc" id="L165">            return result;</span>
+        } finally {
+<span class="fc" id="L167">            lock.unlock();</span>
+        }
+    }
+
+    /** Runs work as one atomic step, like {@link #transaction(Supplier)}. */
+    public void transaction(Runnable work) {
+<span class="fc" id="L173">        transaction(() -&gt; {</span>
+<span class="fc" id="L174">            work.run();</span>
+<span class="fc" id="L175">            return null;</span>
+        });
+<span class="fc" id="L177">    }</span>
+
+    /**
+     * Runs several reads as one consistent step, without saving. Use it when a screen's data
+     * comes from more than one call, so the borrowing-deadline timer (UC12) cannot change the
+     * records between the calls. To change anything, use {@link #transaction} instead.
+     */
+    public &lt;T&gt; T read(Supplier&lt;T&gt; work) {
+<span class="fc" id="L185">        lock.lock();</span>
+        try {
+<span class="fc" id="L187">            return work.get();</span>
+        } finally {
+<span class="fc" id="L189">            lock.unlock();</span>
+        }
+    }
+
+    /** A new id such as &quot;L12&quot;. Ids are unique across all kinds of record. Call under the lock. */
+    private String newId(String prefix) {
+<span class="fc" id="L195">        return prefix + nextId++;</span>
+    }
+
+    private &lt;T&gt; List&lt;T&gt; select(Collection&lt;T&gt; items, Predicate&lt;T&gt; filter) {
+<span class="fc" id="L199">        return read(() -&gt; items.stream().filter(filter).toList());</span>
+    }
+
+    // ========== Users ==========
+
+    /**
+     * Adds the account if its username is free, checking and adding in one step so two
+     * registrations cannot take the same username (UC1 A1).
+     * @return false if the username is used by any account, or was used by a deleted one
+     */
+    public boolean addUser(User user) {
+<span class="fc" id="L210">        return transaction(() -&gt; {</span>
+<span class="fc bfc" id="L211" title="All 2 branches covered.">            if (usernameExists(user.getUsername())) {</span>
+<span class="fc" id="L212">                return false;</span>
+            }
+<span class="fc" id="L214">            user.markAdded(now());</span>
+<span class="fc" id="L215">            users.put(user.getUsername(), user);</span>
+<span class="fc" id="L216">            return true;</span>
+        });
+    }
+
+    /** Usernames are matched ignoring case and surrounding spaces. Returns null if there is no such account. */
+    public User findUser(String username) {
+<span class="fc bfc" id="L222" title="All 2 branches covered.">        if (username == null) {</span>
+<span class="fc" id="L223">            return null;</span>
+        }
+<span class="fc" id="L225">        String key = username.trim().toLowerCase(Locale.ROOT);</span>
+<span class="fc" id="L226">        return read(() -&gt; users.get(key));</span>
+    }
+
+    /**
+     * True if the username cannot be registered: an account has it, or a deleted account had
+     * it. A deleted account's username is never given out again, because the deals it took
+     * part in are kept as records under that username.
+     */
+    public boolean usernameExists(String username) {
+<span class="fc bfc" id="L235" title="All 4 branches covered.">        return findUser(username) != null || isRetiredUsername(username);</span>
+    }
+
+    /** True if an account with this username was permanently deleted ({@link #deleteAccount}). */
+    public boolean isRetiredUsername(String username) {
+<span class="fc bfc" id="L240" title="All 2 branches covered.">        if (username == null) {</span>
+<span class="fc" id="L241">            return false;</span>
+        }
+<span class="fc" id="L243">        String key = username.trim().toLowerCase(Locale.ROOT);</span>
+<span class="fc" id="L244">        return read(() -&gt; retiredUsernames.contains(key));</span>
+    }
+
+    public List&lt;User&gt; getAllUsers() {
+<span class="fc" id="L248">        return select(users.values(), u -&gt; true);</span>
+    }
+
+    public List&lt;User&gt; getUsersByRole(UserRole role) {
+<span class="fc bfc" id="L252" title="All 2 branches covered.">        return select(users.values(), u -&gt; u.getRole() == role);</span>
+    }
+
+    /** The user's full name for display, or the username if the account no longer exists. */
+    public String getFullName(String username) {
+<span class="fc" id="L257">        User user = findUser(username);</span>
+<span class="fc bfc" id="L258" title="All 2 branches covered.">        return user != null ? user.getFullName() : username;</span>
+    }
+
+    /**
+     * Permanently deletes an account, as one atomic step, for the admin's Delete User (Manage
+     * All User Accounts and Reputation 6.4.4, as changed by the client's answer 6 of 16 Nov
+     * 2026: the reviews the user wrote are kept). It makes every change to the data that the
+     * use case lists, so nothing is left waiting on an account that no longer exists:
+     * &lt;ul&gt;
+     *   &lt;li&gt;&lt;b&gt;Deleted:&lt;/b&gt; the account; every chat thread the user took part in, with its
+     *       messages (UC6 Special Requirement 2); the notifications on the user's board.&lt;/li&gt;
+     *   &lt;li&gt;&lt;b&gt;Cancelled:&lt;/b&gt; the user's own open offers and the open offers on the user's
+     *       listings are declined; the user's listings become Removed, except Sold, Given and
+     *       already Removed ones.&lt;/li&gt;
+     *   &lt;li&gt;&lt;b&gt;Kept, as the archived transaction history:&lt;/b&gt; the user's listings and offers,
+     *       accepted and completed deals included; the reviews about the user; the reviews the
+     *       user wrote, which still count in the seller's rating and name their writer as
+     *       {@value #DELETED_USER} ({@link #getReviewerName}); the reports the user filed and
+     *       those filed on the user's listings. They still name the user by username, so the
+     *       username is retired: it can never be registered again ({@link #usernameExists}).&lt;/li&gt;
+     * &lt;/ul&gt;
+     * A deal that was accepted but not completed stays as it is; deciding what happens to it
+     * belongs to the admin's use case.
+     *
+     * &lt;p&gt;The caller records the reason and the returned {@link DeletedAccount#snapshot() snapshot}
+     * in the Audit Log ({@link #addAuditLogEntry}; Special Requirement 4) and notifies the
+     * affected users, who are in the returned lists. Like every method here, this does not
+     * check who is logged in.
+     *
+     * @return what was deleted and cancelled
+     * @throws IllegalArgumentException if there is no such account
+     */
+    public DeletedAccount deleteAccount(String username) {
+<span class="fc" id="L291">        return transaction(() -&gt; {</span>
+<span class="fc" id="L292">            User user = findUser(username);</span>
+<span class="fc bfc" id="L293" title="All 2 branches covered.">            if (user == null) {</span>
+<span class="fc" id="L294">                throw new IllegalArgumentException(&quot;No account @&quot; + username + &quot; to delete.&quot;);</span>
+            }
+<span class="fc" id="L296">            String name = user.getUsername();</span>
+
+<span class="fc" id="L298">            List&lt;ChatThread&gt; userThreads = threads.values().stream().filter(t -&gt; t.isParticipant(name)).toList();</span>
+<span class="fc" id="L299">            List&lt;Notification&gt; board = notifications.stream()</span>
+<span class="fc" id="L300">                    .filter(n -&gt; n.getRecipientUsername().equalsIgnoreCase(name)).toList();</span>
+<span class="fc" id="L301">            List&lt;Offer&gt; openOffers = offers.values().stream()</span>
+<span class="fc bfc" id="L302" title="All 4 branches covered.">                    .filter(o -&gt; o.isOpen() &amp;&amp; (o.getBuyerUsername().equalsIgnoreCase(name)</span>
+<span class="fc bfc" id="L303" title="All 2 branches covered.">                            || getListingOf(o).getSellerUsername().equalsIgnoreCase(name))).toList();</span>
+<span class="fc" id="L304">            List&lt;Listing&gt; removable = listings.values().stream()</span>
+<span class="fc bfc" id="L305" title="All 4 branches covered.">                    .filter(l -&gt; l.getSellerUsername().equalsIgnoreCase(name) &amp;&amp; l.canBeRemoved()).toList();</span>
+
+            // Written before anything changes, so it shows the data as it was
+<span class="fc" id="L308">            String snapshot = AccountSnapshot.describe(this, user, userThreads, board, openOffers, removable);</span>
+
+<span class="fc" id="L310">            openOffers.forEach(Offer::decline);</span>
+<span class="fc" id="L311">            removable.forEach(Listing::remove);</span>
+<span class="fc" id="L312">            userThreads.forEach(t -&gt; threads.remove(t.getId()));</span>
+<span class="fc" id="L313">            notifications.removeAll(board);</span>
+<span class="fc" id="L314">            users.remove(name);</span>
+<span class="fc" id="L315">            retiredUsernames.add(name); // from now on, the reviews the user wrote name &quot;Deleted User&quot;</span>
+<span class="fc" id="L316">            user.setActive(false); // a session still holding this account is refused from now on</span>
+<span class="fc" id="L317">            return new DeletedAccount(user, userThreads, board, openOffers, removable, snapshot);</span>
+        });
+    }
+
+    // ========== Listings ==========
+
+    /** Gives the listing an id, dates it as posted now, and adds it. */
+    public Listing addListing(Listing listing) {
+<span class="fc" id="L325">        return transaction(() -&gt; {</span>
+<span class="fc" id="L326">            listing.markAdded(newId(&quot;L&quot;), now());</span>
+<span class="fc" id="L327">            listings.put(listing.getId(), listing);</span>
+<span class="fc" id="L328">            return listing;</span>
+        });
+    }
+
+    /** Returns null if there is no such listing. */
+    public Listing findListing(String id) {
+<span class="fc" id="L334">        return read(() -&gt; listings.get(id));</span>
+    }
+
+    public List&lt;Listing&gt; getAllListings() {
+<span class="fc" id="L338">        return select(listings.values(), l -&gt; true);</span>
+    }
+
+    public List&lt;Listing&gt; getListingsBySeller(String sellerUsername) {
+<span class="fc" id="L342">        return select(listings.values(), l -&gt; l.getSellerUsername().equalsIgnoreCase(sellerUsername));</span>
+    }
+
+    public List&lt;Listing&gt; getListingsByStatus(ListingStatus status) {
+<span class="nc bnc" id="L346" title="All 2 branches missed.">        return select(listings.values(), l -&gt; l.getStatus() == status);</span>
+    }
+
+    /**
+     * The live listings shown on Browse Marketplace (glossary; UC8 Special Requirement 1):
+     * status Live, Reserved or Lent, posted by a seller whose account is active.
+     */
+    public List&lt;Listing&gt; getLiveListings() {
+<span class="fc" id="L354">        return select(listings.values(), this::isLive);</span>
+    }
+
+    /**
+     * True if the listing is a live listing (glossary), one that buyers can see on Browse
+     * Marketplace: status Live, Reserved or Lent, posted by a seller whose account is active.
+     * This is wider than {@link #isAvailable}: a Reserved or Lent listing is live, but it
+     * accepts no offers.
+     */
+    public boolean isLive(Listing listing) {
+<span class="fc" id="L364">        return read(() -&gt; {</span>
+<span class="fc" id="L365">            ListingStatus s = listing.getStatus();</span>
+<span class="fc bfc" id="L366" title="All 6 branches covered.">            boolean liveStatus = s == ListingStatus.LIVE || s == ListingStatus.RESERVED || s == ListingStatus.LENT;</span>
+<span class="fc bfc" id="L367" title="All 4 branches covered.">            return liveStatus &amp;&amp; isSellerActive(listing);</span>
+        });
+    }
+
+    /**
+     * True if the listing accepts offers, borrow requests and claims (glossary;
+     * UC5 Special Requirement 1): its status is Live, it is not a giveaway with a pending
+     * claim, and its seller is active (a deactivated seller's listings are hidden).
+     */
+    public boolean isAvailable(Listing listing) {
+<span class="fc bfc" id="L377" title="All 2 branches covered.">        return read(() -&gt; listing.getStatus() == ListingStatus.LIVE</span>
+<span class="fc bfc" id="L378" title="All 4 branches covered.">                &amp;&amp; isSellerActive(listing)</span>
+<span class="fc bfc" id="L379" title="All 2 branches covered.">                &amp;&amp; !(listing instanceof GiveawayListing &amp;&amp; hasPendingClaim(listing.getId())));</span>
+    }
+
+    private boolean isSellerActive(Listing listing) {
+<span class="fc" id="L383">        User seller = findUser(listing.getSellerUsername()); // matched like every username (regression log R7)</span>
+<span class="pc bpc" id="L384" title="1 of 4 branches missed.">        return seller != null &amp;&amp; seller.isActive();</span>
+    }
+
+    /**
+     * True if the listing has a pending claim. A giveaway is unavailable while it has one
+     * (UC5 Special Requirement 1), and Browse shows that as its availability status (UC8).
+     */
+    public boolean hasPendingClaim(String listingId) {
+<span class="fc bfc" id="L392" title="All 2 branches covered.">        return read(() -&gt; offers.values().stream().anyMatch(o -&gt; o instanceof Claim</span>
+<span class="fc bfc" id="L393" title="All 4 branches covered.">                &amp;&amp; o.getListingId().equals(listingId) &amp;&amp; o.getStatus() == OfferStatus.PENDING));</span>
+    }
+
+    /** Adds one view when a listing's detail screen is opened (UC8 Special Requirement 2). */
+    public void incrementViewCount(String listingId) {
+<span class="fc" id="L398">        transaction(() -&gt; {</span>
+<span class="fc" id="L399">            Listing listing = listings.get(listingId);</span>
+<span class="pc bpc" id="L400" title="1 of 2 branches missed.">            if (listing != null) {</span>
+<span class="fc" id="L401">                listing.incrementViewCount();</span>
+            }
+<span class="fc" id="L403">        });</span>
+<span class="fc" id="L404">    }</span>
+
+    // ========== Listing photos ==========
+
+    /**
+     * Stores an image as a listing photo and returns its id, to put into
+     * {@link Listing#setPhotos}. The photo is kept encrypted in a file of its own, never
+     * inside the listing, so saving the data stays fast. Checking that the bytes are an image
+     * a screen can show is the caller's job ({@code PhotoService.importPhoto}).
+     * @return the new photo's id, such as &quot;I31&quot;
+     */
+    public String addPhoto(byte[] image) {
+<span class="fc" id="L416">        Objects.requireNonNull(image, &quot;image&quot;);</span>
+<span class="fc" id="L417">        return transaction(() -&gt; {</span>
+<span class="fc" id="L418">            String id = newId(&quot;I&quot;);</span>
+<span class="fc bfc" id="L419" title="All 2 branches covered.">            if (storage != null) {</span>
+<span class="fc" id="L420">                storage.savePhoto(id, image);</span>
+            } else {
+<span class="fc" id="L422">                photosInMemory.put(id, image.clone());</span>
+            }
+<span class="fc" id="L424">            return id;</span>
+        });
+    }
+
+    /**
+     * The image stored under a photo id from {@link #addPhoto}, or empty if there is none (a
+     * listing whose photo file is missing then shows no photo).
+     * @throws StorageException if the photo's file was changed or damaged
+     */
+    public Optional&lt;byte[]&gt; readPhoto(String photoId) {
+<span class="fc bfc" id="L434" title="All 2 branches covered.">        if (photoId == null) {</span>
+<span class="fc" id="L435">            return Optional.empty();</span>
+        }
+<span class="fc bfc" id="L437" title="All 2 branches covered.">        if (storage != null) {</span>
+<span class="fc bfc" id="L438" title="All 2 branches covered.">            return isId(photoId) ? storage.loadPhoto(photoId) : Optional.empty();</span>
+        }
+<span class="fc" id="L440">        return read(() -&gt; Optional.ofNullable(photosInMemory.get(photoId)).map(byte[]::clone));</span>
+    }
+
+    /** True for text made only of letters and digits, the form of every id this store gives out. */
+    private static boolean isId(String text) {
+<span class="fc" id="L445">        return text.matches(&quot;[A-Za-z0-9]+&quot;);</span>
+    }
+
+    // ========== Offers ==========
+
+    /**
+     * Gives the offer an id and records it in the chat thread between its buyer and its
+     * listing, creating the thread if it does not exist yet (UC5 step 7).
+     * This does not check availability; check {@link #isAvailable} in the same transaction.
+     * @throws IllegalArgumentException if the listing or buyer does not exist, or the offer
+     *         type does not match the listing type
+     */
+    public Offer addOffer(Offer offer) {
+<span class="fc" id="L458">        return transaction(() -&gt; {</span>
+<span class="fc" id="L459">            Listing listing = listings.get(offer.getListingId());</span>
+<span class="fc bfc" id="L460" title="All 2 branches covered.">            if (listing == null) {</span>
+<span class="fc" id="L461">                throw new IllegalArgumentException(&quot;No listing with id &quot; + offer.getListingId());</span>
+            }
+<span class="fc bfc" id="L463" title="All 2 branches covered.">            if (!offer.canBeMadeOn(listing)) {</span>
+<span class="fc" id="L464">                throw new IllegalArgumentException(&quot;A price offer can only be made on a sale listing, &quot;</span>
+                        + &quot;a borrow request on a lend listing, and a claim on a giveaway listing.&quot;);
+            }
+<span class="fc" id="L467">            getOrCreateThread(offer.getBuyerUsername(), listing.getId());</span>
+<span class="fc" id="L468">            offer.markAdded(newId(&quot;O&quot;), now());</span>
+<span class="fc" id="L469">            offers.put(offer.getId(), offer);</span>
+<span class="fc" id="L470">            return offer;</span>
+        });
+    }
+
+    /** Returns null if there is no such offer. */
+    public Offer findOffer(String id) {
+<span class="fc" id="L476">        return read(() -&gt; offers.get(id));</span>
+    }
+
+    public List&lt;Offer&gt; getAllOffers() {
+<span class="fc" id="L480">        return select(offers.values(), o -&gt; true);</span>
+    }
+
+    public List&lt;Offer&gt; getOffersForListing(String listingId) {
+<span class="fc" id="L484">        return select(offers.values(), o -&gt; o.getListingId().equals(listingId));</span>
+    }
+
+    public List&lt;Offer&gt; getOffersByBuyer(String buyerUsername) {
+<span class="fc" id="L488">        return select(offers.values(), o -&gt; o.getBuyerUsername().equalsIgnoreCase(buyerUsername));</span>
+    }
+
+    /** Every offer on any of the seller's listings. */
+    public List&lt;Offer&gt; getOffersForSeller(String sellerUsername) {
+<span class="fc" id="L493">        return select(offers.values(), o -&gt; sellerUsername.equalsIgnoreCase(listings.get(o.getListingId()).getSellerUsername()));</span>
+    }
+
+    /** The offers made in a chat thread, oldest first. */
+    public List&lt;Offer&gt; getOffersInThread(ChatThread thread) {
+<span class="fc bfc" id="L498" title="All 2 branches covered.">        return select(offers.values(), o -&gt; o.getListingId().equals(thread.getListingId())</span>
+<span class="fc bfc" id="L499" title="All 2 branches covered.">                &amp;&amp; o.getBuyerUsername().equalsIgnoreCase(thread.getBuyerUsername()));</span>
+    }
+
+    /** The listing an offer was made on. */
+    public Listing getListingOf(Offer offer) {
+<span class="fc" id="L504">        return findListing(offer.getListingId());</span>
+    }
+
+    // ========== Chat threads ==========
+
+    /** The thread between a buyer and a listing, or null if the buyer has not started one. */
+    public ChatThread findThread(String buyerUsername, String listingId) {
+<span class="fc" id="L511">        return read(() -&gt; threads.values().stream()</span>
+<span class="fc bfc" id="L512" title="All 4 branches covered.">                .filter(t -&gt; t.getListingId().equals(listingId) &amp;&amp; t.getBuyerUsername().equalsIgnoreCase(buyerUsername))</span>
+<span class="fc" id="L513">                .findFirst().orElse(null));</span>
+    }
+
+    /**
+     * The thread between a buyer and a listing, created if it does not exist yet.
+     * A thread links one buyer to one listing (UC6 Special Requirement 1).
+     * @throws IllegalArgumentException if the listing does not exist or the user is not a buyer
+     */
+    public ChatThread getOrCreateThread(String buyerUsername, String listingId) {
+<span class="fc" id="L522">        return transaction(() -&gt; {</span>
+<span class="fc" id="L523">            ChatThread existing = findThread(buyerUsername, listingId);</span>
+<span class="fc bfc" id="L524" title="All 2 branches covered.">            if (existing != null) {</span>
+<span class="fc" id="L525">                return existing;</span>
+            }
+<span class="fc" id="L527">            Listing listing = listings.get(listingId);</span>
+<span class="fc bfc" id="L528" title="All 2 branches covered.">            if (listing == null) {</span>
+<span class="fc" id="L529">                throw new IllegalArgumentException(&quot;No listing with id &quot; + listingId);</span>
+            }
+<span class="fc bfc" id="L531" title="All 2 branches covered.">            if (!(findUser(buyerUsername) instanceof Buyer buyer)) {</span>
+<span class="fc" id="L532">                throw new IllegalArgumentException(&quot;Only a buyer can start a chat thread.&quot;);</span>
+            }
+<span class="fc" id="L534">            ChatThread thread = new ChatThread(buyer.getUsername(), listing);</span>
+<span class="fc" id="L535">            thread.markAdded(newId(&quot;T&quot;), now());</span>
+<span class="fc" id="L536">            threads.put(thread.getId(), thread);</span>
+<span class="fc" id="L537">            return thread;</span>
+        });
+    }
+
+    /** Returns null if there is no such thread. */
+    public ChatThread findThreadById(String id) {
+<span class="nc" id="L543">        return read(() -&gt; threads.get(id));</span>
+    }
+
+    public List&lt;ChatThread&gt; getThreadsForBuyer(String buyerUsername) {
+<span class="fc" id="L547">        return select(threads.values(), t -&gt; t.getBuyerUsername().equalsIgnoreCase(buyerUsername));</span>
+    }
+
+    public List&lt;ChatThread&gt; getThreadsForSeller(String sellerUsername) {
+<span class="fc" id="L551">        return select(threads.values(), t -&gt; t.getSellerUsername().equalsIgnoreCase(sellerUsername));</span>
+    }
+
+    // ========== Reviews ==========
+
+    /**
+     * Gives the review an id and adds it.
+     * @throws IllegalStateException if the offer is not completed or already has a review
+     *         ({only an Offer with a completedDate can have a Review}; UC10 Special Requirement 1)
+     */
+    public Review addReview(Review review) {
+<span class="fc" id="L562">        return transaction(() -&gt; {</span>
+<span class="fc" id="L563">            Offer offer = offers.get(review.getOfferId());</span>
+<span class="fc bfc" id="L564" title="All 4 branches covered.">            if (offer == null || !offer.isCompleted()) {</span>
+<span class="fc" id="L565">                throw new IllegalStateException(&quot;Only a completed deal can be reviewed.&quot;);</span>
+            }
+<span class="fc bfc" id="L567" title="All 2 branches covered.">            if (findReviewForOffer(offer.getId()) != null) {</span>
+<span class="fc" id="L568">                throw new IllegalStateException(&quot;This deal has already been reviewed.&quot;);</span>
+            }
+<span class="fc" id="L570">            review.markAdded(newId(&quot;R&quot;), now());</span>
+<span class="fc" id="L571">            reviews.put(review.getId(), review);</span>
+<span class="fc" id="L572">            return review;</span>
+        });
+    }
+
+    /** The review of a deal, or null if it has none. */
+    public Review findReviewForOffer(String offerId) {
+<span class="fc" id="L578">        return read(() -&gt; reviews.values().stream()</span>
+<span class="fc" id="L579">                .filter(r -&gt; r.getOfferId().equals(offerId)).findFirst().orElse(null));</span>
+    }
+
+    public List&lt;Review&gt; getAllReviews() {
+<span class="fc" id="L583">        return select(reviews.values(), r -&gt; true);</span>
+    }
+
+    /**
+     * The seller's reviews that are shown to users, without the ones the admin hid: reviews
+     * are &quot;visible to all users unless the admin hides them&quot; (UC10 Special Requirement 4;
+     * UC8 Special Requirement 5; Manage All User Accounts Special Requirement 3).
+     * Use this for every screen that shows reviews, the seller's own included.
+     */
+    public List&lt;Review&gt; getReviewsForSeller(String sellerUsername) {
+<span class="fc bfc" id="L593" title="All 4 branches covered.">        return select(reviews.values(), r -&gt; !r.isHidden() &amp;&amp; sellerUsername.equalsIgnoreCase(getSellerUsername(r)));</span>
+    }
+
+    /**
+     * Every review of the seller, hidden ones included. Only for the admin's moderation
+     * (hiding and unhiding reviews, Task 3.8); never show this list to buyers or sellers.
+     */
+    public List&lt;Review&gt; getReviewsForSellerIncludingHidden(String sellerUsername) {
+<span class="fc" id="L601">        return select(reviews.values(), r -&gt; sellerUsername.equalsIgnoreCase(getSellerUsername(r)));</span>
+    }
+
+    /**
+     * The seller's rating as users see it, the derived attributes /ratingCount and
+     * /averageRating as one value: the count and the average of the shown ratings (hidden ones
+     * are not counted). Show it with {@code Formats.averageRating(rating)}.
+     */
+    public RatingSummary getRating(String sellerUsername) {
+<span class="fc" id="L610">        return RatingSummary.of(getReviewsForSeller(sellerUsername));</span>
+    }
+
+    /** The average of the seller's shown ratings (hidden ones are not counted), or empty if there are none. */
+    public OptionalDouble getAverageRating(String sellerUsername) {
+<span class="fc" id="L615">        RatingSummary rating = getRating(sellerUsername);</span>
+<span class="fc bfc" id="L616" title="All 2 branches covered.">        return rating.isEmpty() ? OptionalDouble.empty() : OptionalDouble.of(rating.average());</span>
+    }
+
+    /** The number of the seller's shown ratings (hidden ones are not counted). */
+    public int getRatingCount(String sellerUsername) {
+<span class="fc" id="L621">        return getRating(sellerUsername).count();</span>
+    }
+
+    /** The seller who was reviewed: the seller of the reviewed deal's listing. */
+    public String getSellerUsername(Review review) {
+<span class="fc" id="L626">        return read(() -&gt; listings.get(offers.get(review.getOfferId()).getListingId()).getSellerUsername());</span>
+    }
+
+    /** The buyer who wrote the review. */
+    public String getBuyerUsername(Review review) {
+<span class="fc" id="L631">        return read(() -&gt; offers.get(review.getOfferId()).getBuyerUsername());</span>
+    }
+
+    /**
+     * The name a screen shows as the writer of a review: {@value #DELETED_USER} if the buyer's
+     * account was deleted (the review is kept; client answer 6), otherwise the buyer's full
+     * name, as for an active or a deactivated account. Every screen that names a review's
+     * writer uses this, so the buyer's, seller's and admin's screens name writers the same way.
+     */
+    public String getReviewerName(Review review) {
+<span class="fc" id="L641">        return read(() -&gt; {</span>
+<span class="fc" id="L642">            String buyer = getBuyerUsername(review);</span>
+<span class="fc bfc" id="L643" title="All 2 branches covered.">            return isRetiredUsername(buyer) ? DELETED_USER : getFullName(buyer);</span>
+        });
+    }
+
+    // ========== Seller statistics ==========
+    // The derived attributes of Seller in the class diagram, calculated from the listings, offers
+    // and reviews so they are never out of date (View Seller Stats step 2; the admin's Seller
+    // Ratings tab). /averageRating and /ratingCount are getAverageRating and getRatingCount above.
+
+    /**
+     * /totalViews: the views of all the seller's listings together, whatever their status
+     * (a listing that was sold or removed keeps its views).
+     */
+    public int getTotalViews(String sellerUsername) {
+<span class="fc" id="L657">        return read(() -&gt; listings.values().stream()</span>
+<span class="fc" id="L658">                .filter(l -&gt; l.getSellerUsername().equalsIgnoreCase(sellerUsername))</span>
+<span class="fc" id="L659">                .mapToInt(Listing::getViewCount).sum());</span>
+    }
+
+    /**
+     * /offersReceived: how many price offers, borrow requests and claims buyers made on the
+     * seller's listings, whatever happened to them afterwards.
+     */
+    public int getOffersReceivedCount(String sellerUsername) {
+<span class="fc" id="L667">        return getOffersForSeller(sellerUsername).size();</span>
+    }
+
+    /**
+     * /completedDeals: how many of the seller's deals are completed (glossary): a purchase or
+     * claim the buyer marked complete, or a borrowed item that was returned.
+     */
+    public int getCompletedDealCount(String sellerUsername) {
+<span class="fc" id="L675">        return (int) getOffersForSeller(sellerUsername).stream().filter(Offer::isCompleted).count();</span>
+    }
+
+    // ========== Reports ==========
+
+    /**
+     * Gives the report an id and adds it, unless this buyer already reported this listing
+     * (UC9 Special Requirement 3). The report must be filed by a buyer account on an existing
+     * listing (class diagram, UC9). {@code ReportService} checks this first and tells the buyer;
+     * here it is the inner layer of the barricade (Lecture 10, regression log R10).
+     * @return false if the buyer already reported the listing
+     * @throws IllegalArgumentException if there is no such listing, or the reporter is not a buyer account
+     */
+    public boolean addReport(Report report) {
+<span class="fc" id="L689">        return transaction(() -&gt; {</span>
+<span class="fc bfc" id="L690" title="All 2 branches covered.">            if (listings.get(report.getListingId()) == null) {</span>
+<span class="fc" id="L691">                throw new IllegalArgumentException(&quot;No listing with id &quot; + report.getListingId());</span>
+            }
+<span class="fc bfc" id="L693" title="All 2 branches covered.">            if (!(findUser(report.getBuyerUsername()) instanceof Buyer)) {</span>
+<span class="fc" id="L694">                throw new IllegalArgumentException(&quot;Only a buyer can report a listing: @&quot; + report.getBuyerUsername());</span>
+            }
+<span class="fc bfc" id="L696" title="All 2 branches covered.">            if (hasReported(report.getBuyerUsername(), report.getListingId())) {</span>
+<span class="fc" id="L697">                return false;</span>
+            }
+<span class="fc" id="L699">            report.markAdded(newId(&quot;P&quot;));</span>
+<span class="fc" id="L700">            reports.put(report.getId(), report);</span>
+<span class="fc" id="L701">            return true;</span>
+        });
+    }
+
+    public boolean hasReported(String buyerUsername, String listingId) {
+<span class="fc bfc" id="L706" title="All 2 branches covered.">        return read(() -&gt; reports.values().stream().anyMatch(r -&gt; r.getListingId().equals(listingId)</span>
+<span class="fc bfc" id="L707" title="All 2 branches covered.">                &amp;&amp; r.getBuyerUsername().equalsIgnoreCase(buyerUsername)));</span>
+    }
+
+    public List&lt;Report&gt; getReportsForListing(String listingId) {
+<span class="fc" id="L711">        return select(reports.values(), r -&gt; r.getListingId().equals(listingId));</span>
+    }
+
+    public List&lt;Report&gt; getAllReports() {
+<span class="fc" id="L715">        return select(reports.values(), r -&gt; true);</span>
+    }
+
+    // ========== Notifications ==========
+
+    /** Gives the notification an id and a timestamp, and adds it to its recipient's board. */
+    public Notification addNotification(Notification notification) {
+<span class="fc" id="L722">        return transaction(() -&gt; {</span>
+<span class="fc" id="L723">            notification.markAdded(newId(&quot;N&quot;), now());</span>
+<span class="fc" id="L724">            notifications.add(notification);</span>
+<span class="fc" id="L725">            return notification;</span>
+        });
+    }
+
+    /** Returns null if there is no such notification. */
+    public Notification findNotification(String id) {
+<span class="fc" id="L731">        return read(() -&gt; notifications.stream()</span>
+<span class="fc" id="L732">                .filter(n -&gt; n.getId().equals(id)).findFirst().orElse(null));</span>
+    }
+
+    /**
+     * The user's notifications, newest first (UC4 step 2). Notifications with the same
+     * timestamp are listed in reverse order of adding, so the latest still comes first.
+     */
+    public List&lt;Notification&gt; getNotificationsFor(String username) {
+<span class="fc" id="L740">        return read(() -&gt; {</span>
+<span class="fc" id="L741">            List&lt;Notification&gt; mine = new ArrayList&lt;&gt;(notifications.stream()</span>
+<span class="fc" id="L742">                    .filter(n -&gt; n.getRecipientUsername().equalsIgnoreCase(username))</span>
+<span class="fc" id="L743">                    .toList());</span>
+<span class="fc" id="L744">            Collections.reverse(mine);</span>
+<span class="fc" id="L745">            mine.sort(Comparator.comparing(Notification::getTimestamp).reversed()); // stable sort</span>
+<span class="fc" id="L746">            return List.copyOf(mine);</span>
+        });
+    }
+
+    // ========== Admin records ==========
+
+    /** Records an admin's action on a listing; the record gets its id and date here (the caller keeps it). */
+    public void addListingAction(ListingActionRecord record) {
+<span class="fc" id="L754">        transaction(() -&gt; {</span>
+<span class="fc" id="L755">            record.markAdded(newId(&quot;A&quot;), now());</span>
+<span class="fc" id="L756">            listingActions.add(record);</span>
+<span class="fc" id="L757">        });</span>
+<span class="fc" id="L758">    }</span>
+
+    public List&lt;ListingActionRecord&gt; getListingActions(String listingId) {
+<span class="fc" id="L761">        return select(listingActions, r -&gt; r.getListingId().equals(listingId));</span>
+    }
+
+    public List&lt;ListingActionRecord&gt; getAllListingActions() {
+<span class="pc" id="L765">        return select(listingActions, r -&gt; true);</span>
+    }
+
+    /**
+     * Gives the entry its log reference and date, and adds it. If it has a data snapshot and
+     * the store saves to storage, the snapshot is also saved as its own encrypted .txt file
+     * (class diagram: &quot;Cascade with audit log with .txt file as data snapshot&quot;).
+     */
+    public AuditLogEntry addAuditLogEntry(AuditLogEntry entry) {
+<span class="fc" id="L774">        return transaction(() -&gt; {</span>
+<span class="fc" id="L775">            entry.markAdded(newId(&quot;G&quot;), now());</span>
+<span class="fc" id="L776">            auditLog.add(entry);</span>
+<span class="fc bfc" id="L777" title="All 4 branches covered.">            if (storage != null &amp;&amp; entry.getDataSnapshot() != null) {</span>
+<span class="fc" id="L778">                storage.saveAuditSnapshot(entry.getLogReference(), entry.getDataSnapshot());</span>
+            }
+<span class="fc" id="L780">            return entry;</span>
+        });
+    }
+
+    public List&lt;AuditLogEntry&gt; getAuditLog() {
+<span class="fc" id="L785">        return select(auditLog, e -&gt; true);</span>
+    }
+
+    /** The snapshot file saved for an audit log entry, or empty if there is none (or no storage). */
+    public Optional&lt;String&gt; readAuditSnapshotFile(String logReference) {
+<span class="pc bpc" id="L790" title="1 of 2 branches missed.">        return storage == null ? Optional.empty() : storage.loadAuditSnapshot(logReference);</span>
+    }
+
+    // ========== Saving and loading ==========
+
+    /**
+     * Loads the saved data into this empty store, or, if nothing is saved yet, fills it with
+     * the demo data and saves that. If the saved file cannot be read (changed, damaged, or
+     * saved with another key), it is moved aside, not deleted, the demo data is used instead,
+     * and {@link #getLoadProblem()} explains what happened.
+     */
+    public void loadOrSeed() {
+<span class="pc bpc" id="L802" title="1 of 2 branches missed.">        if (storage == null) {</span>
+<span class="nc" id="L803">            throw new IllegalStateException(&quot;This store has no storage to load from.&quot;);</span>
+        }
+        try {
+<span class="fc" id="L806">            Optional&lt;StoreSnapshot&gt; saved = storage.load();</span>
+<span class="fc bfc" id="L807" title="All 2 branches covered.">            if (saved.isPresent()) {</span>
+<span class="fc" id="L808">                restore(saved.get());</span>
+<span class="fc" id="L809">                return;</span>
+            }
+<span class="fc" id="L811">        } catch (StorageException e) {</span>
+<span class="fc" id="L812">            String movedTo = storage.setAsideUnreadable();</span>
+<span class="fc" id="L813">            loadProblem = &quot;The saved data could not be read: &quot; + e.getMessage() + &quot; It was kept as &quot;</span>
+                    + movedTo + &quot;, and the demo data was loaded instead.&quot;;
+<span class="fc" id="L815">        }</span>
+<span class="fc" id="L816">        transaction(() -&gt; SeedData.populate(this)); // one transaction, so it is saved once at the end</span>
+<span class="fc" id="L817">    }</span>
+
+    /** Why the saved data could not be loaded at start-up, or null if it loaded normally. */
+    public String getLoadProblem() {
+<span class="fc" id="L821">        return loadProblem;</span>
+    }
+
+    /** Everything in the store at this moment, for saving. */
+    StoreSnapshot snapshot() {
+<span class="fc" id="L826">        return read(() -&gt; {</span>
+<span class="fc" id="L827">            StoreSnapshot s = new StoreSnapshot();</span>
+<span class="fc" id="L828">            s.nextId = nextId;</span>
+<span class="fc" id="L829">            s.users = List.copyOf(users.values());</span>
+<span class="fc" id="L830">            s.retiredUsernames = List.copyOf(retiredUsernames);</span>
+<span class="fc" id="L831">            s.listings = List.copyOf(listings.values());</span>
+<span class="fc" id="L832">            s.offers = List.copyOf(offers.values());</span>
+<span class="fc" id="L833">            s.threads = List.copyOf(threads.values());</span>
+<span class="fc" id="L834">            s.reviews = List.copyOf(reviews.values());</span>
+<span class="fc" id="L835">            s.reports = List.copyOf(reports.values());</span>
+<span class="fc" id="L836">            s.notifications = List.copyOf(notifications);</span>
+<span class="fc" id="L837">            s.listingActions = List.copyOf(listingActions);</span>
+<span class="fc" id="L838">            s.auditLog = List.copyOf(auditLog);</span>
+<span class="fc" id="L839">            return s;</span>
+        });
+    }
+
+    /** Puts loaded records back into this empty store. They keep their ids and dates. */
+    private void restore(StoreSnapshot s) {
+<span class="fc" id="L845">        read(() -&gt; {</span>
+<span class="pc bpc" id="L846" title="2 of 4 branches missed.">            if (!users.isEmpty() || !listings.isEmpty()) {</span>
+<span class="nc" id="L847">                throw new IllegalStateException(&quot;Saved data can only be loaded into an empty store.&quot;);</span>
+            }
+<span class="fc" id="L849">            s.users.forEach(u -&gt; users.put(u.getUsername(), u));</span>
+<span class="fc" id="L850">            retiredUsernames.addAll(s.retiredUsernames);</span>
+<span class="fc" id="L851">            s.listings.forEach(l -&gt; listings.put(l.getId(), l));</span>
+<span class="fc" id="L852">            s.offers.forEach(o -&gt; offers.put(o.getId(), o));</span>
+<span class="fc" id="L853">            s.threads.forEach(t -&gt; threads.put(t.getId(), t));</span>
+<span class="fc" id="L854">            s.reviews.forEach(r -&gt; reviews.put(r.getId(), r));</span>
+<span class="fc" id="L855">            s.reports.forEach(r -&gt; reports.put(r.getId(), r));</span>
+<span class="fc" id="L856">            notifications.addAll(s.notifications);</span>
+<span class="fc" id="L857">            listingActions.addAll(s.listingActions);</span>
+<span class="fc" id="L858">            auditLog.addAll(s.auditLog);</span>
+<span class="fc" id="L859">            nextId = s.nextId;</span>
+<span class="fc" id="L860">            return null;</span>
+        });
+<span class="fc" id="L862">    }</span>
+
+    /** Saves everything, if this store has storage. Called after each outermost write. */
+    private void persist() {
+<span class="fc bfc" id="L866" title="All 2 branches covered.">        if (storage != null) {</span>
+<span class="fc" id="L867">            storage.save(snapshot()); // the storage skips the write if nothing changed</span>
+        }
+<span class="fc" id="L869">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

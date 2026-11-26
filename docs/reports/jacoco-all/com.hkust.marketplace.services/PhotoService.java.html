@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PhotoService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">PhotoService.java</span></div><h1>PhotoService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.UserRole;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Optional;
+
+/**
+ * Adds listing photos (Create Listings step 8 and the admin's Manage Marketplace Listings:
+ * up to {@code Listing.MAX_PHOTOS} photos per listing). A photo chosen from the computer is copied into the app's own
+ * storage, encrypted like the rest of the data, and the listing keeps only the photo's id:
+ * &lt;pre&gt;{@code
+ * List&lt;String&gt; photoIds = new ArrayList&lt;&gt;();
+ * for (File chosen : chosenFiles) {
+ *     photoIds.add(photoService.importPhoto(chosen.toPath()));
+ * }
+ * listing.setPhotos(photoIds);   // at most Listing.MAX_PHOTOS; the first is the thumbnail
+ * }&lt;/pre&gt;
+ * Import the photos when the listing is submitted, not when the files are chosen, so a
+ * cancelled form stores nothing. Screens show a stored photo with {@code ui.PhotoFrame}.
+ */
+public class PhotoService {
+
+    /** The image formats every screen can show. */
+    public static final String SUPPORTED_FORMATS = &quot;PNG, JPEG, GIF or BMP&quot;;
+
+    private final DataStore store;
+
+    public PhotoService() {
+<span class="nc" id="L33">        this(DataStore.getInstance());</span>
+<span class="nc" id="L34">    }</span>
+
+<span class="fc" id="L36">    public PhotoService(DataStore store) {</span>
+<span class="fc" id="L37">        this.store = store;</span>
+<span class="fc" id="L38">    }</span>
+
+    /**
+     * Copies an image file into the app's storage as a listing photo. Only sellers and the
+     * admin post or edit listings, so only they can add photos.
+     * @return the photo's id, to put into {@code Listing.setPhotos}
+     * @throws ServiceException if the file cannot be read or is not an image in one of the
+     *         {@link #SUPPORTED_FORMATS}; nothing is stored then
+     */
+    public String importPhoto(Path file) {
+<span class="fc" id="L48">        AccessControl.requireRole(UserRole.SELLER, UserRole.ADMIN);</span>
+<span class="fc bfc" id="L49" title="All 4 branches covered.">        if (file == null || !Files.isRegularFile(file)) {</span>
+<span class="fc" id="L50">            throw new ServiceException(&quot;The photo file could not be found.&quot;);</span>
+        }
+<span class="fc" id="L52">        String name = file.getFileName().toString();</span>
+        byte[] image;
+        try {
+<span class="fc" id="L55">            image = Files.readAllBytes(file);</span>
+<span class="nc" id="L56">        } catch (IOException e) {</span>
+<span class="nc" id="L57">            throw new ServiceException(&quot;The photo '&quot; + name + &quot;' could not be read.&quot;);</span>
+<span class="fc" id="L58">        }</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (formatOf(image).isEmpty()) {</span>
+<span class="fc" id="L60">            throw new ServiceException(&quot;'&quot; + name + &quot;' is not a &quot; + SUPPORTED_FORMATS + &quot; image.&quot;);</span>
+        }
+<span class="fc" id="L62">        return store.addPhoto(image);</span>
+    }
+
+    /**
+     * The image format, told from how the file's content begins, not from its name, so a
+     * renamed file of another kind is not taken for a photo. Empty if it is none of the
+     * {@link #SUPPORTED_FORMATS}.
+     */
+    static Optional&lt;String&gt; formatOf(byte[] data) {
+<span class="fc bfc" id="L71" title="All 2 branches covered.">        if (startsWith(data, 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A)) {</span>
+<span class="fc" id="L72">            return Optional.of(&quot;PNG&quot;);</span>
+        }
+<span class="fc bfc" id="L74" title="All 2 branches covered.">        if (startsWith(data, 0xFF, 0xD8, 0xFF)) {</span>
+<span class="fc" id="L75">            return Optional.of(&quot;JPEG&quot;);</span>
+        }
+<span class="fc bfc" id="L77" title="All 4 branches covered.">        if (startsWith(data, 'G', 'I', 'F', '8', '7', 'a') || startsWith(data, 'G', 'I', 'F', '8', '9', 'a')) {</span>
+<span class="fc" id="L78">            return Optional.of(&quot;GIF&quot;);</span>
+        }
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        if (startsWith(data, 'B', 'M')) {</span>
+<span class="fc" id="L81">            return Optional.of(&quot;BMP&quot;);</span>
+        }
+<span class="fc" id="L83">        return Optional.empty();</span>
+    }
+
+    private static boolean startsWith(byte[] data, int... signature) {
+<span class="fc bfc" id="L87" title="All 2 branches covered.">        if (data.length &lt; signature.length) {</span>
+<span class="fc" id="L88">            return false;</span>
+        }
+<span class="fc bfc" id="L90" title="All 2 branches covered.">        for (int i = 0; i &lt; signature.length; i++) {</span>
+<span class="fc bfc" id="L91" title="All 2 branches covered.">            if ((data[i] &amp; 0xFF) != signature[i]) {</span>
+<span class="fc" id="L92">                return false;</span>
+            }
+        }
+<span class="fc" id="L95">        return true;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

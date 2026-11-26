@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Formats.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">Formats.java</span></div><h1>Formats.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.models.BorrowRequest;
+import com.hkust.marketplace.models.LendListing;
+import com.hkust.marketplace.models.RatingSummary;
+import com.hkust.marketplace.models.Review;
+import com.hkust.marketplace.models.SaleListing;
+import javafx.util.StringConverter;
+
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
+import java.util.Locale;
+
+/**
+ * One way to show dates, prices, ratings and periods on every screen, so all three portals
+ * look and read the same (non-functional requirement: a consistent interface).
+ */
+public final class Formats {
+
+    /** Shown when there is no value, such as a deal that is not completed yet. */
+    public static final String NONE = &quot;—&quot;;
+
+    /** The largest number the sidebar's notification dot writes out; above it, the dot says &quot;99+&quot;. */
+    private static final int DOT_MAX = 99;
+
+<span class="fc" id="L31">    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern(&quot;dd MMM yyyy&quot;, Locale.ENGLISH);</span>
+<span class="fc" id="L32">    private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern(&quot;dd MMM yyyy HH:mm&quot;, Locale.ENGLISH);</span>
+<span class="fc" id="L33">    private static final DateTimeFormatter TIME_OF_DAY = DateTimeFormatter.ofPattern(&quot;HH:mm:ss&quot;, Locale.ENGLISH);</span>
+    /** A date as {@link #DATE} writes it, read back: one or two digits for the day, any case, real dates only. */
+<span class="fc" id="L35">    private static final DateTimeFormatter TYPED_DATE = new DateTimeFormatterBuilder()</span>
+<span class="fc" id="L36">            .parseCaseInsensitive()</span>
+<span class="fc" id="L37">            .appendPattern(&quot;d MMM uuuu&quot;)</span>
+<span class="fc" id="L38">            .toFormatter(Locale.ENGLISH)</span>
+<span class="fc" id="L39">            .withResolverStyle(ResolverStyle.STRICT);</span>
+
+    /** See {@link #datePickerConverter()}. */
+<span class="fc" id="L42">    private static final StringConverter&lt;LocalDate&gt; PICKER_DATES = new StringConverter&lt;&gt;() {</span>
+        @Override
+        public String toString(LocalDate date) {
+<span class="fc bfc" id="L45" title="All 2 branches covered.">            return date == null ? &quot;&quot; : date.format(DATE);</span>
+        }
+
+        @Override
+        public LocalDate fromString(String text) {
+<span class="fc bfc" id="L50" title="All 4 branches covered.">            if (text == null || text.isBlank()) {</span>
+<span class="fc" id="L51">                return null;</span>
+            }
+            try {
+<span class="fc" id="L54">                return LocalDate.parse(text.strip(), TYPED_DATE);</span>
+<span class="fc" id="L55">            } catch (DateTimeParseException e) {</span>
+<span class="fc" id="L56">                return null; // not a date in this form: the picker is left without a date</span>
+            }
+        }
+    };
+
+    private Formats() {
+        // Utility class
+    }
+
+    /** &quot;09 Nov 2026&quot;, or {@link #NONE} for no date. */
+    public static String date(LocalDateTime time) {
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        return time == null ? NONE : time.format(DATE);</span>
+    }
+
+    /**
+     * How a date picker shows and reads its date: &quot;21 Nov 2026&quot;, as {@link #date} shows dates in
+     * lists and tables, so a chosen date reads the same as the dates beside it (a consistent
+     * interface). Text typed into an editable picker is read in the same form, in any case; text
+     * that is not such a date, or no text, gives no date (null), which the form then reports.
+     * &lt;pre&gt;{@code
+     * DatePicker from = new DatePicker();
+     * from.setConverter(Formats.datePickerConverter());
+     * }&lt;/pre&gt;
+     */
+    public static StringConverter&lt;LocalDate&gt; datePickerConverter() {
+<span class="fc" id="L81">        return PICKER_DATES;</span>
+    }
+
+    /**
+     * &quot;09 Nov 2026 14:20&quot;, or {@link #NONE} for no date: the time of a message, a notification
+     * or a posting. Times of borrowing use {@link #borrowTime} instead.
+     */
+    public static String dateTime(LocalDateTime time) {
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        return time == null ? NONE : time.format(DATE_TIME);</span>
+    }
+
+    /**
+     * A time of borrowing, to the second: &quot;14 Nov 2026 14:06:44&quot;, or {@link #NONE} for no time.
+     * Used for borrow periods and due dates, because borrowing works to the second; the
+     * due-date reminder names the due time in the same form (regression log R9).
+     */
+    public static String borrowTime(LocalDateTime time) {
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        return time == null ? NONE : BorrowRequest.formatBorrowTime(time);</span>
+    }
+
+    /** The time of day with seconds, as it is typed into a time box: &quot;14:05:30&quot;; empty text for no time. */
+    public static String timeOfDay(LocalDateTime time) {
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        return time == null ? &quot;&quot; : time.format(TIME_OF_DAY);</span>
+    }
+
+    /** A borrow period, to the second: &quot;10 Nov 2026 09:00:00 – 17 Nov 2026 09:00:00&quot;. */
+    public static String period(LocalDateTime start, LocalDateTime end) {
+<span class="fc" id="L108">        return borrowTime(start) + &quot; – &quot; + borrowTime(end);</span>
+    }
+
+    /** &quot;HK$ 180&quot;, or &quot;HK$ 99.50&quot; when there are cents. */
+    public static String price(double amount) {
+<span class="fc" id="L113">        return SaleListing.formatPrice(amount);</span>
+    }
+
+    /** A length of time: &quot;90 days&quot;, &quot;1 day 2 hours&quot;, &quot;5 seconds&quot;. */
+    public static String duration(Duration duration) {
+<span class="fc" id="L118">        return LendListing.formatDuration(duration);</span>
+    }
+
+    /**
+     * A 1-5 star rating as stars: 4 → &quot;★★★★☆&quot;. 0 gives five empty stars.
+     * @throws IllegalArgumentException outside 0 to 5
+     */
+    public static String stars(int rating) {
+<span class="fc bfc" id="L126" title="All 4 branches covered.">        if (rating &lt; 0 || rating &gt; Review.MAX_RATING) {</span>
+<span class="fc" id="L127">            throw new IllegalArgumentException(&quot;A rating is 0 to &quot; + Review.MAX_RATING + &quot; stars, not &quot; + rating + &quot;.&quot;);</span>
+        }
+<span class="fc" id="L129">        return &quot;★&quot;.repeat(rating) + &quot;☆&quot;.repeat(Review.MAX_RATING - rating);</span>
+    }
+
+    /**
+     * A long text on one line, cut to at most {@code max} characters, for lists and previews:
+     * line breaks become spaces, and a cut text ends in &quot;…&quot;.
+     * @throws IllegalArgumentException if max is less than 1
+     */
+    public static String preview(String text, int max) {
+<span class="fc bfc" id="L138" title="All 2 branches covered.">        if (max &lt; 1) {</span>
+<span class="fc" id="L139">            throw new IllegalArgumentException(&quot;A preview needs at least 1 character, not &quot; + max + &quot;.&quot;);</span>
+        }
+<span class="fc bfc" id="L141" title="All 2 branches covered.">        String oneLine = text == null ? &quot;&quot; : text.strip().replaceAll(&quot;\\s+&quot;, &quot; &quot;);</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">        return oneLine.length() &lt;= max ? oneLine : oneLine.substring(0, max - 1).stripTrailing() + &quot;…&quot;;</span>
+    }
+
+    /** The heading of a notification board: &quot;No unread notifications&quot;, &quot;1 unread notification&quot;, &quot;3 unread notifications&quot;. */
+    public static String unreadSummary(int unread) {
+<span class="fc bfc" id="L147" title="All 2 branches covered.">        if (unread &lt;= 0) {</span>
+<span class="fc" id="L148">            return &quot;No unread notifications&quot;;</span>
+        }
+<span class="fc bfc" id="L150" title="All 2 branches covered.">        return unread + &quot; unread notification&quot; + (unread == 1 ? &quot;&quot; : &quot;s&quot;);</span>
+    }
+
+    /**
+     * The number on the sidebar's notification dot (assumptions register 92): &quot;1&quot; to &quot;99&quot;, then &quot;99+&quot;.
+     * @throws IllegalArgumentException below 1: with nothing unread, there is no dot
+     */
+    public static String unreadCount(int unread) {
+<span class="fc bfc" id="L158" title="All 2 branches covered.">        if (unread &lt; 1) {</span>
+<span class="fc" id="L159">            throw new IllegalArgumentException(&quot;The dot shows 1 or more unread notifications, not &quot; + unread + &quot;.&quot;);</span>
+        }
+<span class="fc bfc" id="L161" title="All 2 branches covered.">        return unread &gt; DOT_MAX ? DOT_MAX + &quot;+&quot; : Integer.toString(unread);</span>
+    }
+
+    /**
+     * A seller's average rating: &quot;4.5 / 5 (2 ratings)&quot;, or &quot;No ratings yet&quot; when there are none
+     * (View Seller Stats A2).
+     */
+    public static String averageRating(RatingSummary rating) {
+<span class="fc bfc" id="L169" title="All 2 branches covered.">        if (rating.isEmpty()) {</span>
+<span class="fc" id="L170">            return &quot;No ratings yet&quot;;</span>
+        }
+<span class="fc" id="L172">        int count = rating.count();</span>
+<span class="fc bfc" id="L173" title="All 2 branches covered.">        return String.format(Locale.ENGLISH, &quot;%.1f / 5 (%d rating%s)&quot;, rating.average(), count, count == 1 ? &quot;&quot; : &quot;s&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

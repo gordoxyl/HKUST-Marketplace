@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Dialogs.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">Dialogs.java</span></div><h1>Dialogs.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.services.ServiceException;
+import com.hkust.marketplace.utils.SceneManager;
+import javafx.geometry.Insets;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextInputDialog;
+import javafx.stage.Stage;
+
+import java.util.Optional;
+
+/**
+ * The dialogs every portal uses, so confirmations, messages and errors look and behave the
+ * same everywhere (non-functional requirement: consistent interaction across the three
+ * portals). Destructive actions must ask {@link #confirm} first.
+ * &lt;pre&gt;{@code
+ * if (Dialogs.confirm(&quot;Delete listing&quot;, &quot;Delete 'Desk Lamp'? This cannot be undone.&quot;)) {
+ *     try {
+ *         service.deleteListing(id);
+ *         Dialogs.info(&quot;Listing deleted&quot;, &quot;'Desk Lamp' was removed.&quot;);
+ *     } catch (ServiceException e) {
+ *         Dialogs.problem(e);
+ *     }
+ * }
+ * }&lt;/pre&gt;
+ * This class only shows JavaFX dialogs; checks on what users type are in {@link TextInputs},
+ * where they are unit-tested.
+ */
+public final class Dialogs {
+
+    private Dialogs() {
+        // Utility class
+    }
+
+    /** Asks the user to confirm; true only if they chose OK. */
+    public static boolean confirm(String title, String message) {
+<span class="fc" id="L40">        Alert alert = alert(Alert.AlertType.CONFIRMATION, title, message);</span>
+<span class="fc bfc" id="L41" title="All 2 branches covered.">        return alert.showAndWait().filter(answer -&gt; answer == ButtonType.OK).isPresent();</span>
+    }
+
+    /** Tells the user that something worked. */
+    public static void info(String title, String message) {
+<span class="fc" id="L46">        alert(Alert.AlertType.INFORMATION, title, message).showAndWait();</span>
+<span class="fc" id="L47">    }</span>
+
+    /** Tells the user that something went wrong. */
+    public static void error(String title, String message) {
+<span class="fc" id="L51">        alert(Alert.AlertType.ERROR, title, message).showAndWait();</span>
+<span class="fc" id="L52">    }</span>
+
+    /** Shows why a service refused an action; the message is written for the user. */
+    public static void problem(ServiceException e) {
+<span class="fc" id="L56">        error(&quot;Not possible&quot;, e.getMessage());</span>
+<span class="fc" id="L57">    }</span>
+
+    /**
+     * Asks for a reason, which is required, for example to reject or remove a listing. Asks
+     * again if nothing is typed.
+     * @return the reason without surrounding spaces, or empty if the user cancelled
+     */
+    public static Optional&lt;String&gt; askReason(String title, String question) {
+        while (true) {
+<span class="nc" id="L66">            TextInputDialog dialog = new TextInputDialog();</span>
+<span class="nc" id="L67">            dialog.setTitle(title);</span>
+<span class="nc" id="L68">            dialog.setHeaderText(question);</span>
+<span class="nc" id="L69">            dialog.setContentText(&quot;Reason:&quot;);</span>
+<span class="nc" id="L70">            placeOnAppWindow(dialog);</span>
+<span class="nc" id="L71">            Optional&lt;String&gt; typed = dialog.showAndWait();</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">            if (typed.isEmpty()) {</span>
+<span class="nc" id="L73">                return Optional.empty(); // cancelled</span>
+            }
+<span class="nc" id="L75">            Optional&lt;String&gt; reason = TextInputs.required(typed.get());</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">            if (reason.isPresent()) {</span>
+<span class="nc" id="L77">                return reason;</span>
+            }
+<span class="nc" id="L79">            error(title, &quot;A reason is required.&quot;);</span>
+<span class="nc" id="L80">        }</span>
+    }
+
+    /**
+     * An empty form dialog with a heading and two buttons, centred on the app's window, for a
+     * screen to fill with its fields:
+     * &lt;pre&gt;{@code
+     * Dialog&lt;ButtonType&gt; dialog = Dialogs.form(&quot;Make Offer&quot;, &quot;Your price offer for 'Desk Lamp'&quot;, SUBMIT, ButtonType.CANCEL);
+     * dialog.getDialogPane().setContent(new VBox(8, new Label(&quot;Your price (HK$)&quot;), priceBox));
+     * }&lt;/pre&gt;
+     * A form dialog uses the app's stylesheet, because it has the app's window as its owner.
+     * @param submit the button that sends the form
+     * @param cancel the button that closes it without sending
+     */
+    public static Dialog&lt;ButtonType&gt; form(String title, String header, ButtonType submit, ButtonType cancel) {
+<span class="fc" id="L95">        Dialog&lt;ButtonType&gt; dialog = new Dialog&lt;&gt;();</span>
+<span class="fc" id="L96">        dialog.setTitle(title);</span>
+<span class="fc" id="L97">        dialog.setHeaderText(header);</span>
+<span class="fc" id="L98">        dialog.getDialogPane().getButtonTypes().addAll(submit, cancel);</span>
+<span class="fc" id="L99">        dialog.getDialogPane().setPadding(new Insets(10));</span>
+<span class="fc" id="L100">        placeOnAppWindow(dialog);</span>
+<span class="fc" id="L101">        return dialog;</span>
+    }
+
+    /** A note in a form dialog, such as the rules for what to type. */
+    public static Label hint(String text) {
+<span class="fc" id="L106">        Label hint = new Label(text);</span>
+<span class="fc" id="L107">        hint.setWrapText(true);</span>
+<span class="fc" id="L108">        hint.setMaxWidth(380);</span>
+<span class="fc" id="L109">        hint.getStyleClass().add(&quot;dialog-hint&quot;);</span>
+<span class="fc" id="L110">        return hint;</span>
+    }
+
+    private static Alert alert(Alert.AlertType type, String title, String message) {
+<span class="fc" id="L114">        Alert alert = new Alert(type, message);</span>
+<span class="fc" id="L115">        alert.setTitle(title);</span>
+<span class="fc" id="L116">        alert.setHeaderText(null);</span>
+<span class="fc" id="L117">        placeOnAppWindow(alert);</span>
+<span class="fc" id="L118">        return alert;</span>
+    }
+
+    /**
+     * Centres the dialog on the app's window, when there is one. With the window as its owner,
+     * the dialog also uses the app's stylesheet.
+     */
+    static void placeOnAppWindow(Dialog&lt;?&gt; dialog) {
+<span class="fc" id="L126">        Stage stage = SceneManager.getPrimaryStage();</span>
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">        if (stage != null) {</span>
+<span class="fc" id="L128">            dialog.initOwner(stage);</span>
+        }
+<span class="fc" id="L130">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BrowseText.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">BrowseText.java</span></div><h1>BrowseText.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+/**
+ * The wording of the Browse Marketplace screen (UC8), kept apart from the JavaFX code so it
+ * can be unit-tested.
+ */
+public final class BrowseText {
+
+    /** UC8 A1: shown instead of the listings when none match. */
+    public static final String NO_LISTINGS = &quot;No listings match. Try another keyword or fewer filters.&quot;;
+
+    private BrowseText() {
+        // Utility class
+    }
+
+    /** The line above the results: &quot;1 listing&quot;, &quot;6 listings&quot;, or {@link #NO_LISTINGS} when there are none. */
+    public static String resultSummary(int count) {
+<span class="fc bfc" id="L18" title="All 2 branches covered.">        if (count &lt;= 0) {</span>
+<span class="fc" id="L19">            return NO_LISTINGS;</span>
+        }
+<span class="fc bfc" id="L21" title="All 2 branches covered.">        return count == 1 ? &quot;1 listing&quot; : count + &quot; listings&quot;;</span>
+    }
+
+    /** A seller's bio on the profile screen (UC8 A3), or a line saying that there is none. */
+    public static String bio(String bio) {
+<span class="fc bfc" id="L26" title="All 4 branches covered.">        return bio == null || bio.isBlank() ? &quot;This seller has not written a bio.&quot; : bio.strip();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OfferChoiceDialog.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">OfferChoiceDialog.java</span></div><h1>OfferChoiceDialog.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.services.Conversation;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.RadioButton;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.ToggleGroup;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * The dialog behind the buyer's Agree to Counter in a chat (UC5 step 1 and Special Requirement
+ * 4; assumptions register 71): the offers the seller countered, newest first with the newest
+ * chosen, each with the buyer's terms and the seller's counter. Agree returns the chosen offer,
+ * and the chat then runs Make Offer with the counter's terms.
+ *
+ * &lt;ul&gt;
+ *   &lt;li&gt;The list scrolls after about four offers, so the dialog keeps its size and its
+ *       buttons stay in view.&lt;/li&gt;
+ *   &lt;li&gt;Agree is on the left and Cancel is on its own at the right; Esc and the window's close
+ *       button cancel too.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;A boundary class only (Lecture 15): which offers there are comes from
+ * {@link Conversation#offersToActOn()}, and the wording from {@link ChatText} and
+ * {@link OfferText}.
+ */
+final class OfferChoiceDialog {
+
+    /** About four offers fit before the list scrolls. */
+    private static final double LIST_HEIGHT = 170;
+    private static final double LIST_WIDTH = 460;
+
+    private OfferChoiceDialog() {
+        // Utility class
+    }
+
+    /**
+     * Shows the countered offers and waits for the buyer's choice.
+     * @param conversation the buyer's chat
+     * @param countered    the offers the seller countered, newest first; at least one
+     * @return the chosen offer, or empty if the buyer cancelled
+     */
+    static Optional&lt;Offer&gt; show(Conversation conversation, List&lt;Offer&gt; countered) {
+<span class="fc" id="L57">        Dialog&lt;ButtonType&gt; dialog = new Dialog&lt;&gt;();</span>
+<span class="fc" id="L58">        dialog.setTitle(ChatText.AGREE_TO_COUNTER);</span>
+<span class="fc" id="L59">        dialog.setHeaderText(ChatText.choiceHeading(conversation, countered.size()));</span>
+<span class="fc" id="L60">        dialog.getDialogPane().setPadding(new Insets(10));</span>
+
+<span class="fc" id="L62">        ButtonType agree = new ButtonType(ChatText.AGREE, ButtonBar.ButtonData.LEFT);</span>
+<span class="fc" id="L63">        dialog.getDialogPane().getButtonTypes().addAll(agree, ButtonType.CANCEL);</span>
+<span class="fc" id="L64">        Node agreeButton = dialog.getDialogPane().lookupButton(agree);</span>
+<span class="fc" id="L65">        agreeButton.getStyleClass().add(&quot;btn-primary&quot;);</span>
+
+<span class="fc" id="L67">        ToggleGroup choices = new ToggleGroup();</span>
+<span class="fc" id="L68">        VBox list = new VBox(4);</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">        for (Offer offer : countered) {</span>
+<span class="fc" id="L70">            list.getChildren().add(row(offer, choices));</span>
+<span class="fc" id="L71">        }</span>
+<span class="fc" id="L72">        ScrollPane listPane = new ScrollPane(list);</span>
+<span class="fc" id="L73">        listPane.setFitToWidth(true);</span>
+<span class="fc" id="L74">        listPane.setMaxHeight(LIST_HEIGHT);</span>
+<span class="fc" id="L75">        listPane.setPrefWidth(LIST_WIDTH);</span>
+<span class="fc" id="L76">        dialog.getDialogPane().setContent(listPane);</span>
+
+<span class="fc" id="L78">        agreeButton.disableProperty().bind(choices.selectedToggleProperty().isNull());</span>
+<span class="fc" id="L79">        choices.selectToggle(choices.getToggles().get(0)); // the newest</span>
+<span class="fc" id="L80">        Dialogs.placeOnAppWindow(dialog);</span>
+
+<span class="fc" id="L82">        return dialog.showAndWait()</span>
+<span class="fc" id="L83">                .filter(agree::equals)</span>
+<span class="fc" id="L84">                .map(button -&gt; (Offer) choices.getSelectedToggle().getUserData());</span>
+    }
+
+    /** One countered offer to choose: the buyer's terms and the counter, with its status badge as in the chat history. */
+    private static HBox row(Offer offer, ToggleGroup choices) {
+<span class="fc" id="L89">        RadioButton option = new RadioButton(ChatText.choice(offer));</span>
+<span class="fc" id="L90">        option.setUserData(offer);</span>
+<span class="fc" id="L91">        option.setToggleGroup(choices);</span>
+<span class="fc" id="L92">        option.setWrapText(true);</span>
+
+<span class="fc" id="L94">        Label status = new Label(OfferText.status(offer));</span>
+<span class="fc" id="L95">        status.getStyleClass().addAll(&quot;badge&quot;, OfferText.badgeStyle(offer));</span>
+<span class="fc" id="L96">        status.setMinWidth(Region.USE_PREF_SIZE);</span>
+<span class="fc" id="L97">        Region spacer = new Region();</span>
+<span class="fc" id="L98">        HBox.setHgrow(spacer, Priority.ALWAYS);</span>
+
+<span class="fc" id="L100">        HBox row = new HBox(8, option, spacer, status);</span>
+<span class="fc" id="L101">        row.setAlignment(Pos.CENTER_LEFT);</span>
+<span class="fc" id="L102">        row.getStyleClass().add(&quot;chat-result&quot;);</span>
+<span class="fc" id="L103">        row.setOnMouseClicked(e -&gt; option.setSelected(true));</span>
+<span class="fc" id="L104">        return row;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

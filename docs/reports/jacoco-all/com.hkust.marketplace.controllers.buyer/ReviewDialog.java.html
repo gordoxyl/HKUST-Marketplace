@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReviewDialog.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.controllers.buyer</a> &gt; <span class="el_source">ReviewDialog.java</span></div><h1>ReviewDialog.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.controllers.buyer;
+
+import com.hkust.marketplace.models.Review;
+import com.hkust.marketplace.services.ReviewForm;
+import com.hkust.marketplace.ui.Dialogs;
+import com.hkust.marketplace.ui.ReviewText;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.Toggle;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+
+import java.util.Optional;
+
+/**
+ * The form of Review Seller (UC10 steps 3-5, {Enter Review}): the seller and the deal's
+ * listing, a rating from 1 to 5 stars and the written review.
+ *
+ * &lt;p&gt;A boundary class only (Lecture 15): it collects what the buyer chose and typed and hands
+ * it over unchecked; whether the review is complete is decided by {@code ReviewService}. The
+ * form starts with no stars chosen, so the buyer chooses a rating (step 4), and a chosen button
+ * can be clicked again to clear it (which A2 then reports). The form returns empty when the
+ * buyer skips the review (A3).
+ */
+final class ReviewDialog {
+
+<span class="fc" id="L32">    private static final ButtonType SUBMIT = new ButtonType(&quot;Submit Review&quot;, ButtonBar.ButtonData.OK_DONE);</span>
+<span class="fc" id="L33">    private static final ButtonType SKIP = new ButtonType(&quot;Skip&quot;, ButtonBar.ButtonData.CANCEL_CLOSE);</span>
+
+    private ReviewDialog() {
+        // Utility class
+    }
+
+    /**
+     * The form's contents exactly as entered, kept so that a form shown again has them, to be
+     * corrected (A2).
+     * @param rating  the chosen stars, or null if none is chosen
+     * @param comment the written review as typed
+     */
+<span class="fc" id="L45">    record Entry(Integer rating, String comment) {</span>
+
+        /** A new form: no stars chosen, nothing written. */
+<span class="fc" id="L48">        static final Entry EMPTY = new Entry(null, &quot;&quot;);</span>
+    }
+
+    /**
+     * Asks for the rating and the written review.
+     * @param entry what the form starts with: empty, or what the buyer entered before
+     * @return the review as entered, or empty if the buyer skipped it (A3)
+     */
+    static Optional&lt;Entry&gt; ask(ReviewForm form, Entry entry) {
+<span class="fc" id="L57">        ToggleGroup stars = new ToggleGroup();</span>
+<span class="fc" id="L58">        HBox starButtons = new HBox(6);</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        for (int rating = Review.MIN_RATING; rating &lt;= Review.MAX_RATING; rating++) {</span>
+<span class="fc" id="L60">            ToggleButton star = new ToggleButton(rating + &quot; ★&quot;);</span>
+<span class="fc" id="L61">            star.setUserData(rating);</span>
+<span class="fc" id="L62">            star.setToggleGroup(stars);</span>
+<span class="fc" id="L63">            star.setSelected(Integer.valueOf(rating).equals(entry.rating()));</span>
+<span class="fc" id="L64">            starButtons.getChildren().add(star);</span>
+        }
+<span class="fc" id="L66">        Label chosen = new Label(ReviewText.chosenRating(entry.rating()));</span>
+<span class="fc" id="L67">        chosen.getStyleClass().add(&quot;review-stars&quot;);</span>
+<span class="fc" id="L68">        stars.selectedToggleProperty().addListener(</span>
+<span class="fc" id="L69">                (property, before, now) -&gt; chosen.setText(ReviewText.chosenRating(ratingOf(now))));</span>
+
+<span class="fc" id="L71">        TextArea comment = new TextArea(entry.comment());</span>
+<span class="fc" id="L72">        comment.setPromptText(&quot;How did the deal go? A written review is required.&quot;);</span>
+<span class="fc" id="L73">        comment.setWrapText(true);</span>
+<span class="fc" id="L74">        comment.setPrefRowCount(4);</span>
+<span class="fc" id="L75">        comment.setPrefColumnCount(32);</span>
+
+<span class="fc" id="L77">        Dialog&lt;ButtonType&gt; dialog = Dialogs.form(&quot;Review Seller&quot;, ReviewText.formHeader(form), SUBMIT, SKIP);</span>
+<span class="fc" id="L78">        dialog.getDialogPane().setContent(new VBox(8,</span>
+                new Label(&quot;Your rating&quot;), starButtons, chosen,
+                new Label(&quot;Your review&quot;), comment,
+<span class="fc" id="L81">                Dialogs.hint(&quot;Your rating and review show on the seller's profile and on each of their &quot;</span>
+                        + &quot;listings. They cannot be changed once submitted.&quot;)));
+<span class="fc" id="L83">        return dialog.showAndWait().filter(SUBMIT::equals)</span>
+<span class="fc" id="L84">                .map(button -&gt; new Entry(ratingOf(stars.getSelectedToggle()), comment.getText()));</span>
+    }
+
+    /** The stars of a rating button, or null when no button is chosen. */
+    private static Integer ratingOf(Toggle toggle) {
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        return toggle == null ? null : (Integer) toggle.getUserData();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

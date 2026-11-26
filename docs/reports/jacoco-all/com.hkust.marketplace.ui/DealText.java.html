@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DealText.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">DealText.java</span></div><h1>DealText.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.models.BorrowRequest;
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.services.Deal;
+
+import java.util.Optional;
+
+/**
+ * The wording of the My Deals screen (UC7), kept apart from the JavaFX code so it can be
+ * unit-tested. How the deal itself reads (type, terms, counter, status) is in {@link OfferText}.
+ */
+public final class DealText {
+
+    /** UC7 A1: shown when the buyer has no current or completed deals. */
+    public static final String NO_DEALS = &quot;You have no deals yet. Open a listing in Browse Marketplace &quot;
+            + &quot;to make an offer, send a borrow request or claim an item.&quot;;
+
+    private DealText() {
+        // Utility class
+    }
+
+    /** The seller and the deal type: &quot;Seller: Charlie Lee · Price offer&quot;. */
+    public static String about(Deal deal) {
+<span class="fc" id="L25">        return &quot;Seller: &quot; + deal.sellerName() + &quot; · &quot; + OfferText.kind(deal.offer());</span>
+    }
+
+    /**
+     * When the deal was made, accepted and completed, as far as it got:
+     * &quot;Made 09 Nov 2026 · Accepted 10 Nov 2026 · Completed 12 Nov 2026&quot;. A borrowed item
+     * says &quot;Returned&quot; instead of &quot;Completed&quot;, or &quot;Returned automatically&quot; when the borrowing
+     * period ended (UC12).
+     */
+    public static String dates(Deal deal) {
+<span class="fc" id="L35">        Offer offer = deal.offer();</span>
+<span class="fc" id="L36">        StringBuilder text = new StringBuilder(&quot;Made &quot; + Formats.date(offer.getOfferDate()));</span>
+<span class="fc bfc" id="L37" title="All 2 branches covered.">        if (offer.getAcceptedDate() != null) {</span>
+<span class="fc" id="L38">            text.append(&quot; · Accepted &quot;).append(Formats.date(offer.getAcceptedDate()));</span>
+        }
+<span class="fc bfc" id="L40" title="All 2 branches covered.">        if (offer.isCompleted()) {</span>
+<span class="fc" id="L41">            text.append(&quot; · &quot;).append(completedWord(offer)).append(' ').append(Formats.date(offer.getCompletedDate()));</span>
+        }
+<span class="fc" id="L43">        return text.toString();</span>
+    }
+
+    private static String completedWord(Offer offer) {
+<span class="fc bfc" id="L47" title="All 2 branches covered.">        if (offer instanceof BorrowRequest request) {</span>
+<span class="fc bfc" id="L48" title="All 2 branches covered.">            return request.isAutoReturned() ? &quot;Returned automatically&quot; : &quot;Returned&quot;;</span>
+        }
+<span class="fc" id="L50">        return &quot;Completed&quot;;</span>
+    }
+
+    /**
+     * The due date of a borrowed item that has not been returned yet (UC7 step 2), to the
+     * second: &quot;Due 17 Nov 2026 09:00:00&quot;. Empty for every other deal.
+     */
+    public static Optional&lt;String&gt; due(Deal deal) {
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if (deal.offer().isCompleted()) {</span>
+<span class="fc" id="L59">            return Optional.empty();</span>
+        }
+<span class="fc" id="L61">        return deal.dueDate().map(date -&gt; &quot;Due &quot; + Formats.borrowTime(date));</span>
+    }
+
+    /** The question before a deal is marked complete (UC7 step 4). */
+    public static String confirmComplete(Deal deal) {
+<span class="fc" id="L66">        return &quot;Mark your &quot; + deal.offer().getKindName() + &quot; for '&quot; + deal.listing().getTitle()</span>
+                + &quot;' complete? Do this once you have received the item. It cannot be undone.&quot;;
+    }
+
+    /** The question before a borrowed item is returned (UC7 A2 step 1). */
+    public static String confirmReturn(Deal deal) {
+<span class="fc" id="L72">        return &quot;Return '&quot; + deal.listing().getTitle() + &quot;' to &quot; + deal.sellerName()</span>
+                + &quot; now? This ends the borrowing and cannot be undone.&quot;;
+    }
+
+    /** The prompt after a deal is marked complete (UC7 step 9). */
+    public static String ratePrompt(Deal deal) {
+<span class="fc" id="L78">        return &quot;The deal for '&quot; + deal.listing().getTitle() + &quot;' is complete, and &quot; + deal.sellerName()</span>
+                + &quot; has been notified. Would you like to rate and review the seller now?&quot;;
+    }
+
+    /**
+     * What the buyer is told after returning an item (UC7 A2), with the rate-seller prompt
+     * that also follows a return (client answer #3).
+     */
+    public static String returnedRatePrompt(Deal deal) {
+<span class="fc" id="L87">        return &quot;'&quot; + deal.listing().getTitle() + &quot;' was returned, and &quot; + deal.sellerName()</span>
+                + &quot; has been notified. Would you like to rate and review the seller now?&quot;;
+    }
+
+    /**
+     * The rate-seller prompt after the timer returned a borrowed item while the buyer was using
+     * the app (UC12; client answer #3).
+     */
+    public static String autoReturnRatePrompt(Deal deal) {
+<span class="fc" id="L96">        return &quot;'&quot; + deal.listing().getTitle() + &quot;' was returned automatically because the borrowing period &quot;</span>
+<span class="fc" id="L97">                + &quot;ended. Would you like to rate and review &quot; + deal.sellerName() + &quot; now?&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

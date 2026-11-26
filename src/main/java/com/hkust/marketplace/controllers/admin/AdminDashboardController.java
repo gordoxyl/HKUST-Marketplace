@@ -850,7 +850,8 @@ public class AdminDashboardController implements ContentHost {
         filterBar.setAlignment(Pos.CENTER_LEFT);
 
         TableView<DealRecord> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        // each column keeps the width its texts need; with long titles the table scrolls sideways instead of cutting them
+        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
         table.getColumns().add(column("Item title", r -> r.listing().getTitle()));
         table.getColumns().add(column("Buyer", DealRecord::buyerUsername));
         table.getColumns().add(column("Seller", DealRecord::sellerUsername));

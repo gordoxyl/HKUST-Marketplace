@@ -135,6 +135,21 @@ class AdminListingScreensTest {
         assertEquals(List.of(), app.cutPrompts());              // R22 still holds
     }
 
+    @Test
+    void allDeals_withManyDealsAndLongTitles_cutsNoText() {
+        data.seller("r26seller", "R26 Seller");
+        for (int i = 1; i <= 15; i++) {
+            data.buyer("r26buyer" + i, "R26 Buyer " + i);
+            data.accept(data.priceOffer("r26buyer" + i,
+                    data.sale("r26seller", "Vintage Mechanical Keyboard With Extra Keycaps " + i, 50), 40));
+        }
+        app.logIn("Enter as Admin", "admin", SeedData.ADMIN_PASSWORD);
+
+        app.press("All Deals");
+
+        assertEquals(List.of(), app.cutTexts()); // R26: the columns keep their width, and the table scrolls sideways
+    }
+
     private static final String DOT = "#" + NotificationDot.ID;
 
     /** The number on the dot; 0 when it is hidden. */

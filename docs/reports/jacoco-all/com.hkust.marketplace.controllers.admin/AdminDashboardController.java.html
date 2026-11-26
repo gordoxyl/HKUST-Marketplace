@@ -274,24 +274,24 @@ import java.util.stream.Collectors;
      * the buyers with open offers are told. Then runs {@code after}, unless the admin cancelled.
      */
     private void confirmAndRemove(Listing l, Runnable after) {
-<span class="nc bnc" id="L277" title="All 2 branches missed.">        if (!Dialogs.confirm(&quot;Remove listing&quot;, &quot;Remove '&quot; + l.getTitle() + &quot;'? Open offers will be declined and the buyers notified.&quot;)) return;</span>
-<span class="nc" id="L278">        Optional&lt;String&gt; reason = Dialogs.askReason(&quot;Remove listing&quot;, &quot;Why is '&quot; + l.getTitle() + &quot;' removed?&quot;);</span>
-<span class="nc bnc" id="L279" title="All 2 branches missed.">        if (reason.isEmpty()) return;</span>
+<span class="pc bpc" id="L277" title="1 of 2 branches missed.">        if (!Dialogs.confirm(&quot;Remove listing&quot;, &quot;Remove '&quot; + l.getTitle() + &quot;'? Open offers will be declined and the buyers notified.&quot;)) return;</span>
+<span class="fc" id="L278">        Optional&lt;String&gt; reason = Dialogs.askReason(&quot;Remove listing&quot;, &quot;Why is '&quot; + l.getTitle() + &quot;' removed?&quot;);</span>
+<span class="pc bpc" id="L279" title="1 of 2 branches missed.">        if (reason.isEmpty()) return;</span>
         try {
-<span class="nc" id="L281">            listingService.removeListing(l.getId(), reason.get());</span>
-<span class="nc" id="L282">            Dialogs.info(&quot;Listing removed&quot;, &quot;The seller and affected buyers have been notified.&quot;);</span>
+<span class="fc" id="L281">            listingService.removeListing(l.getId(), reason.get());</span>
+<span class="fc" id="L282">            Dialogs.info(&quot;Listing removed&quot;, &quot;The seller and affected buyers have been notified.&quot;);</span>
 <span class="nc" id="L283">        } catch (ServiceException ex) {</span>
 <span class="nc" id="L284">            Dialogs.problem(ex);</span>
-<span class="nc" id="L285">        }</span>
-<span class="nc" id="L286">        after.run();</span>
-<span class="nc" id="L287">    }</span>
+<span class="fc" id="L285">        }</span>
+<span class="fc" id="L286">        after.run();</span>
+<span class="fc" id="L287">    }</span>
 
     private ListingCard createManageCard(Listing l) {
 <span class="fc" id="L290">        ListingCard card = new ListingCard(l, UserRole.ADMIN);</span>
 
 <span class="fc" id="L292">        Button view = new Button(&quot;View&quot;);</span>
 <span class="fc" id="L293">        view.getStyleClass().addAll(&quot;btn-outline&quot;, &quot;btn-sm&quot;);</span>
-<span class="pc" id="L294">        view.setOnAction(e -&gt; showListingDetails(l));</span>
+<span class="fc" id="L294">        view.setOnAction(e -&gt; showListingDetails(l));</span>
 
 <span class="fc" id="L296">        Button edit = new Button(&quot;Edit&quot;);</span>
 <span class="fc" id="L297">        edit.getStyleClass().addAll(&quot;btn-outline&quot;, &quot;btn-sm&quot;);</span>
@@ -299,7 +299,7 @@ import java.util.stream.Collectors;
 
 <span class="fc" id="L300">        Button remove = new Button(&quot;Remove&quot;);</span>
 <span class="fc" id="L301">        remove.getStyleClass().addAll(&quot;btn-danger&quot;, &quot;btn-sm&quot;);</span>
-<span class="pc" id="L302">        remove.setOnAction(e -&gt; confirmAndRemove(l, listingsReload));</span>
+<span class="fc" id="L302">        remove.setOnAction(e -&gt; confirmAndRemove(l, listingsReload));</span>
 
 <span class="fc" id="L304">        card.addActions(view, edit, remove);</span>
 <span class="fc" id="L305">        return card;</span>
@@ -307,26 +307,26 @@ import java.util.stream.Collectors;
 
     private void showListingDetails(Listing l) {
         try {
-<span class="nc" id="L310">            ListingDetails d = listingService.getListingDetails(l.getId());</span>
-<span class="nc" id="L311">            VBox detailLayout = new VBox(16);</span>
-<span class="nc" id="L312">            detailLayout.setPadding(new Insets(10));</span>
+<span class="fc" id="L310">            ListingDetails d = listingService.getListingDetails(l.getId());</span>
+<span class="fc" id="L311">            VBox detailLayout = new VBox(16);</span>
+<span class="fc" id="L312">            detailLayout.setPadding(new Insets(10));</span>
 
             // The full listing details, shown as in every portal (Manage Marketplace Listings 5.1)
-<span class="nc" id="L315">            DataStore store = DataStore.getInstance();</span>
-<span class="nc" id="L316">            ListingOverview overview = new ListingOverview(ListingSummary.of(d.listing(), UserRole.ADMIN, store), store);</span>
+<span class="fc" id="L315">            DataStore store = DataStore.getInstance();</span>
+<span class="fc" id="L316">            ListingOverview overview = new ListingOverview(ListingSummary.of(d.listing(), UserRole.ADMIN, store), store);</span>
 
             // Reports
-<span class="nc" id="L319">            VBox reportsBox = new VBox(10);</span>
-<span class="nc" id="L320">            reportsBox.getStyleClass().add(&quot;card&quot;);</span>
-<span class="nc" id="L321">            reportsBox.setPadding(new Insets(14));</span>
-<span class="nc" id="L322">            Label reportsTitle = new Label(&quot;Reports (&quot; + d.reports().size() + &quot;)&quot;);</span>
-<span class="nc" id="L323">            reportsTitle.getStyleClass().add(&quot;listing-card-title&quot;);</span>
-<span class="nc" id="L324">            reportsBox.getChildren().add(reportsTitle);</span>
-<span class="nc bnc" id="L325" title="All 2 branches missed.">            if (d.reports().isEmpty()) {</span>
-<span class="nc" id="L326">                Label noRep = new Label(&quot;No reports.&quot;);</span>
-<span class="nc" id="L327">                noRep.getStyleClass().add(&quot;text-muted&quot;);</span>
-<span class="nc" id="L328">                reportsBox.getChildren().add(noRep);</span>
-<span class="nc" id="L329">            } else {</span>
+<span class="fc" id="L319">            VBox reportsBox = new VBox(10);</span>
+<span class="fc" id="L320">            reportsBox.getStyleClass().add(&quot;card&quot;);</span>
+<span class="fc" id="L321">            reportsBox.setPadding(new Insets(14));</span>
+<span class="fc" id="L322">            Label reportsTitle = new Label(&quot;Reports (&quot; + d.reports().size() + &quot;)&quot;);</span>
+<span class="fc" id="L323">            reportsTitle.getStyleClass().add(&quot;listing-card-title&quot;);</span>
+<span class="fc" id="L324">            reportsBox.getChildren().add(reportsTitle);</span>
+<span class="pc bpc" id="L325" title="1 of 2 branches missed.">            if (d.reports().isEmpty()) {</span>
+<span class="fc" id="L326">                Label noRep = new Label(&quot;No reports.&quot;);</span>
+<span class="fc" id="L327">                noRep.getStyleClass().add(&quot;text-muted&quot;);</span>
+<span class="fc" id="L328">                reportsBox.getChildren().add(noRep);</span>
+<span class="fc" id="L329">            } else {</span>
 <span class="nc bnc" id="L330" title="All 2 branches missed.">                for (Report r : d.reports()) {</span>
 <span class="nc" id="L331">                    Label repLabel = new Label(&quot;• &quot; + r.getReason() + &quot; by @&quot; + r.getBuyerUsername() + &quot;: &quot; + r.getDetails());</span>
 <span class="nc" id="L332">                    repLabel.setWrapText(true);</span>
@@ -335,26 +335,26 @@ import java.util.stream.Collectors;
             }
 
             // Actions
-<span class="nc" id="L338">            Button editBtn = new Button(&quot;Edit&quot;);</span>
-<span class="nc" id="L339">            editBtn.getStyleClass().add(&quot;btn-primary&quot;);</span>
-<span class="nc" id="L340">            editBtn.setOnAction(e -&gt; showListingForm(l));</span>
+<span class="fc" id="L338">            Button editBtn = new Button(&quot;Edit&quot;);</span>
+<span class="fc" id="L339">            editBtn.getStyleClass().add(&quot;btn-primary&quot;);</span>
+<span class="pc" id="L340">            editBtn.setOnAction(e -&gt; showListingForm(l));</span>
 
-<span class="nc" id="L342">            Button removeBtn = new Button(&quot;Remove&quot;);</span>
-<span class="nc" id="L343">            removeBtn.getStyleClass().add(&quot;btn-danger&quot;);</span>
-<span class="nc" id="L344">            removeBtn.setOnAction(e -&gt; confirmAndRemove(l, this::returnToAllListings));</span>
+<span class="fc" id="L342">            Button removeBtn = new Button(&quot;Remove&quot;);</span>
+<span class="fc" id="L343">            removeBtn.getStyleClass().add(&quot;btn-danger&quot;);</span>
+<span class="pc" id="L344">            removeBtn.setOnAction(e -&gt; confirmAndRemove(l, this::returnToAllListings));</span>
 
-<span class="nc" id="L346">            HBox actions = new HBox(10, editBtn, removeBtn);</span>
+<span class="fc" id="L346">            HBox actions = new HBox(10, editBtn, removeBtn);</span>
 
-<span class="nc" id="L348">            detailLayout.getChildren().addAll(overview, reportsBox, actions);</span>
+<span class="fc" id="L348">            detailLayout.getChildren().addAll(overview, reportsBox, actions);</span>
 
-<span class="nc" id="L350">            ScrollPane scroll = new ScrollPane(detailLayout);</span>
-<span class="nc" id="L351">            scroll.setFitToWidth(true);</span>
-<span class="nc" id="L352">            show(&quot;Listing Details&quot;, new SubScreen(&quot;Back to All Listings&quot;, this::returnToAllListings, scroll));</span>
+<span class="fc" id="L350">            ScrollPane scroll = new ScrollPane(detailLayout);</span>
+<span class="fc" id="L351">            scroll.setFitToWidth(true);</span>
+<span class="fc" id="L352">            show(&quot;Listing Details&quot;, new SubScreen(&quot;Back to All Listings&quot;, this::returnToAllListings, scroll));</span>
 
 <span class="nc" id="L354">        } catch (ServiceException ex) {</span>
 <span class="nc" id="L355">            Dialogs.problem(ex);</span>
-<span class="nc" id="L356">        }</span>
-<span class="nc" id="L357">    }</span>
+<span class="fc" id="L356">        }</span>
+<span class="fc" id="L357">    }</span>
 
     private void showListingForm(Listing existing) {
 <span class="fc bfc" id="L360" title="All 2 branches covered.">        boolean adding = existing == null;</span>
@@ -850,153 +850,154 @@ import java.util.stream.Collectors;
 <span class="fc" id="L850">        filterBar.setAlignment(Pos.CENTER_LEFT);</span>
 
 <span class="fc" id="L852">        TableView&lt;DealRecord&gt; table = new TableView&lt;&gt;();</span>
-<span class="fc" id="L853">        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);</span>
-<span class="fc" id="L854">        table.getColumns().add(column(&quot;Item title&quot;, r -&gt; r.listing().getTitle()));</span>
-<span class="fc" id="L855">        table.getColumns().add(column(&quot;Buyer&quot;, DealRecord::buyerUsername));</span>
-<span class="fc" id="L856">        table.getColumns().add(column(&quot;Seller&quot;, DealRecord::sellerUsername));</span>
-<span class="fc" id="L857">        table.getColumns().add(column(&quot;Deal type&quot;, r -&gt; r.dealType().getDisplayName()));</span>
-<span class="fc" id="L858">        table.getColumns().add(column(&quot;Start date&quot;, r -&gt; Formats.dateTime(r.startDate())));</span>
+        // each column keeps the width its texts need; with long titles the table scrolls sideways instead of cutting them
+<span class="fc" id="L854">        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);</span>
+<span class="fc" id="L855">        table.getColumns().add(column(&quot;Item title&quot;, r -&gt; r.listing().getTitle()));</span>
+<span class="fc" id="L856">        table.getColumns().add(column(&quot;Buyer&quot;, DealRecord::buyerUsername));</span>
+<span class="fc" id="L857">        table.getColumns().add(column(&quot;Seller&quot;, DealRecord::sellerUsername));</span>
+<span class="fc" id="L858">        table.getColumns().add(column(&quot;Deal type&quot;, r -&gt; r.dealType().getDisplayName()));</span>
+<span class="fc" id="L859">        table.getColumns().add(column(&quot;Start date&quot;, r -&gt; Formats.dateTime(r.startDate())));</span>
 
-<span class="fc" id="L860">        TableColumn&lt;DealRecord, String&gt; returnCol = column(&quot;Return/Complete date&quot;, r -&gt; Formats.dateTime(r.completedDate()));</span>
-<span class="fc" id="L861">        returnCol.setMinWidth(COL_RETURN_DATE_MIN);</span>
-<span class="fc" id="L862">        table.getColumns().add(returnCol);</span>
-<span class="fc" id="L863">        table.getColumns().add(column(&quot;Status&quot;, r -&gt; r.state().getDisplayName()));</span>
+<span class="fc" id="L861">        TableColumn&lt;DealRecord, String&gt; returnCol = column(&quot;Return/Complete date&quot;, r -&gt; Formats.dateTime(r.completedDate()));</span>
+<span class="fc" id="L862">        returnCol.setMinWidth(COL_RETURN_DATE_MIN);</span>
+<span class="fc" id="L863">        table.getColumns().add(returnCol);</span>
+<span class="fc" id="L864">        table.getColumns().add(column(&quot;Status&quot;, r -&gt; r.state().getDisplayName()));</span>
 
-<span class="fc" id="L865">        TableColumn&lt;DealRecord, Void&gt; actions = new TableColumn&lt;&gt;(&quot;Actions&quot;);</span>
-<span class="fc" id="L866">        actions.setMinWidth(COL_ACTIONS_MIN);</span>
-<span class="fc" id="L867">        actions.setCellFactory(col -&gt; new TableCell&lt;&gt;() {</span>
-<span class="fc" id="L868">            private final Button view = new Button(&quot;View Details&quot;);</span>
+<span class="fc" id="L866">        TableColumn&lt;DealRecord, Void&gt; actions = new TableColumn&lt;&gt;(&quot;Actions&quot;);</span>
+<span class="fc" id="L867">        actions.setMinWidth(COL_ACTIONS_MIN);</span>
+<span class="fc" id="L868">        actions.setCellFactory(col -&gt; new TableCell&lt;&gt;() {</span>
+<span class="fc" id="L869">            private final Button view = new Button(&quot;View Details&quot;);</span>
             {
-<span class="fc" id="L870">                view.getStyleClass().addAll(&quot;btn-outline&quot;, &quot;btn-sm&quot;);</span>
-<span class="fc" id="L871">                view.setMinWidth(Region.USE_PREF_SIZE);</span>
-<span class="pc" id="L872">                view.setOnAction(e -&gt; showDealDetails(getTableView().getItems().get(getIndex())));</span>
-<span class="fc" id="L873">            }</span>
+<span class="fc" id="L871">                view.getStyleClass().addAll(&quot;btn-outline&quot;, &quot;btn-sm&quot;);</span>
+<span class="fc" id="L872">                view.setMinWidth(Region.USE_PREF_SIZE);</span>
+<span class="pc" id="L873">                view.setOnAction(e -&gt; showDealDetails(getTableView().getItems().get(getIndex())));</span>
+<span class="fc" id="L874">            }</span>
             @Override
             protected void updateItem(Void item, boolean empty) {
-<span class="fc" id="L876">                super.updateItem(item, empty);</span>
-<span class="fc bfc" id="L877" title="All 2 branches covered.">                setGraphic(empty ? null : view);</span>
-<span class="fc" id="L878">            }</span>
+<span class="fc" id="L877">                super.updateItem(item, empty);</span>
+<span class="fc bfc" id="L878" title="All 2 branches covered.">                setGraphic(empty ? null : view);</span>
+<span class="fc" id="L879">            }</span>
         });
-<span class="fc" id="L880">        table.getColumns().add(actions);</span>
+<span class="fc" id="L881">        table.getColumns().add(actions);</span>
 
-<span class="fc" id="L882">        Label none = new Label(&quot;No deals found.&quot;);</span>
-<span class="fc" id="L883">        none.getStyleClass().add(&quot;text-muted&quot;);</span>
-<span class="fc" id="L884">        none.setVisible(false);</span>
-<span class="fc" id="L885">        none.setManaged(false);</span>
+<span class="fc" id="L883">        Label none = new Label(&quot;No deals found.&quot;);</span>
+<span class="fc" id="L884">        none.getStyleClass().add(&quot;text-muted&quot;);</span>
+<span class="fc" id="L885">        none.setVisible(false);</span>
+<span class="fc" id="L886">        none.setManaged(false);</span>
 
-<span class="fc" id="L887">        root.getChildren().addAll(filterBar, none, table);</span>
+<span class="fc" id="L888">        root.getChildren().addAll(filterBar, none, table);</span>
 
-<span class="fc" id="L889">        Runnable refresh = () -&gt; {</span>
-<span class="fc" id="L890">            DealFilter filter = DealFilter.none();</span>
-<span class="pc bpc" id="L891" title="1 of 2 branches missed.">            if (statusBox.getValue() instanceof DealState s) filter = filter.withStatus(s);</span>
-<span class="pc bpc" id="L892" title="1 of 2 branches missed.">            if (typeBox.getValue() instanceof ListingType t) filter = filter.withType(t);</span>
-<span class="fc" id="L893">            filter = filter.withSeller(sellerField.getText()).withBuyer(buyerField.getText())</span>
-<span class="fc" id="L894">                    .withDateRange(</span>
-<span class="pc bpc" id="L895" title="1 of 2 branches missed.">                            from.getValue() == null ? null : from.getValue().atStartOfDay(),</span>
-<span class="pc bpc" id="L896" title="1 of 2 branches missed.">                            to.getValue() == null ? null : to.getValue().atTime(LocalTime.MAX));</span>
+<span class="fc" id="L890">        Runnable refresh = () -&gt; {</span>
+<span class="fc" id="L891">            DealFilter filter = DealFilter.none();</span>
+<span class="pc bpc" id="L892" title="1 of 2 branches missed.">            if (statusBox.getValue() instanceof DealState s) filter = filter.withStatus(s);</span>
+<span class="pc bpc" id="L893" title="1 of 2 branches missed.">            if (typeBox.getValue() instanceof ListingType t) filter = filter.withType(t);</span>
+<span class="fc" id="L894">            filter = filter.withSeller(sellerField.getText()).withBuyer(buyerField.getText())</span>
+<span class="fc" id="L895">                    .withDateRange(</span>
+<span class="pc bpc" id="L896" title="1 of 2 branches missed.">                            from.getValue() == null ? null : from.getValue().atStartOfDay(),</span>
+<span class="pc bpc" id="L897" title="1 of 2 branches missed.">                            to.getValue() == null ? null : to.getValue().atTime(LocalTime.MAX));</span>
             try {
-<span class="fc" id="L898">                currentDeals = dealService.findDeals(filter);</span>
-<span class="nc" id="L899">            } catch (ServiceException ex) {</span>
-<span class="nc" id="L900">                Dialogs.problem(ex);</span>
-<span class="nc" id="L901">                return;</span>
-<span class="fc" id="L902">            }</span>
-<span class="fc" id="L903">            table.getItems().setAll(currentDeals);</span>
-<span class="fc" id="L904">            boolean empty = currentDeals.isEmpty();</span>
-<span class="fc" id="L905">            none.setVisible(empty);</span>
-<span class="fc" id="L906">            none.setManaged(empty);</span>
-<span class="pc bpc" id="L907" title="1 of 2 branches missed.">            table.setVisible(!empty);</span>
-<span class="pc bpc" id="L908" title="1 of 2 branches missed.">            table.setManaged(!empty);</span>
-<span class="fc" id="L909">        };</span>
-<span class="pc" id="L910">        search.setOnAction(e -&gt; refresh.run());</span>
-<span class="fc" id="L911">        reset.setOnAction(e -&gt; {</span>
-<span class="nc" id="L912">            statusBox.getSelectionModel().selectFirst();</span>
-<span class="nc" id="L913">            typeBox.getSelectionModel().selectFirst();</span>
-<span class="nc" id="L914">            sellerField.clear();</span>
-<span class="nc" id="L915">            buyerField.clear();</span>
-<span class="nc" id="L916">            from.setValue(null);</span>
-<span class="nc" id="L917">            to.setValue(null);</span>
-<span class="nc" id="L918">            refresh.run();</span>
-<span class="nc" id="L919">        });</span>
+<span class="fc" id="L899">                currentDeals = dealService.findDeals(filter);</span>
+<span class="nc" id="L900">            } catch (ServiceException ex) {</span>
+<span class="nc" id="L901">                Dialogs.problem(ex);</span>
+<span class="nc" id="L902">                return;</span>
+<span class="fc" id="L903">            }</span>
+<span class="fc" id="L904">            table.getItems().setAll(currentDeals);</span>
+<span class="fc" id="L905">            boolean empty = currentDeals.isEmpty();</span>
+<span class="fc" id="L906">            none.setVisible(empty);</span>
+<span class="fc" id="L907">            none.setManaged(empty);</span>
+<span class="pc bpc" id="L908" title="1 of 2 branches missed.">            table.setVisible(!empty);</span>
+<span class="pc bpc" id="L909" title="1 of 2 branches missed.">            table.setManaged(!empty);</span>
+<span class="fc" id="L910">        };</span>
+<span class="pc" id="L911">        search.setOnAction(e -&gt; refresh.run());</span>
+<span class="fc" id="L912">        reset.setOnAction(e -&gt; {</span>
+<span class="nc" id="L913">            statusBox.getSelectionModel().selectFirst();</span>
+<span class="nc" id="L914">            typeBox.getSelectionModel().selectFirst();</span>
+<span class="nc" id="L915">            sellerField.clear();</span>
+<span class="nc" id="L916">            buyerField.clear();</span>
+<span class="nc" id="L917">            from.setValue(null);</span>
+<span class="nc" id="L918">            to.setValue(null);</span>
+<span class="nc" id="L919">            refresh.run();</span>
+<span class="nc" id="L920">        });</span>
 
-<span class="fc" id="L921">        export.setOnAction(e -&gt; {</span>
-<span class="nc" id="L922">            FileChooser chooser = new FileChooser();</span>
-<span class="nc" id="L923">            chooser.setTitle(&quot;Save deals as CSV&quot;);</span>
-<span class="nc" id="L924">            chooser.setInitialFileName(&quot;deals.csv&quot;);</span>
-<span class="nc" id="L925">            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(&quot;CSV file&quot;, &quot;*.csv&quot;));</span>
-<span class="nc" id="L926">            File file = chooser.showSaveDialog(SceneManager.getPrimaryStage());</span>
-<span class="nc bnc" id="L927" title="All 2 branches missed.">            if (file == null) return;</span>
+<span class="fc" id="L922">        export.setOnAction(e -&gt; {</span>
+<span class="nc" id="L923">            FileChooser chooser = new FileChooser();</span>
+<span class="nc" id="L924">            chooser.setTitle(&quot;Save deals as CSV&quot;);</span>
+<span class="nc" id="L925">            chooser.setInitialFileName(&quot;deals.csv&quot;);</span>
+<span class="nc" id="L926">            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(&quot;CSV file&quot;, &quot;*.csv&quot;));</span>
+<span class="nc" id="L927">            File file = chooser.showSaveDialog(SceneManager.getPrimaryStage());</span>
+<span class="nc bnc" id="L928" title="All 2 branches missed.">            if (file == null) return;</span>
             try {
-<span class="nc" id="L929">                String csv = dealService.exportCsv(currentDeals);</span>
-<span class="nc" id="L930">                Files.writeString(file.toPath(), csv);</span>
-<span class="nc" id="L931">                Dialogs.info(&quot;Export complete&quot;, &quot;Saved &quot; + currentDeals.size() + &quot; deal(s) to &quot; + file.getName() + &quot;.&quot;);</span>
-<span class="nc" id="L932">            } catch (ServiceException ex) {</span>
-<span class="nc" id="L933">                Dialogs.problem(ex);</span>
-<span class="nc" id="L934">            } catch (IOException ex) {</span>
-<span class="nc" id="L935">                Dialogs.error(&quot;Export failed&quot;, &quot;Export failed. Please try again or refine your filters.&quot;);</span>
-<span class="nc" id="L936">            }</span>
-<span class="nc" id="L937">        });</span>
+<span class="nc" id="L930">                String csv = dealService.exportCsv(currentDeals);</span>
+<span class="nc" id="L931">                Files.writeString(file.toPath(), csv);</span>
+<span class="nc" id="L932">                Dialogs.info(&quot;Export complete&quot;, &quot;Saved &quot; + currentDeals.size() + &quot; deal(s) to &quot; + file.getName() + &quot;.&quot;);</span>
+<span class="nc" id="L933">            } catch (ServiceException ex) {</span>
+<span class="nc" id="L934">                Dialogs.problem(ex);</span>
+<span class="nc" id="L935">            } catch (IOException ex) {</span>
+<span class="nc" id="L936">                Dialogs.error(&quot;Export failed&quot;, &quot;Export failed. Please try again or refine your filters.&quot;);</span>
+<span class="nc" id="L937">            }</span>
+<span class="nc" id="L938">        });</span>
 
-<span class="fc" id="L939">        refresh.run();</span>
-<span class="fc" id="L940">        contentPane.getChildren().add(root);</span>
-<span class="fc" id="L941">    }</span>
+<span class="fc" id="L940">        refresh.run();</span>
+<span class="fc" id="L941">        contentPane.getChildren().add(root);</span>
+<span class="fc" id="L942">    }</span>
 
     private static TableColumn&lt;DealRecord, String&gt; column(String title, java.util.function.Function&lt;DealRecord, String&gt; value) {
-<span class="fc" id="L944">        TableColumn&lt;DealRecord, String&gt; col = new TableColumn&lt;&gt;(title);</span>
-<span class="fc" id="L945">        col.setCellValueFactory(c -&gt; new javafx.beans.property.SimpleStringProperty(value.apply(c.getValue())));</span>
-<span class="fc" id="L946">        return col;</span>
+<span class="fc" id="L945">        TableColumn&lt;DealRecord, String&gt; col = new TableColumn&lt;&gt;(title);</span>
+<span class="fc" id="L946">        col.setCellValueFactory(c -&gt; new javafx.beans.property.SimpleStringProperty(value.apply(c.getValue())));</span>
+<span class="fc" id="L947">        return col;</span>
     }
 
     private void showDealDetails(DealRecord record) {
         try {
-<span class="nc" id="L951">            DealDetails d = dealService.getDealDetails(record.offer().getId());</span>
+<span class="nc" id="L952">            DealDetails d = dealService.getDealDetails(record.offer().getId());</span>
 
-<span class="nc" id="L953">            VBox layout = new VBox(16);</span>
-<span class="nc" id="L954">            layout.setPadding(new Insets(10));</span>
+<span class="nc" id="L954">            VBox layout = new VBox(16);</span>
+<span class="nc" id="L955">            layout.setPadding(new Insets(10));</span>
 
-<span class="nc" id="L956">            VBox buyerBox = createDetailBox(&quot;BUYER&quot;,</span>
-<span class="nc" id="L957">                    d.buyerFullName() + &quot; (@&quot; + d.buyerUsername() + &quot;)&quot; +</span>
-<span class="nc bnc" id="L958" title="All 2 branches missed.">                            (d.residenceHall() != null ? &quot;\nResidence: &quot; + d.residenceHall() : &quot;&quot;));</span>
+<span class="nc" id="L957">            VBox buyerBox = createDetailBox(&quot;BUYER&quot;,</span>
+<span class="nc" id="L958">                    d.buyerFullName() + &quot; (@&quot; + d.buyerUsername() + &quot;)&quot; +</span>
+<span class="nc bnc" id="L959" title="All 2 branches missed.">                            (d.residenceHall() != null ? &quot;\nResidence: &quot; + d.residenceHall() : &quot;&quot;));</span>
 
-<span class="nc" id="L960">            VBox sellerBox = createDetailBox(&quot;SELLER&quot;,</span>
-<span class="nc" id="L961">                    d.sellerFullName() + &quot; (@&quot; + d.sellerUsername() + &quot;)&quot; +</span>
-<span class="nc bnc" id="L962" title="All 2 branches missed.">                            (d.sellerBio() != null ? &quot;\nBio: &quot; + d.sellerBio() : &quot;&quot;));</span>
+<span class="nc" id="L961">            VBox sellerBox = createDetailBox(&quot;SELLER&quot;,</span>
+<span class="nc" id="L962">                    d.sellerFullName() + &quot; (@&quot; + d.sellerUsername() + &quot;)&quot; +</span>
+<span class="nc bnc" id="L963" title="All 2 branches missed.">                            (d.sellerBio() != null ? &quot;\nBio: &quot; + d.sellerBio() : &quot;&quot;));</span>
 
-<span class="nc" id="L964">            VBox itemBox = createDetailBox(&quot;ITEM&quot;,</span>
-<span class="nc" id="L965">                    d.listing().getTitle() + &quot; · &quot; + d.listing().getCategory() + &quot; · &quot; + d.listing().getCondition() +</span>
-<span class="nc" id="L966">                            &quot;\nMeet-up: &quot; + d.listing().getMeetupLocation());</span>
+<span class="nc" id="L965">            VBox itemBox = createDetailBox(&quot;ITEM&quot;,</span>
+<span class="nc" id="L966">                    d.listing().getTitle() + &quot; · &quot; + d.listing().getCategory() + &quot; · &quot; + d.listing().getCondition() +</span>
+<span class="nc" id="L967">                            &quot;\nMeet-up: &quot; + d.listing().getMeetupLocation());</span>
 
-<span class="nc" id="L968">            String txDetails = &quot;Type: &quot; + d.dealType().getDisplayName() + &quot;\n&quot; +</span>
-<span class="nc bnc" id="L969" title="All 2 branches missed.">                    (d.amount() != null ? &quot;Amount: &quot; + Formats.price(d.amount()) + &quot;\n&quot; : &quot;&quot;) +</span>
-<span class="nc bnc" id="L970" title="All 2 branches missed.">                    (d.borrowStart() != null ? &quot;Borrow period: &quot; + Formats.period(d.borrowStart(), d.borrowEnd()) + &quot;\n&quot; : &quot;&quot;) +</span>
-<span class="nc" id="L971">                    &quot;Start: &quot; + Formats.dateTime(d.startDate()) + &quot;\n&quot; +</span>
-<span class="nc" id="L972">                    &quot;Completed: &quot; + Formats.dateTime(d.completedDate()) + &quot;\n&quot; +</span>
-<span class="nc" id="L973">                    &quot;Status: &quot; + d.state().getDisplayName();</span>
-<span class="nc" id="L974">            VBox txBox = createDetailBox(&quot;TRANSACTION&quot;, txDetails);</span>
+<span class="nc" id="L969">            String txDetails = &quot;Type: &quot; + d.dealType().getDisplayName() + &quot;\n&quot; +</span>
+<span class="nc bnc" id="L970" title="All 2 branches missed.">                    (d.amount() != null ? &quot;Amount: &quot; + Formats.price(d.amount()) + &quot;\n&quot; : &quot;&quot;) +</span>
+<span class="nc bnc" id="L971" title="All 2 branches missed.">                    (d.borrowStart() != null ? &quot;Borrow period: &quot; + Formats.period(d.borrowStart(), d.borrowEnd()) + &quot;\n&quot; : &quot;&quot;) +</span>
+<span class="nc" id="L972">                    &quot;Start: &quot; + Formats.dateTime(d.startDate()) + &quot;\n&quot; +</span>
+<span class="nc" id="L973">                    &quot;Completed: &quot; + Formats.dateTime(d.completedDate()) + &quot;\n&quot; +</span>
+<span class="nc" id="L974">                    &quot;Status: &quot; + d.state().getDisplayName();</span>
+<span class="nc" id="L975">            VBox txBox = createDetailBox(&quot;TRANSACTION&quot;, txDetails);</span>
 
-<span class="nc bnc" id="L976" title="All 4 branches missed.">            String review = !d.reviewed() ? &quot;Not reviewed yet&quot; : d.reviewHidden() ? &quot;Reviewed (hidden by admin)&quot; : &quot;Reviewed&quot;;</span>
-<span class="nc" id="L977">            VBox reviewBox = createDetailBox(&quot;REVIEW&quot;, review);</span>
+<span class="nc bnc" id="L977" title="All 4 branches missed.">            String review = !d.reviewed() ? &quot;Not reviewed yet&quot; : d.reviewHidden() ? &quot;Reviewed (hidden by admin)&quot; : &quot;Reviewed&quot;;</span>
+<span class="nc" id="L978">            VBox reviewBox = createDetailBox(&quot;REVIEW&quot;, review);</span>
 
-<span class="nc" id="L979">            layout.getChildren().addAll(buyerBox, sellerBox, itemBox, txBox, reviewBox);</span>
+<span class="nc" id="L980">            layout.getChildren().addAll(buyerBox, sellerBox, itemBox, txBox, reviewBox);</span>
 
-<span class="nc" id="L981">            ScrollPane scroll = new ScrollPane(layout);</span>
-<span class="nc" id="L982">            scroll.setFitToWidth(true);</span>
-<span class="nc" id="L983">            show(&quot;Deal Details&quot;, new SubScreen(&quot;Back to All Deals&quot;, this::showDeals, scroll));</span>
+<span class="nc" id="L982">            ScrollPane scroll = new ScrollPane(layout);</span>
+<span class="nc" id="L983">            scroll.setFitToWidth(true);</span>
+<span class="nc" id="L984">            show(&quot;Deal Details&quot;, new SubScreen(&quot;Back to All Deals&quot;, this::showDeals, scroll));</span>
 
-<span class="nc" id="L985">        } catch (ServiceException ex) {</span>
-<span class="nc" id="L986">            Dialogs.problem(ex);</span>
-<span class="nc" id="L987">        }</span>
-<span class="nc" id="L988">    }</span>
+<span class="nc" id="L986">        } catch (ServiceException ex) {</span>
+<span class="nc" id="L987">            Dialogs.problem(ex);</span>
+<span class="nc" id="L988">        }</span>
+<span class="nc" id="L989">    }</span>
 
     private VBox createDetailBox(String title, String content) {
-<span class="nc" id="L991">        VBox box = new VBox(4);</span>
-<span class="nc" id="L992">        box.getStyleClass().add(&quot;card&quot;);</span>
-<span class="nc" id="L993">        box.setPadding(new Insets(14));</span>
-<span class="nc" id="L994">        Label t = new Label(title);</span>
-<span class="nc" id="L995">        t.getStyleClass().add(&quot;listing-card-title&quot;);</span>
-<span class="nc" id="L996">        Label c = new Label(content);</span>
-<span class="nc" id="L997">        c.setWrapText(true);</span>
-<span class="nc" id="L998">        box.getChildren().addAll(t, c);</span>
-<span class="nc" id="L999">        return box;</span>
+<span class="nc" id="L992">        VBox box = new VBox(4);</span>
+<span class="nc" id="L993">        box.getStyleClass().add(&quot;card&quot;);</span>
+<span class="nc" id="L994">        box.setPadding(new Insets(14));</span>
+<span class="nc" id="L995">        Label t = new Label(title);</span>
+<span class="nc" id="L996">        t.getStyleClass().add(&quot;listing-card-title&quot;);</span>
+<span class="nc" id="L997">        Label c = new Label(content);</span>
+<span class="nc" id="L998">        c.setWrapText(true);</span>
+<span class="nc" id="L999">        box.getChildren().addAll(t, c);</span>
+<span class="nc" id="L1000">        return box;</span>
     }
 
     // ==========================================
@@ -1004,209 +1005,209 @@ import java.util.stream.Collectors;
     // ==========================================
     @FXML
     private void showRatings() {
-<span class="fc" id="L1007">        setActive(btnRatings, &quot;Seller Ratings&quot;);</span>
-<span class="fc" id="L1008">        contentPane.getChildren().clear();</span>
-<span class="fc" id="L1009">        reloadCurrentScreen = this::showRatings;</span>
+<span class="fc" id="L1008">        setActive(btnRatings, &quot;Seller Ratings&quot;);</span>
+<span class="fc" id="L1009">        contentPane.getChildren().clear();</span>
+<span class="fc" id="L1010">        reloadCurrentScreen = this::showRatings;</span>
 
-<span class="fc" id="L1011">        VBox root = new VBox(12);</span>
-<span class="fc" id="L1012">        root.setPadding(new Insets(4));</span>
+<span class="fc" id="L1012">        VBox root = new VBox(12);</span>
+<span class="fc" id="L1013">        root.setPadding(new Insets(4));</span>
 
-<span class="fc" id="L1014">        TextField sellerField = new TextField();</span>
-<span class="fc" id="L1015">        sellerField.setPromptText(&quot;Filter by seller...&quot;);</span>
-<span class="fc" id="L1016">        Button search = new Button(&quot;Search&quot;);</span>
-<span class="fc" id="L1017">        search.getStyleClass().addAll(&quot;btn-primary&quot;, &quot;btn-sm&quot;);</span>
-<span class="fc" id="L1018">        Button reset = new Button(&quot;Reset&quot;);</span>
-<span class="fc" id="L1019">        reset.getStyleClass().addAll(&quot;btn-outline&quot;, &quot;btn-sm&quot;);</span>
+<span class="fc" id="L1015">        TextField sellerField = new TextField();</span>
+<span class="fc" id="L1016">        sellerField.setPromptText(&quot;Filter by seller...&quot;);</span>
+<span class="fc" id="L1017">        Button search = new Button(&quot;Search&quot;);</span>
+<span class="fc" id="L1018">        search.getStyleClass().addAll(&quot;btn-primary&quot;, &quot;btn-sm&quot;);</span>
+<span class="fc" id="L1019">        Button reset = new Button(&quot;Reset&quot;);</span>
+<span class="fc" id="L1020">        reset.getStyleClass().addAll(&quot;btn-outline&quot;, &quot;btn-sm&quot;);</span>
 
-<span class="fc" id="L1021">        FlowPane filterBar = new FlowPane(10, 8, sellerField, search, reset);</span>
-<span class="fc" id="L1022">        filterBar.setAlignment(Pos.CENTER_LEFT);</span>
+<span class="fc" id="L1022">        FlowPane filterBar = new FlowPane(10, 8, sellerField, search, reset);</span>
+<span class="fc" id="L1023">        filterBar.setAlignment(Pos.CENTER_LEFT);</span>
 
-<span class="fc" id="L1024">        VBox results = new VBox(10);</span>
-<span class="fc" id="L1025">        root.getChildren().addAll(filterBar, results);</span>
+<span class="fc" id="L1025">        VBox results = new VBox(10);</span>
+<span class="fc" id="L1026">        root.getChildren().addAll(filterBar, results);</span>
 
-<span class="fc" id="L1027">        Runnable refresh = () -&gt; {</span>
-<span class="fc" id="L1028">            results.getChildren().clear();</span>
+<span class="fc" id="L1028">        Runnable refresh = () -&gt; {</span>
+<span class="fc" id="L1029">            results.getChildren().clear();</span>
             List&lt;SellerRating&gt; sellers;
             try {
-<span class="fc" id="L1031">                sellers = reputationService.findSellerRatings(sellerField.getText());</span>
-<span class="nc" id="L1032">            } catch (ServiceException ex) {</span>
-<span class="nc" id="L1033">                Dialogs.problem(ex);</span>
-<span class="nc" id="L1034">                return;</span>
-<span class="fc" id="L1035">            }</span>
-<span class="pc bpc" id="L1036" title="1 of 2 branches missed.">            if (sellers.isEmpty()) {</span>
-<span class="nc" id="L1037">                Label none = new Label(&quot;No results found.&quot;);</span>
-<span class="nc" id="L1038">                none.getStyleClass().add(&quot;text-muted&quot;);</span>
-<span class="nc" id="L1039">                results.getChildren().add(none);</span>
-<span class="nc" id="L1040">                return;</span>
+<span class="fc" id="L1032">                sellers = reputationService.findSellerRatings(sellerField.getText());</span>
+<span class="nc" id="L1033">            } catch (ServiceException ex) {</span>
+<span class="nc" id="L1034">                Dialogs.problem(ex);</span>
+<span class="nc" id="L1035">                return;</span>
+<span class="fc" id="L1036">            }</span>
+<span class="pc bpc" id="L1037" title="1 of 2 branches missed.">            if (sellers.isEmpty()) {</span>
+<span class="nc" id="L1038">                Label none = new Label(&quot;No results found.&quot;);</span>
+<span class="nc" id="L1039">                none.getStyleClass().add(&quot;text-muted&quot;);</span>
+<span class="nc" id="L1040">                results.getChildren().add(none);</span>
+<span class="nc" id="L1041">                return;</span>
             }
-<span class="fc bfc" id="L1042" title="All 2 branches covered.">            for (SellerRating s : sellers) {</span>
-<span class="fc" id="L1043">                results.getChildren().add(createSellerRow(s));</span>
-<span class="fc" id="L1044">            }</span>
-<span class="fc" id="L1045">        };</span>
-<span class="pc" id="L1046">        search.setOnAction(e -&gt; refresh.run());</span>
-<span class="fc" id="L1047">        reset.setOnAction(e -&gt; {</span>
-<span class="nc" id="L1048">            sellerField.clear();</span>
-<span class="nc" id="L1049">            refresh.run();</span>
-<span class="nc" id="L1050">        });</span>
-<span class="fc" id="L1051">        refresh.run();</span>
+<span class="fc bfc" id="L1043" title="All 2 branches covered.">            for (SellerRating s : sellers) {</span>
+<span class="fc" id="L1044">                results.getChildren().add(createSellerRow(s));</span>
+<span class="fc" id="L1045">            }</span>
+<span class="fc" id="L1046">        };</span>
+<span class="pc" id="L1047">        search.setOnAction(e -&gt; refresh.run());</span>
+<span class="fc" id="L1048">        reset.setOnAction(e -&gt; {</span>
+<span class="nc" id="L1049">            sellerField.clear();</span>
+<span class="nc" id="L1050">            refresh.run();</span>
+<span class="nc" id="L1051">        });</span>
+<span class="fc" id="L1052">        refresh.run();</span>
 
-<span class="fc" id="L1053">        ScrollPane scroll = new ScrollPane(root);</span>
-<span class="fc" id="L1054">        scroll.setFitToWidth(true);</span>
-<span class="fc" id="L1055">        contentPane.getChildren().add(scroll);</span>
-<span class="fc" id="L1056">    }</span>
+<span class="fc" id="L1054">        ScrollPane scroll = new ScrollPane(root);</span>
+<span class="fc" id="L1055">        scroll.setFitToWidth(true);</span>
+<span class="fc" id="L1056">        contentPane.getChildren().add(scroll);</span>
+<span class="fc" id="L1057">    }</span>
 
     private HBox createSellerRow(SellerRating s) {
-<span class="fc" id="L1059">        HBox row = new HBox(12);</span>
-<span class="fc" id="L1060">        row.getStyleClass().add(&quot;card&quot;);</span>
-<span class="fc" id="L1061">        row.setAlignment(Pos.CENTER_LEFT);</span>
+<span class="fc" id="L1060">        HBox row = new HBox(12);</span>
+<span class="fc" id="L1061">        row.getStyleClass().add(&quot;card&quot;);</span>
+<span class="fc" id="L1062">        row.setAlignment(Pos.CENTER_LEFT);</span>
 
-<span class="fc" id="L1063">        VBox info = new VBox(3);</span>
-<span class="fc" id="L1064">        HBox.setHgrow(info, Priority.ALWAYS);</span>
-<span class="fc" id="L1065">        Label name = new Label(s.fullName() + &quot; (@&quot; + s.username() + &quot;)&quot;);</span>
-<span class="fc" id="L1066">        name.getStyleClass().add(&quot;section-title&quot;);</span>
-<span class="fc" id="L1067">        Label meta = new Label(Formats.averageRating(s.rating())</span>
-<span class="fc" id="L1068">                + &quot; · &quot; + s.rating().count() + &quot; review(s) · &quot; + s.completedDeals() + &quot; completed deal(s)&quot;);</span>
-<span class="fc" id="L1069">        meta.getStyleClass().add(&quot;text-muted&quot;);</span>
-<span class="fc" id="L1070">        info.getChildren().addAll(name, meta);</span>
+<span class="fc" id="L1064">        VBox info = new VBox(3);</span>
+<span class="fc" id="L1065">        HBox.setHgrow(info, Priority.ALWAYS);</span>
+<span class="fc" id="L1066">        Label name = new Label(s.fullName() + &quot; (@&quot; + s.username() + &quot;)&quot;);</span>
+<span class="fc" id="L1067">        name.getStyleClass().add(&quot;section-title&quot;);</span>
+<span class="fc" id="L1068">        Label meta = new Label(Formats.averageRating(s.rating())</span>
+<span class="fc" id="L1069">                + &quot; · &quot; + s.rating().count() + &quot; review(s) · &quot; + s.completedDeals() + &quot; completed deal(s)&quot;);</span>
+<span class="fc" id="L1070">        meta.getStyleClass().add(&quot;text-muted&quot;);</span>
+<span class="fc" id="L1071">        info.getChildren().addAll(name, meta);</span>
 
-<span class="fc" id="L1072">        Button view = new Button(&quot;View Reviews&quot;);</span>
-<span class="fc" id="L1073">        view.getStyleClass().addAll(&quot;btn-outline&quot;, &quot;btn-sm&quot;);</span>
-<span class="fc" id="L1074">        view.setOnAction(e -&gt; showSellerReviews(s));</span>
+<span class="fc" id="L1073">        Button view = new Button(&quot;View Reviews&quot;);</span>
+<span class="fc" id="L1074">        view.getStyleClass().addAll(&quot;btn-outline&quot;, &quot;btn-sm&quot;);</span>
+<span class="fc" id="L1075">        view.setOnAction(e -&gt; showSellerReviews(s));</span>
 
-<span class="fc" id="L1076">        row.getChildren().addAll(info, view);</span>
-<span class="fc" id="L1077">        return row;</span>
+<span class="fc" id="L1077">        row.getChildren().addAll(info, view);</span>
+<span class="fc" id="L1078">        return row;</span>
     }
 
     private void showSellerReviews(SellerRating seller) {
-<span class="fc" id="L1081">        setActive(btnRatings, &quot;Reviews of @&quot; + seller.username());</span>
-<span class="fc" id="L1082">        contentPane.getChildren().clear();</span>
+<span class="fc" id="L1082">        setActive(btnRatings, &quot;Reviews of @&quot; + seller.username());</span>
+<span class="fc" id="L1083">        contentPane.getChildren().clear();</span>
 
-<span class="fc" id="L1084">        VBox root = new VBox(12);</span>
-<span class="fc" id="L1085">        root.setPadding(new Insets(4));</span>
+<span class="fc" id="L1085">        VBox root = new VBox(12);</span>
+<span class="fc" id="L1086">        root.setPadding(new Insets(4));</span>
 
-<span class="fc" id="L1087">        ComboBox&lt;String&gt; scoreBox = new ComboBox&lt;&gt;(FXCollections.observableArrayList(</span>
+<span class="fc" id="L1088">        ComboBox&lt;String&gt; scoreBox = new ComboBox&lt;&gt;(FXCollections.observableArrayList(</span>
                 &quot;All scores&quot;, &quot;5 stars&quot;, &quot;4 stars&quot;, &quot;3 stars&quot;, &quot;2 stars&quot;, &quot;1 star&quot;));
-<span class="fc" id="L1089">        scoreBox.getSelectionModel().selectFirst();</span>
+<span class="fc" id="L1090">        scoreBox.getSelectionModel().selectFirst();</span>
 
-<span class="fc" id="L1091">        DatePicker from = new DatePicker();</span>
-<span class="fc" id="L1092">        from.setPromptText(&quot;From&quot;);</span>
-<span class="fc" id="L1093">        from.setConverter(Formats.datePickerConverter());</span>
-<span class="fc" id="L1094">        DatePicker to = new DatePicker();</span>
-<span class="fc" id="L1095">        to.setPromptText(&quot;To&quot;);</span>
-<span class="fc" id="L1096">        to.setConverter(Formats.datePickerConverter());</span>
+<span class="fc" id="L1092">        DatePicker from = new DatePicker();</span>
+<span class="fc" id="L1093">        from.setPromptText(&quot;From&quot;);</span>
+<span class="fc" id="L1094">        from.setConverter(Formats.datePickerConverter());</span>
+<span class="fc" id="L1095">        DatePicker to = new DatePicker();</span>
+<span class="fc" id="L1096">        to.setPromptText(&quot;To&quot;);</span>
+<span class="fc" id="L1097">        to.setConverter(Formats.datePickerConverter());</span>
 
-<span class="fc" id="L1098">        Button search = new Button(&quot;Search&quot;);</span>
-<span class="fc" id="L1099">        search.getStyleClass().addAll(&quot;btn-primary&quot;, &quot;btn-sm&quot;);</span>
-<span class="fc" id="L1100">        Button reset = new Button(&quot;Reset&quot;);</span>
-<span class="fc" id="L1101">        reset.getStyleClass().addAll(&quot;btn-outline&quot;, &quot;btn-sm&quot;);</span>
+<span class="fc" id="L1099">        Button search = new Button(&quot;Search&quot;);</span>
+<span class="fc" id="L1100">        search.getStyleClass().addAll(&quot;btn-primary&quot;, &quot;btn-sm&quot;);</span>
+<span class="fc" id="L1101">        Button reset = new Button(&quot;Reset&quot;);</span>
+<span class="fc" id="L1102">        reset.getStyleClass().addAll(&quot;btn-outline&quot;, &quot;btn-sm&quot;);</span>
 
-<span class="fc" id="L1103">        FlowPane filterBar = new FlowPane(10, 8, scoreBox, from, to, search, reset);</span>
-<span class="fc" id="L1104">        filterBar.setAlignment(Pos.CENTER_LEFT);</span>
+<span class="fc" id="L1104">        FlowPane filterBar = new FlowPane(10, 8, scoreBox, from, to, search, reset);</span>
+<span class="fc" id="L1105">        filterBar.setAlignment(Pos.CENTER_LEFT);</span>
 
-<span class="fc" id="L1106">        VBox results = new VBox(10);</span>
-<span class="fc" id="L1107">        root.getChildren().addAll(filterBar, results);</span>
+<span class="fc" id="L1107">        VBox results = new VBox(10);</span>
+<span class="fc" id="L1108">        root.getChildren().addAll(filterBar, results);</span>
 
-<span class="fc" id="L1109">        Runnable[] refreshRef = new Runnable[1];</span>
-<span class="fc" id="L1110">        Runnable refresh = () -&gt; {</span>
-<span class="fc" id="L1111">            results.getChildren().clear();</span>
-<span class="fc" id="L1112">            ReviewFilter filter = ReviewFilter.none().withSeller(seller.username());</span>
-<span class="pc bpc" id="L1113" title="1 of 2 branches missed.">            if (scoreBox.getSelectionModel().getSelectedIndex() &gt; 0) {</span>
-<span class="nc" id="L1114">                filter = filter.withRating(5 - (scoreBox.getSelectionModel().getSelectedIndex() - 1));</span>
+<span class="fc" id="L1110">        Runnable[] refreshRef = new Runnable[1];</span>
+<span class="fc" id="L1111">        Runnable refresh = () -&gt; {</span>
+<span class="fc" id="L1112">            results.getChildren().clear();</span>
+<span class="fc" id="L1113">            ReviewFilter filter = ReviewFilter.none().withSeller(seller.username());</span>
+<span class="pc bpc" id="L1114" title="1 of 2 branches missed.">            if (scoreBox.getSelectionModel().getSelectedIndex() &gt; 0) {</span>
+<span class="nc" id="L1115">                filter = filter.withRating(5 - (scoreBox.getSelectionModel().getSelectedIndex() - 1));</span>
             }
-<span class="fc" id="L1116">            filter = filter.withDateRange(</span>
-<span class="pc bpc" id="L1117" title="1 of 2 branches missed.">                    from.getValue() == null ? null : from.getValue().atStartOfDay(),</span>
-<span class="pc bpc" id="L1118" title="1 of 2 branches missed.">                    to.getValue() == null ? null : to.getValue().atTime(LocalTime.MAX));</span>
+<span class="fc" id="L1117">            filter = filter.withDateRange(</span>
+<span class="pc bpc" id="L1118" title="1 of 2 branches missed.">                    from.getValue() == null ? null : from.getValue().atStartOfDay(),</span>
+<span class="pc bpc" id="L1119" title="1 of 2 branches missed.">                    to.getValue() == null ? null : to.getValue().atTime(LocalTime.MAX));</span>
 
             List&lt;Review&gt; reviews;
             try {
-<span class="fc" id="L1122">                reviews = reputationService.findReviewsForSeller(seller.username(), filter);</span>
-<span class="nc" id="L1123">            } catch (ServiceException ex) {</span>
-<span class="nc" id="L1124">                Dialogs.problem(ex);</span>
-<span class="nc" id="L1125">                return;</span>
-<span class="fc" id="L1126">            }</span>
+<span class="fc" id="L1123">                reviews = reputationService.findReviewsForSeller(seller.username(), filter);</span>
+<span class="nc" id="L1124">            } catch (ServiceException ex) {</span>
+<span class="nc" id="L1125">                Dialogs.problem(ex);</span>
+<span class="nc" id="L1126">                return;</span>
+<span class="fc" id="L1127">            }</span>
 
-<span class="fc" id="L1128">            DataStore store = DataStore.getInstance();</span>
-<span class="pc bpc" id="L1129" title="1 of 2 branches missed.">            if (reviews.isEmpty()) {</span>
-<span class="nc" id="L1130">                Label none = new Label(&quot;No results found.&quot;);</span>
-<span class="nc" id="L1131">                none.getStyleClass().add(&quot;text-muted&quot;);</span>
-<span class="nc" id="L1132">                results.getChildren().add(none);</span>
-<span class="nc" id="L1133">                return;</span>
+<span class="fc" id="L1129">            DataStore store = DataStore.getInstance();</span>
+<span class="pc bpc" id="L1130" title="1 of 2 branches missed.">            if (reviews.isEmpty()) {</span>
+<span class="nc" id="L1131">                Label none = new Label(&quot;No results found.&quot;);</span>
+<span class="nc" id="L1132">                none.getStyleClass().add(&quot;text-muted&quot;);</span>
+<span class="nc" id="L1133">                results.getChildren().add(none);</span>
+<span class="nc" id="L1134">                return;</span>
             }
-<span class="fc bfc" id="L1135" title="All 2 branches covered.">            for (Review r : reviews) {</span>
-<span class="pc" id="L1136">                results.getChildren().add(createReviewRow(r, store, () -&gt; refreshRef[0].run()));</span>
-<span class="fc" id="L1137">            }</span>
-<span class="fc" id="L1138">        };</span>
-<span class="fc" id="L1139">        refreshRef[0] = refresh;</span>
+<span class="fc bfc" id="L1136" title="All 2 branches covered.">            for (Review r : reviews) {</span>
+<span class="fc" id="L1137">                results.getChildren().add(createReviewRow(r, store, () -&gt; refreshRef[0].run()));</span>
+<span class="fc" id="L1138">            }</span>
+<span class="fc" id="L1139">        };</span>
+<span class="fc" id="L1140">        refreshRef[0] = refresh;</span>
 
-<span class="pc" id="L1141">        search.setOnAction(e -&gt; refresh.run());</span>
-<span class="fc" id="L1142">        reset.setOnAction(e -&gt; {</span>
-<span class="nc" id="L1143">            scoreBox.getSelectionModel().selectFirst();</span>
-<span class="nc" id="L1144">            from.setValue(null);</span>
-<span class="nc" id="L1145">            to.setValue(null);</span>
-<span class="nc" id="L1146">            refresh.run();</span>
-<span class="nc" id="L1147">        });</span>
-<span class="fc" id="L1148">        refresh.run();</span>
+<span class="pc" id="L1142">        search.setOnAction(e -&gt; refresh.run());</span>
+<span class="fc" id="L1143">        reset.setOnAction(e -&gt; {</span>
+<span class="nc" id="L1144">            scoreBox.getSelectionModel().selectFirst();</span>
+<span class="nc" id="L1145">            from.setValue(null);</span>
+<span class="nc" id="L1146">            to.setValue(null);</span>
+<span class="nc" id="L1147">            refresh.run();</span>
+<span class="nc" id="L1148">        });</span>
+<span class="fc" id="L1149">        refresh.run();</span>
 
-<span class="fc" id="L1150">        ScrollPane scroll = new ScrollPane(root);</span>
-<span class="fc" id="L1151">        scroll.setFitToWidth(true);</span>
-<span class="fc" id="L1152">        show(&quot;Reviews of @&quot; + seller.username(), new SubScreen(&quot;Back to Seller Ratings&quot;, this::showRatings, scroll));</span>
-<span class="fc" id="L1153">    }</span>
+<span class="fc" id="L1151">        ScrollPane scroll = new ScrollPane(root);</span>
+<span class="fc" id="L1152">        scroll.setFitToWidth(true);</span>
+<span class="fc" id="L1153">        show(&quot;Reviews of @&quot; + seller.username(), new SubScreen(&quot;Back to Seller Ratings&quot;, this::showRatings, scroll));</span>
+<span class="fc" id="L1154">    }</span>
 
     private HBox createReviewRow(Review r, DataStore store, Runnable reload) {
-<span class="fc" id="L1156">        Offer deal = store.findOffer(r.getOfferId());</span>
-<span class="fc" id="L1157">        String item = store.getListingOf(deal).getTitle();</span>
+<span class="fc" id="L1157">        Offer deal = store.findOffer(r.getOfferId());</span>
+<span class="fc" id="L1158">        String item = store.getListingOf(deal).getTitle();</span>
 
-<span class="fc" id="L1159">        HBox row = new HBox(12);</span>
-<span class="fc" id="L1160">        row.getStyleClass().add(&quot;card&quot;);</span>
-<span class="fc" id="L1161">        row.setAlignment(Pos.CENTER_LEFT);</span>
+<span class="fc" id="L1160">        HBox row = new HBox(12);</span>
+<span class="fc" id="L1161">        row.getStyleClass().add(&quot;card&quot;);</span>
+<span class="fc" id="L1162">        row.setAlignment(Pos.CENTER_LEFT);</span>
 
-<span class="fc" id="L1163">        VBox info = new VBox(4);</span>
-<span class="fc" id="L1164">        HBox.setHgrow(info, Priority.ALWAYS);</span>
-<span class="fc" id="L1165">        Label head = new Label(Formats.stars(r.getRating()) + &quot;  by &quot; + store.getReviewerName(r)</span>
-<span class="fc" id="L1166">                + &quot; · &quot; + item + &quot; · deal &quot; + Formats.date(deal.getCompletedDate()));</span>
-<span class="fc" id="L1167">        head.getStyleClass().add(&quot;section-title&quot;);</span>
-<span class="pc bpc" id="L1168" title="1 of 2 branches missed.">        Label comment = new Label(r.getComment() == null ? Formats.NONE : r.getComment());</span>
-<span class="fc" id="L1169">        comment.setWrapText(true);</span>
-<span class="fc" id="L1170">        comment.getStyleClass().add(&quot;text-muted&quot;);</span>
-<span class="fc" id="L1171">        info.getChildren().addAll(head, comment);</span>
-<span class="fc" id="L1172">        ReviewText.reply(r).ifPresent(reply -&gt; {</span>
-<span class="fc" id="L1173">            Label replyLabel = new Label(reply); // Manage Reviews 3.1.5: the reply shows wherever the review does</span>
-<span class="fc" id="L1174">            replyLabel.setWrapText(true);</span>
-<span class="fc" id="L1175">            replyLabel.setMinHeight(Region.USE_PREF_SIZE); // a long reply wraps instead of being cut short</span>
-<span class="fc" id="L1176">            replyLabel.getStyleClass().add(&quot;listing-card-line&quot;);</span>
-<span class="fc" id="L1177">            info.getChildren().add(replyLabel);</span>
-<span class="fc" id="L1178">        });</span>
+<span class="fc" id="L1164">        VBox info = new VBox(4);</span>
+<span class="fc" id="L1165">        HBox.setHgrow(info, Priority.ALWAYS);</span>
+<span class="fc" id="L1166">        Label head = new Label(Formats.stars(r.getRating()) + &quot;  by &quot; + store.getReviewerName(r)</span>
+<span class="fc" id="L1167">                + &quot; · &quot; + item + &quot; · deal &quot; + Formats.date(deal.getCompletedDate()));</span>
+<span class="fc" id="L1168">        head.getStyleClass().add(&quot;section-title&quot;);</span>
+<span class="pc bpc" id="L1169" title="1 of 2 branches missed.">        Label comment = new Label(r.getComment() == null ? Formats.NONE : r.getComment());</span>
+<span class="fc" id="L1170">        comment.setWrapText(true);</span>
+<span class="fc" id="L1171">        comment.getStyleClass().add(&quot;text-muted&quot;);</span>
+<span class="fc" id="L1172">        info.getChildren().addAll(head, comment);</span>
+<span class="fc" id="L1173">        ReviewText.reply(r).ifPresent(reply -&gt; {</span>
+<span class="fc" id="L1174">            Label replyLabel = new Label(reply); // Manage Reviews 3.1.5: the reply shows wherever the review does</span>
+<span class="fc" id="L1175">            replyLabel.setWrapText(true);</span>
+<span class="fc" id="L1176">            replyLabel.setMinHeight(Region.USE_PREF_SIZE); // a long reply wraps instead of being cut short</span>
+<span class="fc" id="L1177">            replyLabel.getStyleClass().add(&quot;listing-card-line&quot;);</span>
+<span class="fc" id="L1178">            info.getChildren().add(replyLabel);</span>
+<span class="fc" id="L1179">        });</span>
 
-<span class="pc bpc" id="L1180" title="1 of 2 branches missed.">        if (r.isFlagged()) {</span>
-<span class="nc" id="L1181">            Label flagged = new Label(&quot;Flagged by seller&quot;);</span>
-<span class="nc" id="L1182">            flagged.getStyleClass().addAll(&quot;badge&quot;, &quot;badge-pending&quot;);</span>
-<span class="nc" id="L1183">            info.getChildren().add(flagged);</span>
+<span class="pc bpc" id="L1181" title="1 of 2 branches missed.">        if (r.isFlagged()) {</span>
+<span class="nc" id="L1182">            Label flagged = new Label(&quot;Flagged by seller&quot;);</span>
+<span class="nc" id="L1183">            flagged.getStyleClass().addAll(&quot;badge&quot;, &quot;badge-pending&quot;);</span>
+<span class="nc" id="L1184">            info.getChildren().add(flagged);</span>
         }
 
-<span class="pc bpc" id="L1186" title="1 of 2 branches missed.">        if (r.isHidden()) {</span>
-<span class="nc" id="L1187">            Label hidden = new Label(&quot;Hidden&quot;);</span>
-<span class="nc" id="L1188">            hidden.getStyleClass().addAll(&quot;badge&quot;, &quot;badge-rejected&quot;);</span>
-<span class="nc" id="L1189">            info.getChildren().add(hidden);</span>
+<span class="fc bfc" id="L1187" title="All 2 branches covered.">        if (r.isHidden()) {</span>
+<span class="fc" id="L1188">            Label hidden = new Label(&quot;Hidden&quot;);</span>
+<span class="fc" id="L1189">            hidden.getStyleClass().addAll(&quot;badge&quot;, &quot;badge-rejected&quot;);</span>
+<span class="fc" id="L1190">            info.getChildren().add(hidden);</span>
         }
-<span class="fc" id="L1191">        row.getChildren().add(info);</span>
+<span class="fc" id="L1192">        row.getChildren().add(info);</span>
 
-<span class="pc bpc" id="L1193" title="1 of 2 branches missed.">        if (!r.isHidden()) {</span>
-<span class="fc" id="L1194">            Button hide = new Button(&quot;Hide&quot;);</span>
-<span class="fc" id="L1195">            hide.getStyleClass().addAll(&quot;btn-danger&quot;, &quot;btn-sm&quot;);</span>
-<span class="fc" id="L1196">            hide.setOnAction(e -&gt; {</span>
-<span class="nc" id="L1197">                Optional&lt;String&gt; reason = Dialogs.askReason(&quot;Hide review&quot;, &quot;Why is this review hidden? Both the buyer and the seller will be told.&quot;);</span>
-<span class="nc bnc" id="L1198" title="All 2 branches missed.">                if (reason.isEmpty()) return;</span>
+<span class="fc bfc" id="L1194" title="All 2 branches covered.">        if (!r.isHidden()) {</span>
+<span class="fc" id="L1195">            Button hide = new Button(&quot;Hide&quot;);</span>
+<span class="fc" id="L1196">            hide.getStyleClass().addAll(&quot;btn-danger&quot;, &quot;btn-sm&quot;);</span>
+<span class="fc" id="L1197">            hide.setOnAction(e -&gt; {</span>
+<span class="fc" id="L1198">                Optional&lt;String&gt; reason = Dialogs.askReason(&quot;Hide review&quot;, &quot;Why is this review hidden? Both the buyer and the seller will be told.&quot;);</span>
+<span class="pc bpc" id="L1199" title="1 of 2 branches missed.">                if (reason.isEmpty()) return;</span>
                 try {
-<span class="nc" id="L1200">                    reputationService.hideReview(r.getId(), reason.get());</span>
-<span class="nc" id="L1201">                    Dialogs.info(&quot;Review hidden&quot;, &quot;The buyer and the seller have been notified.&quot;);</span>
-<span class="nc" id="L1202">                } catch (ServiceException ex) {</span>
-<span class="nc" id="L1203">                    Dialogs.problem(ex);</span>
-<span class="nc" id="L1204">                }</span>
-<span class="nc" id="L1205">                reload.run();</span>
-<span class="nc" id="L1206">            });</span>
-<span class="fc" id="L1207">            row.getChildren().add(hide);</span>
+<span class="fc" id="L1201">                    reputationService.hideReview(r.getId(), reason.get());</span>
+<span class="fc" id="L1202">                    Dialogs.info(&quot;Review hidden&quot;, &quot;The buyer and the seller have been notified.&quot;);</span>
+<span class="nc" id="L1203">                } catch (ServiceException ex) {</span>
+<span class="nc" id="L1204">                    Dialogs.problem(ex);</span>
+<span class="fc" id="L1205">                }</span>
+<span class="fc" id="L1206">                reload.run();</span>
+<span class="fc" id="L1207">            });</span>
+<span class="fc" id="L1208">            row.getChildren().add(hide);</span>
         }
-<span class="fc" id="L1209">        return row;</span>
+<span class="fc" id="L1210">        return row;</span>
     }
 
     // ==========================================
@@ -1214,20 +1215,20 @@ import java.util.stream.Collectors;
     // ==========================================
     @FXML
     private void showNotifications() {
-<span class="fc" id="L1217">        setActive(btnNotifications, &quot;Notification Board&quot;);</span>
-<span class="fc" id="L1218">        show(&quot;Notification Board&quot;, new NotificationBoard(new NotificationService()));</span>
-<span class="fc" id="L1219">    }</span>
+<span class="fc" id="L1218">        setActive(btnNotifications, &quot;Notification Board&quot;);</span>
+<span class="fc" id="L1219">        show(&quot;Notification Board&quot;, new NotificationBoard(new NotificationService()));</span>
+<span class="fc" id="L1220">    }</span>
 
     @FXML
     private void showProfile() {
-<span class="fc" id="L1223">        setActive(btnProfile, &quot;Manage Profile&quot;);</span>
-<span class="fc" id="L1224">        show(&quot;Manage Profile&quot;, new ProfileView(new ProfileService(), this::showGreeting));</span>
-<span class="fc" id="L1225">    }</span>
+<span class="fc" id="L1224">        setActive(btnProfile, &quot;Manage Profile&quot;);</span>
+<span class="fc" id="L1225">        show(&quot;Manage Profile&quot;, new ProfileView(new ProfileService(), this::showGreeting));</span>
+<span class="fc" id="L1226">    }</span>
 
     @FXML
     private void logout() {
-<span class="nc" id="L1229">        SessionManager.logout();</span>
-<span class="nc" id="L1230">        SceneManager.showWelcome();</span>
-<span class="nc" id="L1231">    }</span>
+<span class="nc" id="L1230">        SessionManager.logout();</span>
+<span class="nc" id="L1231">        SceneManager.showWelcome();</span>
+<span class="nc" id="L1232">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

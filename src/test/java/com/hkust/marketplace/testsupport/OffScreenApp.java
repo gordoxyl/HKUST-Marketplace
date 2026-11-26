@@ -19,6 +19,8 @@ import javafx.scene.control.DatePicker;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Labeled;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.image.ImageView;
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.Assumptions;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -317,6 +320,86 @@ public final class OffScreenApp {
             TextInputControl input = field(root(), field, 0);
             return !input.isDisabled() && input.isEditable();
         });
+    }
+
+    /**
+     * The rows of the table shown, from the top, each with the texts of its columns from the left,
+     * such as {@code [Desk Lamp, Dee Seller, 26 Nov 2026, Bought, Completed]}.
+     */
+    public List<List<String>> tableRows() {
+        return read(() -> {
+            TableView<?> table = (TableView<?>) find(root(), Node.class, node -> node instanceof TableView);
+            List<List<String>> rows = new ArrayList<>();
+            for (int i = 0; i < table.getItems().size(); i++) {
+                List<String> row = new ArrayList<>();
+                for (TableColumn<?, ?> column : table.getColumns()) {
+                    row.add(String.valueOf(column.getCellData(i)));
+                }
+                rows.add(row);
+            }
+            return rows;
+        });
+    }
+
+    /** The items the drop-down list now showing this item offers, in its order, as shown. */
+    public List<String> choices(String shown) {
+        return read(() -> {
+            for (Node node : all(root())) {
+                if (node instanceof ComboBox<?> box && isShown(box) && shown.equals(shownChoice(box))) {
+                    return itemsOf(box);
+                }
+            }
+            throw new AssertionError("No drop-down list shows '" + shown + "'");
+        });
+    }
+
+    private static <T> String shownChoice(ComboBox<T> box) {
+        return box.getValue() == null ? null : box.getConverter().toString(box.getValue());
+    }
+
+    private static <T> List<String> itemsOf(ComboBox<T> box) {
+        return box.getItems().stream().map(item -> box.getConverter().toString(item)).toList();
+    }
+
+    /** True if the first button with this text can be pressed: it is shown and not disabled. */
+    public boolean canPress(String text) {
+        return read(() -> !find(root(), ButtonBase.class, button -> textOf(button).equals(text)).isDisabled());
+    }
+
+    /** True if the button with this text, on the innermost card that shows the card's text, can be pressed. */
+    public boolean canPress(String text, String cardText) {
+        return read(() -> !find(card(cardText), ButtonBase.class, button -> textOf(button).equals(text)).isDisabled());
+    }
+
+    /**
+     * The shown nodes with this style class, in the order the window shows them, each as its texts
+     * joined by " | ": for example the notifications on the board ("notif-item"), or the offers
+     * marked in Offers &amp; Requests ({@code Scrolling.JUMP_HIGHLIGHT}).
+     */
+    public List<String> styled(String styleClass) {
+        return read(() -> all(root()).stream()
+                .filter(node -> node.getStyleClass().contains(styleClass) && isShown(node))
+                .map(node -> String.join(" | ", texts(node)))
+                .toList());
+    }
+
+    /**
+     * True if the first text shown that contains this text is inside the visible part of the
+     * scroll pane it is in, or of the window: the user sees it without scrolling.
+     */
+    public boolean inView(String text) {
+        return read(() -> {
+            Node node = find(root(), Node.class, candidate -> textOf(candidate).contains(text));
+            Bounds onWindow = node.localToScene(node.getLayoutBounds());
+            Bounds area = areaShowing(node);
+            return onWindow.getMinY() >= area.getMinY() && onWindow.getMaxY() <= area.getMaxY();
+        });
+    }
+
+    /** The text of the sidebar button marked as the page now shown, such as "Offers &amp; Requests". */
+    public String activePage() {
+        return read(() -> textOf(find(root(), ButtonBase.class,
+                button -> button.getStyleClass().contains("sidebar-btn-active"))));
     }
 
     /** The titles of the cards shown (listings, deals, chats), in the order the window shows them. */
@@ -651,6 +734,15 @@ public final class OffScreenApp {
             return all(pane).stream().filter(OffScreenApp::isShown).anyMatch(node -> textOf(node).contains(text));
         }
 
+        /** The dialog's buttons as they read from left to right, such as {@code [Agree, Cancel]}. */
+        public List<String> buttons() {
+            return pane.getButtonTypes().stream()
+                    .map(pane::lookupButton)
+                    .sorted(Comparator.comparingDouble(button -> button.localToScene(button.getLayoutBounds()).getMinX()))
+                    .map(OffScreenApp::textOf)
+                    .toList();
+        }
+
         /** The hints of the dialog's empty text fields that are wider than their field, as {@link OffScreenApp#cutPrompts()}. */
         public List<String> cutPrompts() {
             return OffScreenApp.cutPrompts(pane);
@@ -694,10 +786,11 @@ public final class OffScreenApp {
         return button;
     }
 
-    /** The innermost card (a listing, a deal, a chat) that shows the text. */
+    /** The innermost card (a listing, a deal, a chat, an offer's row) that shows the text. */
     private Node card(String cardText) {
         List<Node> cards = all(root()).stream()
-                .filter(node -> node.getStyleClass().contains("card") || node.getStyleClass().contains("listing-card"))
+                .filter(node -> node.getStyleClass().contains("card") || node.getStyleClass().contains("listing-card")
+                        || node.getStyleClass().contains("offer-row"))
                 .filter(node -> isShown(node) && all(node).stream().anyMatch(inner -> textOf(inner).contains(cardText)))
                 .toList();
         return cards.stream()

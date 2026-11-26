@@ -364,9 +364,9 @@ import java.util.Optional;
 
     /** The link to Offers &amp;amp; Requests while the chat has open offers ({@code waiting} of them). */
     private void addSellerActions(int waiting) {
-<span class="pc bpc" id="L367" title="1 of 4 branches missed.">        if (respondToOffers != null &amp;&amp; waiting &gt; 0) {</span>
+<span class="fc bfc" id="L367" title="All 4 branches covered.">        if (respondToOffers != null &amp;&amp; waiting &gt; 0) {</span>
 <span class="fc" id="L368">            dealActions.getChildren().add(actionButton(ChatText.respondButton(waiting),</span>
-<span class="nc" id="L369">                    () -&gt; respondToOffers.respond(conversation.offersToActOn())));</span>
+<span class="fc" id="L369">                    () -&gt; respondToOffers.respond(conversation.offersToActOn())));</span>
         }
 <span class="fc" id="L371">    }</span>
 

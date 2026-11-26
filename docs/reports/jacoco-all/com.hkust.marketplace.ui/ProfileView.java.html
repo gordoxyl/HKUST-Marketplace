@@ -85,7 +85,7 @@ public class ProfileView extends ScrollPane {
 <span class="fc" id="L85">        TextArea bio = null;</span>
 <span class="fc" id="L86">        List&lt;CheckBox&gt; locations = new ArrayList&lt;&gt;();</span>
 <span class="fc bfc" id="L87" title="All 2 branches covered.">        if (user instanceof Seller seller) {</span>
-<span class="pc bpc" id="L88" title="1 of 2 branches missed.">            bio = new TextArea(seller.getBio() == null ? &quot;&quot; : seller.getBio());</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">            bio = new TextArea(seller.getBio() == null ? &quot;&quot; : seller.getBio());</span>
 <span class="fc" id="L89">            bio.setPrefRowCount(3);</span>
 <span class="fc" id="L90">            bio.setWrapText(true);</span>
 <span class="fc" id="L91">            FlowPane choices = new FlowPane(12, 6);</span>
@@ -107,20 +107,20 @@ public class ProfileView extends ScrollPane {
 <span class="fc" id="L107">        cancel.setOnAction(e -&gt; fill()); // A4: keep the profile as it was</span>
 <span class="fc" id="L108">        TextArea bioField = bio;</span>
 <span class="fc" id="L109">        save.setOnAction(e -&gt; save(user, fullName.getText(), newPassword.getText(), confirm.getText(),</span>
-<span class="pc bpc" id="L110" title="1 of 2 branches missed.">                bioField == null ? null : bioField.getText(), locations));</span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">                bioField == null ? null : bioField.getText(), locations));</span>
 <span class="fc" id="L111">        form.getChildren().add(new HBox(10, save, cancel));</span>
 <span class="fc" id="L112">    }</span>
 
     private void save(User user, String fullName, String newPassword, String confirm,
                       String bio, List&lt;CheckBox&gt; locationBoxes) {
         try {
-<span class="pc bpc" id="L117" title="1 of 2 branches missed.">            if (user instanceof Seller) {</span>
-<span class="nc" id="L118">                List&lt;MeetupLocation&gt; chosen = locationBoxes.stream()</span>
-<span class="nc" id="L119">                        .filter(CheckBox::isSelected)</span>
-<span class="nc" id="L120">                        .map(box -&gt; (MeetupLocation) box.getUserData())</span>
-<span class="nc" id="L121">                        .toList();</span>
-<span class="nc" id="L122">                service.updateSellerProfile(fullName, newPassword, confirm, bio, chosen);</span>
-<span class="nc" id="L123">            } else {</span>
+<span class="fc bfc" id="L117" title="All 2 branches covered.">            if (user instanceof Seller) {</span>
+<span class="fc" id="L118">                List&lt;MeetupLocation&gt; chosen = locationBoxes.stream()</span>
+<span class="fc" id="L119">                        .filter(CheckBox::isSelected)</span>
+<span class="fc" id="L120">                        .map(box -&gt; (MeetupLocation) box.getUserData())</span>
+<span class="fc" id="L121">                        .toList();</span>
+<span class="fc" id="L122">                service.updateSellerProfile(fullName, newPassword, confirm, bio, chosen);</span>
+<span class="fc" id="L123">            } else {</span>
 <span class="fc" id="L124">                service.updateProfile(fullName, newPassword, confirm);</span>
             }
 <span class="fc" id="L126">        } catch (ServiceException e) {</span>

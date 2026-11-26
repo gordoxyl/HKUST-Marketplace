@@ -305,6 +305,17 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 - **Fix:** each label and its box are one item (`labelled(...)`, as the buyer's Browse filters do with `group(...)`), so the bar wraps between filters, never inside one. The new `OffScreenApp.onOneLine(label, field)` checks it.
 - **Test:** `AdminListingScreensTest.manageUsers_eachFilterLabelStaysBesideItsBox`
 
+## R26: The admin's All Deals table cut long titles, names and dates short
+
+- **Area / owner:** Admin (`AdminDashboardController`, All Deals), Jack's.
+- **Found:** 2026-11-26, when a full build ran the screen tests in another order: `PortalScreensTest.adminPortal_everyPageOpens` ran after the buyer's screen tests had added their deals, and found `{All Deals=[Deal Complete Kettle, Deal Refused Blender]}` cut. **Fixed:** 2026-11-26.
+- **Input:** at the app's window size (1200 × 780), as `admin`, All Deals with 15 accepted deals whose titles are as long as "Vintage Mechanical Keyboard With Extra Keycaps 15".
+- **Correct output:** every title, name, date and status, and every column heading, in full; when the columns need more room than the window has, the table scrolls sideways.
+- **Output before the fix:** the test got the cut texts `[Deal type, Vintage Mechanical Keyboard With Extra Keycaps 15, r26buyer15, r26seller, 26 Nov 2026 …, In progress, …]` instead of `[]`.
+- **Cause:** the table squeezed its eight columns into the window's width (`CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN`), so long content made every column narrower than its text. With the demo data it fitted, which is why only a run with more deals showed it.
+- **Fix:** each column keeps the width its texts need (`UNCONSTRAINED_RESIZE_POLICY`), and the table scrolls sideways when they do not fit.
+- **Test:** `AdminListingScreensTest.allDeals_withManyDealsAndLongTitles_cutsNoText`
+
 ---
 
 ## Tooling notes (not code bugs, so no test)

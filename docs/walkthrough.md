@@ -57,8 +57,7 @@ Demo accounts: buyers `alice` and `bob`; sellers `charlie` and `diana` (password
 ### 1.4 Buyer login (UC2)
 
 - **Input:** on the buyer login, username `alice` and password `Demo@1234`. Login.
-- **Output:** the buyer portal opens on Browse Marketplace (next step). Under the form, the login screen shows the
-  demo credentials.
+- **Output:** the buyer portal opens on Browse Marketplace (next step).
 - **Checked by:** `BuyerAccountScreensTest`, `AuthServiceTest`.
 
 ![Buyer login form filled in](screenshots/walkthrough/04-buyer-login.png)

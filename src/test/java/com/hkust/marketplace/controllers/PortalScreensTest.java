@@ -8,6 +8,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -86,6 +87,39 @@ class PortalScreensTest {
 
         assertEquals(LoginResult.WRONG_ACCOUNT_TYPE.getMessage(), app.text("#errorLabel")); // UC2 A3
         assertFalse(SessionManager.isLoggedIn());
+    }
+
+    /**
+     * The card of every login and registration screen is in the middle of the window
+     * (regression log R19: the registration cards sat at the left edge).
+     */
+    @Test
+    void loginAndRegistrationCards_areCentred() {
+        Map<String, Double> offCentre = new LinkedHashMap<>();
+        for (String portal : List.of("Buyer", "Seller")) {
+            app.press("Enter as " + portal);
+            offCentre.put(portal + " login", app.offCentre("auth-pane"));
+            app.press("Register here");
+            offCentre.put(portal + " registration", app.offCentre("auth-pane"));
+            app.reset();
+        }
+        app.press("Enter as Admin");
+        offCentre.put("Admin login", app.offCentre("auth-pane"));
+
+        Map<String, Double> notCentred = new LinkedHashMap<>(offCentre);
+        notCentred.values().removeIf(pixels -> pixels <= 1);
+        assertEquals(Map.of(), notCentred, "pixels off centre");
+    }
+
+    /** No login screen shows a password: the demo accounts are listed in the README, not on the screens. */
+    @Test
+    void loginScreens_showNoPassword() {
+        for (String portal : List.of("Enter as Buyer", "Enter as Seller", "Enter as Admin")) {
+            app.press(portal);
+            assertFalse(app.shows(SeedData.DEMO_PASSWORD), portal);
+            assertFalse(app.shows(SeedData.ADMIN_PASSWORD), portal);
+            app.reset();
+        }
     }
 
     @Test

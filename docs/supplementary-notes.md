@@ -92,7 +92,7 @@ UC12 asks for a timer that checks at least once a second. Ours checks every 0.5 
   test classes).
 - **Planted bugs**: for three use cases we planted deliberate bugs (three each) to check that the tests catch them.
   They all did.
-- **Regression log**: 16 bugs so far, each with its input, the wrong and the right output, and a test that failed
+- **Regression log**: 17 bugs so far, each with its input, the wrong and the right output, and a test that failed
   before the fix.
 - **173 acceptance scenarios** for system testing, written from the use cases.
 
@@ -215,7 +215,7 @@ partitions and boundary values for inputs (prices, borrow periods, dates), state
 basis-path tests for the longer methods, and thread tests for the actions that can collide. The tests run against a
 temporary data folder and a simulated clock, so they are fast and give the same result every time.
 
-**Regression and acceptance testing.** The regression log records 16 bugs, each with the input that reproduces it,
+**Regression and acceptance testing.** The regression log records 17 bugs, each with the input that reproduces it,
 the wrong and the right output, and the test that failed before the fix. The 173 acceptance scenarios cover each use
 case's basic flow, each alternative flow and each special requirement that a user can see; their results are
 recorded in the scenarios' Result column.

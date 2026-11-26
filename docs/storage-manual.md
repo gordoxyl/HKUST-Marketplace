@@ -678,7 +678,7 @@ The screens make their services with the no-argument constructors, so they use t
 
 - `testsupport.TestDataFolder` sets `marketplace.dataFolder` before the first test. JUnit starts it in IntelliJ and in Maven alike, because `src/test/resources/META-INF/services/org.junit.platform.launcher.LauncherSessionListener` names it (this needs the test dependency `junit-platform-launcher`).
 - `OffScreenApp.start()` refuses to run if the property is not set.
-- All screen tests of a run share that store, so a screen test must not depend on what another one changed. A test that changes data adds accounts and listings of its own with `testsupport.ScreenData`, under names no other test uses. `ScreenData` changes the data through the model's events and `DealRules`, as the app does, and never logs anyone in.
+- All screen tests of a run share that store, so a screen test must not depend on what another one changed. A test that changes data adds accounts and listings of its own with `testsupport.ScreenData`, under names no other test uses: `ScreenData.buyer` and `seller` fail if the username is already taken (regression log T6). `ScreenData` changes the data through the model's events and `DealRules`, as the app does, and never logs anyone in.
 - A dialog is answered as the test says, for example `app.answer("Make Offer", form -> form.type("such as 150 or 99.50", "150").press("Submit"))`, or else with Cancel (or its only button).
 
 ```java

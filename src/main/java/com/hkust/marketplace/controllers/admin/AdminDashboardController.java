@@ -43,7 +43,7 @@ public class AdminDashboardController implements ContentHost {
     private static final double COL_ACTIONS_MIN = 100;
     private static final double COL_RETURN_DATE_MIN = 160;
 
-    // 3.6: Kept to preserve filters when backing out
+    /** The All Listings screen as last shown, so that going back to it keeps its filters. */
     private Node allListingsScreen;
 
     @FXML
@@ -256,18 +256,21 @@ public class AdminDashboardController implements ContentHost {
 
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
-        allListingsScreen = scroll; // 3.6: Save the screen state
+        allListingsScreen = scroll;
         contentPane.getChildren().add(scroll);
     }
 
-    // 3.6: Return keeping filters
+    /** Back to All Listings as last shown, with its filters, and with its results brought up to date. */
     private void returnToAllListings() {
         setActive(btnAllListings, "All Listings");
         listingsReload.run();
         show("All Listings", allListingsScreen);
     }
 
-    // 3.4: Unified confirm and remove
+    /**
+     * Removes the listing once the admin confirms and gives the reason (Task 3.7); the seller and
+     * the buyers with open offers are told. Then runs {@code after}, unless the admin cancelled.
+     */
     private void confirmAndRemove(Listing l, Runnable after) {
         if (!Dialogs.confirm("Remove listing", "Remove '" + l.getTitle() + "'? Open offers will be declined and the buyers notified.")) return;
         Optional<String> reason = Dialogs.askReason("Remove listing", "Why is '" + l.getTitle() + "' removed?");
@@ -306,11 +309,11 @@ public class AdminDashboardController implements ContentHost {
             VBox detailLayout = new VBox(16);
             detailLayout.setPadding(new Insets(10));
 
-            // 3.1: Use shared ListingOverview
+            // The full listing details, shown as in every portal (Manage Marketplace Listings 5.1)
             DataStore store = DataStore.getInstance();
             ListingOverview overview = new ListingOverview(ListingSummary.of(d.listing(), UserRole.ADMIN, store), store);
 
-            // 3. Reports
+            // Reports
             VBox reportsBox = new VBox(10);
             reportsBox.getStyleClass().add("card");
             reportsBox.setPadding(new Insets(14));
@@ -329,24 +332,21 @@ public class AdminDashboardController implements ContentHost {
                 }
             }
 
-            // 4. Actions
+            // Actions
             Button editBtn = new Button("Edit");
             editBtn.getStyleClass().add("btn-primary");
             editBtn.setOnAction(e -> showListingForm(l));
 
             Button removeBtn = new Button("Remove");
             removeBtn.getStyleClass().add("btn-danger");
-            // 3.4 & 3.6
             removeBtn.setOnAction(e -> confirmAndRemove(l, this::returnToAllListings));
 
             HBox actions = new HBox(10, editBtn, removeBtn);
 
-            // 3.1: Add overview instead of the manual fields
             detailLayout.getChildren().addAll(overview, reportsBox, actions);
 
             ScrollPane scroll = new ScrollPane(detailLayout);
             scroll.setFitToWidth(true);
-            // 3.6: Back button uses returnToAllListings
             show("Listing Details", new SubScreen("Back to All Listings", this::returnToAllListings, scroll));
 
         } catch (ServiceException ex) {
@@ -419,8 +419,8 @@ public class AdminDashboardController implements ContentHost {
 
         if (!adding) {
             categoryBox.setValue(existing.getCategory());
+            conditionBox.setValue(existing.getCondition());
             locationBox.setValue(existing.getMeetupLocation());
-            // 3.5: Amounts.plain instead of String.valueOf
             if (existing instanceof SaleListing s) priceField.setText(Amounts.plain(s.getPrice()));
             if (existing instanceof LendListing l) {
                 durationField.setPromptText("Leave empty to keep " + Formats.duration(l.getLendingDuration()));
@@ -429,20 +429,21 @@ public class AdminDashboardController implements ContentHost {
 
         if (adding) {
             form.getChildren().addAll(new Label("Seller username *"), sellerField, new Label("Listing type *"), typeBox);
+            enableFieldsForType(typeBox.getValue(), priceField, durationField, unitBox);
+            typeBox.valueProperty().addListener((observable, oldType, newType) ->
+                    enableFieldsForType(newType, priceField, durationField, unitBox));
         }
 
-        // 3.3: Condition only when adding
         form.getChildren().addAll(new Label("Title *"), titleField, new Label("Description"), descArea,
-                new Label("Category *"), categoryBox);
-        if (adding) {
-            form.getChildren().addAll(new Label("Condition *"), conditionBox);
-        }
-        form.getChildren().addAll(new Label("Meet-up location *"), locationBox);
+                new Label("Category *"), categoryBox, new Label("Condition *"), conditionBox,
+                new Label("Meet-up location *"), locationBox);
 
         boolean showPrice = adding || existing instanceof SaleListing;
         boolean showDuration = adding || existing instanceof LendListing;
         if (showPrice) form.getChildren().addAll(new Label("Price (Sell only)"), priceField);
-        if (showDuration) form.getChildren().addAll(new Label("Lending duration (Lend only)"), new HBox(8, durationField, unitBox));
+        HBox durationRow = new HBox(8, durationField, unitBox);
+        HBox.setHgrow(durationField, Priority.ALWAYS); // wide enough for its hint, such as "Leave empty to keep 1 day 12 hours"
+        if (showDuration) form.getChildren().addAll(new Label("Lending duration (Lend only)"), durationRow);
 
         form.getChildren().addAll(new Label("Photos (optional)"), photoBox);
 
@@ -450,7 +451,6 @@ public class AdminDashboardController implements ContentHost {
         saveBtn.getStyleClass().add("btn-gold");
         Button cancelBtn = new Button("Cancel");
         cancelBtn.getStyleClass().add("btn-outline");
-        // 3.6: Use returnToAllListings
         cancelBtn.setOnAction(e -> returnToAllListings());
 
         saveBtn.setOnAction(e -> {
@@ -484,10 +484,10 @@ public class AdminDashboardController implements ContentHost {
                     Dialogs.info("Listing added", "The listing is Live and the seller has been notified.");
                 } else {
                     listingService.editListing(existing.getId(), titleField.getText(), descArea.getText(),
-                            categoryBox.getValue(), locationBox.getValue(), price, duration, photoIds);
+                            categoryBox.getValue(), conditionBox.getValue(), locationBox.getValue(),
+                            price, duration, photoIds);
                     Dialogs.info("Listing updated", "The seller has been notified.");
                 }
-                // 3.6: Use returnToAllListings
                 returnToAllListings();
             } catch (ServiceException ex) {
                 Dialogs.problem(ex); // Keep form intact on error
@@ -498,8 +498,23 @@ public class AdminDashboardController implements ContentHost {
 
         ScrollPane scroll = new ScrollPane(form);
         scroll.setFitToWidth(true);
-        // 3.6: Back button uses returnToAllListings
         show(adding ? "Add Listing" : "Edit Listing", new SubScreen("Back to All Listings", this::returnToAllListings, scroll));
+    }
+
+    /**
+     * Add listing takes the fields of the seller's Create Listing (Task 3.7, Task 2.3): a price only
+     * for Sell and a lending duration only for Lend. The field that does not apply is disabled and
+     * emptied; both are disabled until a type is chosen.
+     */
+    private static void enableFieldsForType(ListingType type, TextField priceField, TextField durationField,
+                                            ComboBox<String> unitBox) {
+        boolean sell = type == ListingType.SELL;
+        boolean lend = type == ListingType.LEND;
+        priceField.setDisable(!sell);
+        durationField.setDisable(!lend);
+        unitBox.setDisable(!lend);
+        if (!sell) priceField.clear();
+        if (!lend) durationField.clear();
     }
 
     // ==========================================
@@ -522,7 +537,7 @@ public class AdminDashboardController implements ContentHost {
 
         TextField searchField = new TextField();
         searchField.setPromptText("Search username or name...");
-        searchField.setPrefWidth(200);
+        searchField.setPrefColumnCount(18); // wide enough for the whole hint, and wider with a bigger font
 
         ComboBox<String> roleBox = new ComboBox<>();
         roleBox.getItems().addAll("All roles", "Buyer", "Seller");
@@ -608,7 +623,6 @@ public class AdminDashboardController implements ContentHost {
         Label name = new Label(u.getFullName() + " (@" + u.getUsername() + ")");
         name.getStyleClass().add("section-title");
 
-        // 3.2: Role names from UserRole
         String roleStr = u.getRole().getDisplayName();
         Label meta = new Label(roleStr + " · Registered " + Formats.date(u.getCreatedAt()));
         meta.getStyleClass().add("text-muted");
@@ -693,7 +707,6 @@ public class AdminDashboardController implements ContentHost {
             VBox personal = new VBox(6);
             personal.getStyleClass().add("card");
             personal.setPadding(new Insets(14));
-            // 3.2: Role names from UserRole
             personal.getChildren().addAll(
                     new Label("Full name: " + details.user().getFullName()),
                     new Label("Role: " + details.user().getRole().getDisplayName()),
@@ -828,7 +841,7 @@ public class AdminDashboardController implements ContentHost {
         table.getColumns().add(column("Item title", r -> r.listing().getTitle()));
         table.getColumns().add(column("Buyer", DealRecord::buyerUsername));
         table.getColumns().add(column("Seller", DealRecord::sellerUsername));
-        table.getColumns().add(column("Deal type", r -> dealTypeName(r.dealType())));
+        table.getColumns().add(column("Deal type", r -> r.dealType().getDisplayName()));
         table.getColumns().add(column("Start date", r -> Formats.dateTime(r.startDate())));
 
         TableColumn<DealRecord, String> returnCol = column("Return/Complete date", r -> Formats.dateTime(r.completedDate()));
@@ -920,10 +933,6 @@ public class AdminDashboardController implements ContentHost {
         return col;
     }
 
-    private static String dealTypeName(ListingType type) {
-        return type.getDisplayName(); // Fix: now matches Sell/Lend/Giveaway instead of Sale/Loan
-    }
-
     private void showDealDetails(DealRecord record) {
         try {
             DealDetails d = dealService.getDealDetails(record.offer().getId());
@@ -943,7 +952,7 @@ public class AdminDashboardController implements ContentHost {
                     d.listing().getTitle() + " · " + d.listing().getCategory() + " · " + d.listing().getCondition() +
                             "\nMeet-up: " + d.listing().getMeetupLocation());
 
-            String txDetails = "Type: " + dealTypeName(d.dealType()) + "\n" +
+            String txDetails = "Type: " + d.dealType().getDisplayName() + "\n" +
                     (d.amount() != null ? "Amount: " + Formats.price(d.amount()) + "\n" : "") +
                     (d.borrowStart() != null ? "Borrow period: " + Formats.period(d.borrowStart(), d.borrowEnd()) + "\n" : "") +
                     "Start: " + Formats.dateTime(d.startDate()) + "\n" +
@@ -1146,6 +1155,13 @@ public class AdminDashboardController implements ContentHost {
         comment.setWrapText(true);
         comment.getStyleClass().add("text-muted");
         info.getChildren().addAll(head, comment);
+        ReviewText.reply(r).ifPresent(reply -> {
+            Label replyLabel = new Label(reply); // Manage Reviews 3.1.5: the reply shows wherever the review does
+            replyLabel.setWrapText(true);
+            replyLabel.setMinHeight(Region.USE_PREF_SIZE); // a long reply wraps instead of being cut short
+            replyLabel.getStyleClass().add("listing-card-line");
+            info.getChildren().add(replyLabel);
+        });
 
         if (r.isFlagged()) {
             Label flagged = new Label("Flagged by seller");

@@ -195,7 +195,7 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 ## R16: Editing a lend listing, the duration's hint showed whole days again
 
 - **Area / owner:** Admin (`AdminDashboardController`, Edit listing), Jack's. A regression of R14's fix, from PR #24 (83e9b52).
-- **Found:** 2026-11-25, in Gordon's review of 83e9b52 (through the screens, off screen). **Fixed:** 2026-11-26, c1f7835.
+- **Found:** 2026-11-25, in Gordon's review of 83e9b52 (through the screens, off screen). **Fixed:** 2026-11-26 (51a26e7).
 - **Input:** as `admin`, All Listings → Edit on a Lend listing whose duration is 36 hours (or 10 seconds).
 - **Correct output:** the duration box is empty and its hint reads "Leave empty to keep 1 day 12 hours" ("Leave empty to keep 10 seconds"); Save without typing keeps the duration.
 - **Output before the fix:** the hint read "e.g. 1" ("e.g. 0"). Typing what it suggests, "1", and Save turned 36 hours into 1 day: R14's outcome.
@@ -205,7 +205,7 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 ## R17: The duration's unit read "…" on Add and Edit listing
 
 - **Area / owner:** Admin (`AdminDashboardController`, Add / Edit listing), Jack's. From PR #24 (83e9b52).
-- **Found:** 2026-11-25, in Gordon's review of 83e9b52 (a picture of the screen, and `OffScreenApp.cutTexts()`). **Fixed:** 2026-11-26, c1f7835.
+- **Found:** 2026-11-25, in Gordon's review of 83e9b52 (a picture of the screen, and `OffScreenApp.cutTexts()`). **Fixed:** 2026-11-26 (51a26e7).
 - **Input:** at the app's window size (1200 × 780), as `admin`, All Listings → + Add Listing, or Edit on a Lend listing.
 - **Correct output:** the unit box reads "days".
 - **Output before the fix:** it read "…"; the test got the cut texts `[days]` instead of `[]`.
@@ -236,6 +236,41 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 - **Cause:** the 460-pixel width limit sat on the scroll pane's content instead of on the card. A scroll pane puts its content at the top left, so the 460-pixel content stayed there.
 - **Fix:** the scroll pane's content now fills it (`fitToWidth`, `fitToHeight`) and centres the card, which keeps the 460-pixel limit itself. The content's `minHeight` is USE_PREF_SIZE, so a short window still scrolls the form instead of squeezing it (`BuyerRegisterView.fxml`, `SellerRegisterView.fxml`).
 - **Test:** `PortalScreensTest.loginAndRegistrationCards_areCentred` (it measures with `OffScreenApp.offCentre`)
+
+---
+
+## R20: Editing a lend listing, the duration's hint was cut to "Leave empty to keep 1 da"
+
+- **Area / owner:** Admin (`AdminDashboardController`, Edit listing), Jack's. Left over from R16's fix (51a26e7), which made the hint name the duration.
+- **Found:** 2026-11-26, in Gordon's review of 51a26e7 (a picture of the Edit form). **Fixed:** 2026-11-26.
+- **Input:** at the app's window size (1200 × 780), as `admin`, All Listings → Edit on a Lend listing whose duration is 36 hours.
+- **Correct output:** the empty duration box shows its whole hint, "Leave empty to keep 1 day 12 hours", beside the unit box.
+- **Output before the fix:** it showed "Leave empty to keep 1 da", so the duration itself could not be read. Reproduced off screen: the test got the cut hints `[Leave empty to keep 1 day 12 hours]` instead of `[]`.
+- **Cause:** the box kept a text field's default width, about 12 characters, because its row gave it no more room. A text field cuts its hint off at its edge without "…", so R17's check (`OffScreenApp.cutTexts()`, which reads labels and buttons) could not see it.
+- **Fix:** the box takes the row's free width (`HBox.setHgrow(durationField, Priority.ALWAYS)`). The new `OffScreenApp.cutPrompts()` finds the hints of empty text fields that are wider than their field.
+- **Test:** `AdminListingScreensTest.editingALendListing_namesItsDuration_cutsNoText_andKeepsIt` (it now also checks `cutPrompts()`)
+
+## R21: The admin's review rows left out the seller's reply
+
+- **Area / owner:** Admin (`AdminDashboardController`, Seller Ratings → View Reviews), Jack's.
+- **Found:** 2026-11-26, in Gordon's review of 51a26e7 (through the screens, off screen). **Fixed:** 2026-11-26.
+- **Input:** a completed deal whose buyer reviewed it with "Nice mug" and whose seller replied "Thanks for buying!"; as `admin`, Seller Ratings → View Reviews on that seller.
+- **Correct output:** under the comment, "Seller's reply: Thanks for buying!", as on the buyer's screens (the seller's own page shows "Your reply: …"). Spec, Manage Reviews 3.1.5: the reply is shown wherever the review is displayed.
+- **Output before the fix:** only the stars, the writer, the item, the deal's date and the comment; the test found no "Seller's reply: Thanks for buying!" on the screen.
+- **Cause:** the admin's review row was written without the reply, and it does not use the shared `ReviewList`, which shows it.
+- **Fix:** the row adds the shared `ReviewText.reply(review)` under the comment, in the buyer's style (`listing-card-line`), wrapping a long reply instead of cutting it.
+- **Test:** `AdminRatingsScreensTest.aReviewWithAReply_showsTheSellersReplyUnderTheComment`
+
+## R22: The admin's user search box was too narrow for its hint
+
+- **Area / owner:** Admin (`AdminDashboardController`, Manage Users), Jack's.
+- **Found:** 2026-11-26, by R20's new check of hints, once the check of every page used it too (`PortalScreensTest`). **Fixed:** 2026-11-26.
+- **Input:** at the app's window size (1200 × 780), as `admin`, open Manage Users.
+- **Correct output:** the empty search box shows its whole hint, "Search username or name...", with room to spare.
+- **Output before the fix:** the hint needed 169.7 px and the box had 169 px inside its padding: at the app's font (Segoe UI, 14 px) the last dot reached the box's edge, and a wider font, as on another system, cuts the hint. The test got `{Manage Users=[Search username or name...]}` instead of `{}`.
+- **Cause:** a fixed width, `setPrefWidth(200)`, chosen without the app's font and padding, as with R17's `setPrefWidth(100)`.
+- **Fix:** the width is given in characters (`setPrefColumnCount(18)`), so it grows with the font; the hint now has 65 px to spare.
+- **Test:** `PortalScreensTest.adminPortal_everyPageOpens`, which checks every page of the admin portal with `OffScreenApp.cutTextsOnEveryPage()`; that method now looks at hints as well (`cutPrompts()`), on every page of the three portals.
 
 ---
 
@@ -281,6 +316,14 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 - **Cause:** files created or changed outside IntelliJ while it was open were left out of its project index. `idea.log` showed `ProjectIndexableFilesFilterHealthCheck - Following files are indexable but they were NOT found in filter. Errors count: 9`, naming the 9 new files. Maven built every commit from a clean copy, and all tests passed.
 - **Fix:** File > Repair IDE (or Invalidate Caches > Invalidate and Restart). The errors were gone afterwards. A restart alone does not fix it.
 - **Avoid:** after files are added outside the IDE, run File > Reload All from Disk (Ctrl+Alt+Y) before committing. If the commit check shows "cannot resolve" while `mvnw clean verify` passes, check `idea.log` before changing any code.
+
+### T6: Two screen tests shared one account without knowing it
+
+- **Area:** tests (`testsupport/ScreenData`, Gordon's); seen between the admin's and the seller's screen tests.
+- **Found:** 2026-11-26, in Gordon's trial merge of `main` with SellerDev 3a9194a and Jack's 51a26e7: `SellerScreensTest.theDot_showsAtLogin_onEveryPage_andMarkAllAsReadRemovesIt` expected 1 on the dot and got 2, though each class passed on its own.
+- **What happened:** `AdminListingScreensTest` and `SellerScreensTest` both created the seller `dotseller`. All screen tests of a run share one store, and `ScreenData.seller` kept the account that already existed (`DataStore.addUser` returns false for a taken username). So the seller's test found the notice that the admin's test had sent to that account, as an admin's edit of an account does.
+- **Cause:** each test was meant to name its accounts in a way no other test does, but nothing checked it.
+- **Prevention:** `ScreenData.buyer` and `ScreenData.seller` now fail at once on a taken username, and name it: "The username 'dotseller' is already taken in this run's store: give the test an account of its own". The admin's test now uses `admindotseller`. Every account the screen tests create has a name of its own (73 made with `ScreenData`, and `regbuyer` registered through the screen; checked on 26 Nov).
 
 ### Template for a new entry
 

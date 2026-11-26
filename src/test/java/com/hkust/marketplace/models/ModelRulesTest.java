@@ -179,10 +179,10 @@ class ModelRulesTest {
 
     @Test
     void listingActionRecord_requiresReasonForRejectTakedownAndRemove() {
-        assertDoesNotThrow(() -> new ListingActionRecord("L1", "com/hkust/marketplace/controllers/admin", ListingAction.APPROVE_LISTING, null));
+        assertDoesNotThrow(() -> new ListingActionRecord("L1", "admin", ListingAction.APPROVE_LISTING, null));
         for (ListingAction action : List.of(ListingAction.REJECT_LISTING, ListingAction.TAKEDOWN_LISTING,
                 ListingAction.REMOVE_LISTING)) {
-            assertThrows(IllegalArgumentException.class, () -> new ListingActionRecord("L1", "com/hkust/marketplace/controllers/admin", action, " "));
+            assertThrows(IllegalArgumentException.class, () -> new ListingActionRecord("L1", "admin", action, " "));
         }
     }
 

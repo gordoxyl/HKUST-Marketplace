@@ -306,7 +306,7 @@ class AccountDeletionTest {
         saved.loadOrSeed();
 
         DeletedAccount deleted = saved.deleteAccount("alice");
-        AuditLogEntry entry = saved.addAuditLogEntry(new AuditLogEntry("com/hkust/marketplace/controllers/admin", "alice", "Delete account",
+        AuditLogEntry entry = saved.addAuditLogEntry(new AuditLogEntry("admin", "alice", "Delete account",
                 "Requested by the user", deleted.snapshot())); // what the admin's Delete User does next
 
         DataStore restarted = new DataStore(clock, new EncryptedJsonStorage(file));

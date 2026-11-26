@@ -8,6 +8,7 @@ story through the three portals, starting from the demo data after a reset (`scr
 3. [Charlie, a seller](#3-seller-charlie), counters the offer, posts a new listing and replies to the review.
 4. [The admin](#4-admin) approves the listing and looks at the report, the users, the deals and the ratings.
 5. [Bob's borrowed item reaches its due date](#5-borrowing-deadlines-bob): the app reminds him, then returns it by itself.
+6. [Wrong input](#6-wrong-input-what-each-screen-answers): what each task answers to an invalid input, in the three portals.
 
 Each step gives the input, the output, and the acceptance scenarios in [acceptance-tests.md](acceptance-tests.md)
 that check the same behaviour in more detail. Later steps show the effects of earlier ones: Alice's offer reaches
@@ -389,3 +390,200 @@ and the open screen updates at once.
 - **Checked by:** AT-UC12-03 to AT-UC12-05, AT-UC10-08.
 
 ![Bob's My Deals with the auto-returned bike lock](screenshots/walkthrough/38-my-deals-auto-returned.png)
+
+---
+
+## 6. Wrong input: what each screen answers
+
+Each task refuses wrong input with a message that says what is wrong, and changes nothing. A form comes back with
+what was typed, so it can be corrected. These screenshots come from a second run of the capture script on fresh demo
+data, except those in 6.19, which were taken by hand in the running app at a larger window size.
+
+### 6.1 Login with a wrong password (UC2)
+
+- **Input:** Enter as Buyer; username `alice`, password `Wrong#123`; Login.
+- **Output:** "Incorrect username or password." under the fields; the login screen stays.
+- **Checked by:** `PortalScreensTest.wrongPassword_staysOnTheLoginScreen_andSaysWhy`.
+
+![Login refused with a wrong password](screenshots/walkthrough/39-login-wrong-password.png)
+
+### 6.2 A price range that is not one (UC8 A2)
+
+- **Input:** on Browse Marketplace, minimum `200` and maximum `100`; Search.
+- **Output:** "The price range is invalid. Enter amounts of HK$0 or more, with the minimum no greater than the
+  maximum." The listings shown before stay.
+- **Checked by:** AT-UC8-07.
+
+![The price range refused](screenshots/walkthrough/40-browse-price-range-refused.png)
+
+### 6.3 No listing matches (UC8 A1)
+
+- **Input:** keyword `unicorn`; Search.
+- **Output:** "No listings match. Try another keyword or fewer filters."
+- **Checked by:** AT-UC8-06.
+
+![No listing matches the search](screenshots/walkthrough/41-browse-no-match.png)
+
+### 6.4 A price that is not an amount (UC5 A2)
+
+- **Input:** on *MacBook Pro Charger 61W*, Make Offer with the price `abc`; Submit.
+- **Output:** "The price must be a positive amount, such as 150 or 99.50." Then the form comes back with `abc`.
+- **Checked by:** AT-UC5-05.
+
+![Make Offer with the price abc](screenshots/walkthrough/42-make-offer-wrong-price.png)
+
+![The price refused](screenshots/walkthrough/43-make-offer-price-refused.png)
+
+### 6.5 A borrow period that starts in the past (UC5 A3)
+
+- **Input:** on *Graphing Calculator TI-84*, Request Borrow with yesterday as the start date; Submit.
+- **Output:** "The borrow period cannot start in the past." The form comes back with the dates entered.
+- **Checked by:** AT-UC5-07.
+
+![Request Borrow starting yesterday](screenshots/walkthrough/44-borrow-start-in-the-past.png)
+
+![The period refused](screenshots/walkthrough/45-borrow-period-refused.png)
+
+### 6.6 An offer on a listing that is no longer available (UC5 A1)
+
+- **Input:** Chats, the chat about *Calculus Textbook (Stewart)*, which is Reserved; Make Offer.
+- **Output:** "This listing is no longer available." No form opens, and nothing is added to the chat.
+- **Checked by:** AT-UC5-04.
+
+![Make Offer refused on a reserved listing](screenshots/walkthrough/46-make-offer-unavailable.png)
+
+### 6.7 A report without a reason (UC9 A2)
+
+- **Input:** on the charger, Report Listing with details typed and no reason chosen; Submit Report.
+- **Output:** "Both a reason and details are required." The form comes back with the details still typed.
+- **Checked by:** AT-UC9-04.
+
+![Report Listing without a reason](screenshots/walkthrough/47-report-without-reason.png)
+
+![The report refused](screenshots/walkthrough/48-report-refused.png)
+
+### 6.8 A second report of the same listing (UC9 A1)
+
+- **Input:** after the report is submitted with a reason, Report Listing again on the charger.
+- **Output:** "You have already reported this listing." No form opens.
+- **Checked by:** AT-UC9-03.
+
+![A second report refused](screenshots/walkthrough/49-report-already-made.png)
+
+### 6.9 A review without stars (UC10 A2)
+
+- **Input:** My Deals, Mark Complete on the textbook, OK to the question; the review written but no stars chosen;
+  Submit Review.
+- **Output:** "A rating from 1 to 5 stars is required." The form comes back with the review still written.
+- **Checked by:** AT-UC10-04.
+
+![The review form without stars](screenshots/walkthrough/50-review-without-stars.png)
+
+![The review refused](screenshots/walkthrough/51-review-refused.png)
+
+### 6.10 A date range that ends before it starts (UC11 A2)
+
+- **Input:** Deal History, tomorrow as From and today as To.
+- **Output:** "The date range is invalid. Choose a start date on or before the end date." in red under the dates,
+  without a pop-up.
+- **Checked by:** AT-UC11-10.
+
+![Deal History with an invalid date range](screenshots/walkthrough/52-history-date-range-refused.png)
+
+### 6.11 Passwords that do not match (Manage Profile)
+
+- **Input:** My Profile, new password `Strong#789`, confirmation `Strong#780`; Save Changes.
+- **Output:** "The two passwords do not match." Nothing is saved, and the boxes keep what was typed.
+- **Checked by:** `BuyerAccountScreensTest.profile_invalidChanges_areRefused_andWhatWasTypedStays`.
+
+![The new passwords refused](screenshots/walkthrough/53-profile-passwords-differ.png)
+
+### 6.12 A listing price that is not a plain amount (Task 2.3 A2; regression log R18)
+
+- **Input:** as `charlie`, Create Listing: Sell, "Desk Fan", Furniture, Used, a description, the price `1e3`,
+  Library; Submit for Review.
+- **Output:** "The price must be a positive number, such as 180 or 99.50." Nothing is posted.
+- **Checked by:** AT-2.3-06.
+
+![Create Listing with the price 1e3](screenshots/walkthrough/54-create-listing-wrong-price.png)
+
+![The price refused](screenshots/walkthrough/55-create-listing-price-refused.png)
+
+### 6.13 A listing without a name (Task 2.3 A1)
+
+- **Input:** the same form with the name emptied and the price `150`; Submit for Review.
+- **Output:** "The item name cannot be empty."
+- **Checked by:** AT-2.3-05.
+
+![A listing without a name refused](screenshots/walkthrough/56-create-listing-name-missing.png)
+
+### 6.14 A counter price that is not an amount (Task 2.5 A4)
+
+- **Input:** Offers & Requests, Counter on Bob's offer for a *Study Lamp* that the script added; the price `abc`;
+  Send counter.
+- **Output:** "The counter price must be a positive amount, such as 150 or 99.50." The form comes back with `abc`.
+- **Checked by:** AT-2.5-04.
+
+![Counter with the price abc](screenshots/walkthrough/57-counter-wrong-price.png)
+
+![The counter refused](screenshots/walkthrough/58-counter-refused.png)
+
+### 6.15 An empty reply (Task 2.9 A3)
+
+- **Input:** Reviews & Feedback, Reply on Bob's review; Send reply with the box empty.
+- **Output:** "The reply cannot be empty." The form comes back.
+- **Checked by:** AT-2.9-04.
+
+![An empty reply refused](screenshots/walkthrough/59-reply-empty-refused.png)
+
+### 6.16 The admin adds a listing without a condition (Task 3.7 A1)
+
+- **Input:** as `admin`, All Listings, + Add Listing: seller `diana`, Sell, "Study Desk", Furniture, Library, the price
+  `300`, no condition; Save.
+- **Output:** "The item condition is required." Nothing is added, and the form keeps what was typed.
+- **Checked by:** `AdminListingServiceTest.manageMarketplaceListings_A1_nullCondition_isRefused`.
+
+![Add Listing without a condition](screenshots/walkthrough/60-admin-add-listing-condition-missing.png)
+
+![The listing refused](screenshots/walkthrough/61-admin-add-listing-refused.png)
+
+### 6.17 The admin empties a user's name (Task 3.3 A1)
+
+- **Input:** Manage Users, Edit on Bob Wong, the full name emptied; Save.
+- **Output:** "Full name cannot be empty." Nothing is saved.
+- **Checked by:** `AdminUserServiceTest.manageUsers_A1_edit_blankFullName_isRefusedAndChangesNothing`.
+
+![An empty name refused](screenshots/walkthrough/62-admin-edit-user-name-missing.png)
+
+### 6.18 A deactivated account logs in (UC2, Task 3.3)
+
+- **Input:** the admin has deactivated `bob`; Enter as Buyer, `bob` with his password; Login.
+- **Output:** "This account has been deactivated. Please contact the admin." The login screen stays.
+- **Checked by:** `BuyerAccountScreensTest.login_deactivatedAccount_isRefused`.
+
+![Login refused for a deactivated account](screenshots/walkthrough/63-login-deactivated.png)
+
+### 6.19 The admin's reasons, deactivation and deletion (Tasks 3.2, 3.3, 3.6)
+
+- **Reject without a reason:** Listing Review, Reject on *Mini Fridge*, OK with the reason empty: "A reason is
+  required.", and the listing stays Pending Review. Checked by
+  `AdminListingServiceTest.manageMarketplaceListings_A1_reasonRequired_rejectWithoutReasonChangesNothing`.
+
+  ![Reject without a reason](screenshots/empty-reason.png)
+
+- **The seller is told why:** Diana's board after a rejection and two removals, each notice with its reason.
+  Checked by AT-UC3A-02, AT-UC3A-03.
+
+  ![The seller's notices with the reasons](screenshots/seller-notification-on-item-rejected.png)
+
+- **Deactivate:** Bob's card in Manage Users says Deactivated and offers Activate. Checked by AT-UC4A-08.
+
+  ![Bob deactivated](screenshots/deactivated-status.png)
+
+- **Delete asks for the reason:** "Why is @bob deleted?" Checked by AT-UC4A-10.
+
+  ![The reason for deleting Bob](screenshots/admin-delete-acc.png)
+
+- **After the deletion:** Bob's review of Charlie stays, by "Deleted User". Checked by AT-2.9-08.
+
+  ![The review by Deleted User](screenshots/the-review-status-after-deletion-of-account-bob.png)

@@ -10,7 +10,7 @@ Figures are from the clean build of 26 Nov 2026 (`.\mvnw.cmd clean verify`).
 | Document | What it holds |
 |---|---|
 | [README](../README.md) | setup and running, demo accounts, features, saved data, reports, the coverage policy |
-| [walkthrough.md](walkthrough.md) | 38 screenshots of one demo story through the three portals, with inputs and outputs |
+| [walkthrough.md](walkthrough.md) | 68 screenshots with inputs and outputs: one demo story through the three portals with valid input, then each task's message for invalid input |
 | [acceptance-tests.md](acceptance-tests.md) | 178 acceptance scenarios with steps, expected results and recorded results |
 | [regression-log.md](regression-log.md) | every bug found, with the input that reproduces it and the test that keeps it fixed |
 | [assumptions-register.md](assumptions-register.md) | 94 behaviours that the requirements leave open, with who decided and when |
@@ -186,7 +186,7 @@ tests and integration.
 |---|---|---|
 | Requirements | The confirmed use-case specification is the authority. Questions to the client were asked in writing, and the 8 answers of 16 Nov and the 4 follow-ups of 21 Nov are traced into code and tests. Open points were decided and recorded with who and when. | [client-answers.md](client-answers.md), [assumptions-register.md](assumptions-register.md) |
 | Design | Boundary, control and entity classes per use case; state machines for Listing and Offer; written plans with alternatives before the larger features (Deal History, Report Listing). | [course-concepts.md](course-concepts.md), [state-machines.md](state-machines.md), the class comments |
-| Configuration management | A branch per role (buyer, seller, admin) and 38 pull requests merged into `main`, from the first commit on 11 Oct 2026. Merges were built and checked on a temporary branch first, with written review notes listing the fixes needed. | the GitHub history and pull requests |
+| Configuration management | A branch per role (buyer, seller, admin) and 40 pull requests merged into `main`, from the first commit on 11 Oct 2026. Merges were built and checked on a temporary branch first, with written review notes listing the fixes needed. | the GitHub history and pull requests |
 | Quality gates | The build fails below 65% branch coverage on two measures. Tests are designed by technique. Every bug gets a test and an entry in the regression log. 178 acceptance scenarios. | [section 4](#4-results-and-their-justification), [regression-log.md](regression-log.md) |
 | Team support | The shared core (models, data store, services, shared screens) comes with guides for the seller and admin developers, written so that a teammate or their AI assistant can call it instead of rewriting it. | [shared-core-for-seller.md](shared-core-for-seller.md), [shared-core-for-admin.md](shared-core-for-admin.md) |
 

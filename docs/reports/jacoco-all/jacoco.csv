@@ -6,7 +6,7 @@ HKUST Marketplace,com.hkust.marketplace.ui,ChatText,0,116,0,10,0,19,0,18,0,13
 HKUST Marketplace,com.hkust.marketplace.ui,ListingSummary.Field,0,9,0,0,0,1,0,1,0,1
 HKUST Marketplace,com.hkust.marketplace.ui,SubScreen,0,69,0,2,0,12,0,4,0,3
 HKUST Marketplace,com.hkust.marketplace.ui,ListingOverview,0,282,0,6,0,44,0,9,0,6
-HKUST Marketplace,com.hkust.marketplace.ui,Dialogs,37,117,5,3,13,29,4,10,1,9
+HKUST Marketplace,com.hkust.marketplace.ui,Dialogs,6,148,3,5,3,39,3,11,0,10
 HKUST Marketplace,com.hkust.marketplace.ui,Scrolling,2,63,1,3,0,13,1,3,0,2
 HKUST Marketplace,com.hkust.marketplace.ui,BrowseText,0,22,0,8,0,4,0,6,0,2
 HKUST Marketplace,com.hkust.marketplace.ui,ReviewList,8,96,0,2,0,19,1,4,1,3
@@ -15,9 +15,9 @@ HKUST Marketplace,com.hkust.marketplace.ui,Formats.new StringConverter() {...},0
 HKUST Marketplace,com.hkust.marketplace.ui,DealText,0,114,0,10,0,20,0,15,0,10
 HKUST Marketplace,com.hkust.marketplace.ui,ListingCard,15,349,5,13,5,55,7,14,2,10
 HKUST Marketplace,com.hkust.marketplace.ui,ChatList,7,551,0,16,2,105,2,23,2,15
-HKUST Marketplace,com.hkust.marketplace.ui,ProfileView,31,445,3,13,8,75,6,12,3,7
+HKUST Marketplace,com.hkust.marketplace.ui,ProfileView,6,470,0,16,2,81,2,16,2,8
 HKUST Marketplace,com.hkust.marketplace.ui,NotificationBoard,0,437,0,16,0,82,0,20,0,12
-HKUST Marketplace,com.hkust.marketplace.ui,ChatView,22,1155,6,48,5,239,9,57,3,36
+HKUST Marketplace,com.hkust.marketplace.ui,ChatView,15,1162,5,49,4,240,7,59,2,37
 HKUST Marketplace,com.hkust.marketplace.ui,Formats,0,192,0,30,0,34,0,29,0,14
 HKUST Marketplace,com.hkust.marketplace.ui,NotificationDot,0,78,1,9,0,27,1,8,0,4
 HKUST Marketplace,com.hkust.marketplace.ui,ListingSummary,0,371,1,50,0,58,1,44,0,18
@@ -26,12 +26,12 @@ HKUST Marketplace,com.hkust.marketplace.ui,PhotoFrame,7,116,0,4,2,22,1,10,1,8
 HKUST Marketplace,com.hkust.marketplace.ui,TextInputs,0,34,0,8,0,10,0,7,0,3
 HKUST Marketplace,com.hkust.marketplace.ui,ReviewText,0,49,0,4,0,7,0,10,0,8
 HKUST Marketplace,com.hkust.marketplace.ui,ReportText,0,8,0,0,0,2,0,2,0,2
-HKUST Marketplace,com.hkust.marketplace.controllers.admin,AdminDashboardController,1470,3500,96,112,297,567,103,86,34,50
+HKUST Marketplace,com.hkust.marketplace.controllers.admin,AdminDashboardController,1213,3757,90,118,250,614,95,94,28,56
 HKUST Marketplace,com.hkust.marketplace.controllers.admin,AdminLoginController,2,46,0,2,1,14,1,4,1,3
 HKUST Marketplace,com.hkust.marketplace.controllers.admin,AdminDashboardController.new TableCell() {...},11,49,0,2,0,9,1,3,1,2
 HKUST Marketplace,com.hkust.marketplace.controllers.seller,SellerRegisterController,123,49,2,2,37,9,11,3,10,2
 HKUST Marketplace,com.hkust.marketplace.controllers.seller,SellerLoginController,20,30,1,1,7,9,3,3,2,3
-HKUST Marketplace,com.hkust.marketplace.controllers.seller,SellerDashboardController,1073,2182,131,67,253,382,103,59,23,37
+HKUST Marketplace,com.hkust.marketplace.controllers.seller,SellerDashboardController,987,2268,122,76,234,401,93,69,20,40
 HKUST Marketplace,com.hkust.marketplace.models,Listing,0,299,0,22,0,73,0,43,0,32
 HKUST Marketplace,com.hkust.marketplace.models,Buyer,0,74,0,4,0,6,0,6,0,4
 HKUST Marketplace,com.hkust.marketplace.models,UserRole,0,35,0,0,0,8,0,3,0,3
@@ -70,7 +70,7 @@ HKUST Marketplace,com.hkust.marketplace.controllers.buyer,BrowseView,6,585,0,14,
 HKUST Marketplace,com.hkust.marketplace.controllers.buyer,MyDealsView,0,521,0,24,0,99,0,31,0,19
 HKUST Marketplace,com.hkust.marketplace.controllers.buyer,BuyerDashboardController.new MyDealsView.Actions() {...},0,40,0,0,0,10,0,5,0,5
 HKUST Marketplace,com.hkust.marketplace.controllers.buyer,OfferDialogs,1,267,1,3,0,34,1,10,0,9
-HKUST Marketplace,com.hkust.marketplace.controllers.buyer,DealHistoryView,3,506,0,12,0,93,1,26,1,20
+HKUST Marketplace,com.hkust.marketplace.controllers.buyer,DealHistoryView,0,509,0,12,0,93,0,27,0,21
 HKUST Marketplace,com.hkust.marketplace.controllers.buyer,BuyerLoginController,0,50,0,2,0,18,0,6,0,5
 HKUST Marketplace,com.hkust.marketplace.controllers.buyer,BuyerDashboardController,0,556,3,15,0,128,3,44,0,38
 HKUST Marketplace,com.hkust.marketplace.controllers.buyer,ReportDialog.Entry,0,16,0,0,0,2,0,2,0,2

@@ -63,18 +63,18 @@ public final class Dialogs {
      */
     public static Optional&lt;String&gt; askReason(String title, String question) {
         while (true) {
-<span class="nc" id="L66">            TextInputDialog dialog = new TextInputDialog();</span>
-<span class="nc" id="L67">            dialog.setTitle(title);</span>
-<span class="nc" id="L68">            dialog.setHeaderText(question);</span>
-<span class="nc" id="L69">            dialog.setContentText(&quot;Reason:&quot;);</span>
-<span class="nc" id="L70">            placeOnAppWindow(dialog);</span>
-<span class="nc" id="L71">            Optional&lt;String&gt; typed = dialog.showAndWait();</span>
-<span class="nc bnc" id="L72" title="All 2 branches missed.">            if (typed.isEmpty()) {</span>
+<span class="fc" id="L66">            TextInputDialog dialog = new TextInputDialog();</span>
+<span class="fc" id="L67">            dialog.setTitle(title);</span>
+<span class="fc" id="L68">            dialog.setHeaderText(question);</span>
+<span class="fc" id="L69">            dialog.setContentText(&quot;Reason:&quot;);</span>
+<span class="fc" id="L70">            placeOnAppWindow(dialog);</span>
+<span class="fc" id="L71">            Optional&lt;String&gt; typed = dialog.showAndWait();</span>
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">            if (typed.isEmpty()) {</span>
 <span class="nc" id="L73">                return Optional.empty(); // cancelled</span>
             }
-<span class="nc" id="L75">            Optional&lt;String&gt; reason = TextInputs.required(typed.get());</span>
-<span class="nc bnc" id="L76" title="All 2 branches missed.">            if (reason.isPresent()) {</span>
-<span class="nc" id="L77">                return reason;</span>
+<span class="fc" id="L75">            Optional&lt;String&gt; reason = TextInputs.required(typed.get());</span>
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">            if (reason.isPresent()) {</span>
+<span class="fc" id="L77">                return reason;</span>
             }
 <span class="nc" id="L79">            error(title, &quot;A reason is required.&quot;);</span>
 <span class="nc" id="L80">        }</span>

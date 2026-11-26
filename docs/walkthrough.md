@@ -11,7 +11,7 @@ story through the three portals, starting from the demo data after a reset (`scr
 
 Each step gives the input, the output, and the acceptance scenarios in [acceptance-tests.md](acceptance-tests.md)
 that check the same behaviour in more detail. Later steps show the effects of earlier ones: Alice's offer reaches
-Charlie, her review reaches his reviews page and the admin's ratings page, and her report and the new account reach
+Charlie, her review reaches his reviews page and the admin's ratings page, with his reply, and her report and the new account reach
 the admin's notifications.
 
 **How the screenshots were taken.** They come from the real screens and services, captured on 26 Nov 2026 at the
@@ -280,8 +280,9 @@ Demo accounts: buyers `alice` and `bob`; sellers `charlie` and `diana` (password
 
 - **Input:** Enter as Admin, log in as `admin`.
 - **Output:** the listings waiting for review: Charlie's desk fan from step 3.5 and Diana's *Mini Fridge*, each with
-  Approve and Reject. Next, Approve on the desk fan, confirmed with OK, makes it Live and tells Charlie.
-- **Checked by:** AT-UC3A-02.
+  Approve and Reject. Next, Approve on the desk fan, confirmed with OK, makes it Live and tells Charlie. The red **4**
+  on Notifications is the admin's unread dot: the notices of step 4.7.
+- **Checked by:** AT-UC3A-02, AT-UC4-08.
 
 ![Listing Review with two pending listings](screenshots/walkthrough/28-admin-listing-review.png)
 
@@ -297,7 +298,8 @@ Demo accounts: buyers `alice` and `bob`; sellers `charlie` and `diana` (password
 ### 4.3 Listing details with the report (Task 3.7)
 
 - **Input:** View on the *IKEA Desk Lamp*.
-- **Output:** the listing's details and "Reports (1)": Alice's report from step 2.11, with its reason and details.
+- **Output:** the listing's details, shown as on the buyer's detail screen, and "Reports (1)": Alice's report from
+  step 2.11, with its reason, its details and who made it.
   From here the admin can Edit or Remove the listing.
 - **Checked by:** AT-UC3A-03, AT-UC9-02.
 
@@ -324,9 +326,10 @@ Demo accounts: buyers `alice` and `bob`; sellers `charlie` and `diana` (password
 ### 4.6 Seller Ratings (Task 3.8)
 
 - **Input:** Seller Ratings, View Reviews on Charlie Lee.
-- **Output:** Charlie's reviews, including Alice's from step 2.8, with filters by score and date. Hide removes a review
-  from every page, with a reason.
-- **Checked by:** AT-UC3R-01, AT-UC3R-02, AT-UC3R-03.
+- **Output:** Charlie's reviews, including Alice's from step 2.8 with Charlie's reply from step 3.7 under it ("Seller's
+  reply: Thank you, Alice! I'm glad the book helps."), with filters by score and date. Hide removes a review from every
+  page, with a reason.
+- **Checked by:** AT-UC3R-01, AT-UC3R-02, AT-UC3R-03, AT-UC3R-04.
 
 ![Charlie's reviews in the admin portal](screenshots/walkthrough/33-admin-seller-reviews.png)
 
@@ -334,8 +337,9 @@ Demo accounts: buyers `alice` and `bob`; sellers `charlie` and `diana` (password
 
 - **Input:** Notifications.
 - **Output:** 4 unread notifications, all caused by earlier steps: Charlie submitted the desk fan (3.5), the lamp was
-  reported (2.11), Eve's new buyer account (1.3), and Diana's *Mini Fridge* from the demo data.
-- **Checked by:** AT-UC4A-01, AT-UC9-02.
+  reported (2.11), Eve's new buyer account (1.3), and Diana's *Mini Fridge* from the demo data. The dot on the
+  sidebar shows the same 4 until they are marked as read.
+- **Checked by:** AT-UC4A-01, AT-UC9-02, AT-UC4-08.
 
 ![The admin's Notification Board](screenshots/walkthrough/34-admin-notifications.png)
 

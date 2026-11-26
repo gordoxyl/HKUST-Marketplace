@@ -12,7 +12,7 @@ Figures are from the clean build of 26 Nov 2026 (`.\mvnw.cmd clean verify`).
 | [README](../README.md) | setup and running, demo accounts, features, saved data, reports, the coverage policy |
 | [walkthrough.md](walkthrough.md) | 38 screenshots of one demo story through the three portals, with inputs and outputs |
 | [acceptance-tests.md](acceptance-tests.md) | 178 acceptance scenarios with steps, expected results and recorded results |
-| [regression-log.md](regression-log.md) | every bug found, with the input that reproduces it and the test that failed first |
+| [regression-log.md](regression-log.md) | every bug found, with the input that reproduces it and the test that keeps it fixed |
 | [assumptions-register.md](assumptions-register.md) | 94 behaviours that the requirements leave open, with who decided and when |
 | [client-answers.md](client-answers.md) | the client's (TA's) answers and what each changed |
 | [state-machines.md](state-machines.md) | the Listing and Offer state machines that the code enforces |
@@ -31,7 +31,7 @@ as "the requirement asks for X; we also do Y", with evidence that can be checked
 | Security | hashed credentials, "securely stored" data | salted PBKDF2 password hashes; every byte of data encrypted, tampering detected, crash-safe saving; role checks in every service method | `PasswordHasher`, `EncryptedJsonStorage`, `AccessControlTest`, `PersistenceTest` |
 | A system that runs by itself | a timer that reminds and returns (UC12) | checks twice a second; catches up on loans that fell due while the app was closed; reminders that adapt to short loans; open screens update by themselves | `BorrowingDeadlineService`, `LiveUpdates`; AT-UC12-01 to 09 |
 | One consistent UI | a consistent interface across the portals | one shared listing card, chat screen, Notification Board, profile screen and listing view for every portal; every page checked automatically for cut-off text | README "Shared Core"; `PortalScreensTest` |
-| Testing | a unit-test report and 65% branch coverage | 1308 tests, 97.0% / 85.4% branch coverage, two coverage checks in the build, the real screens tested off screen, tests designed by technique | [section 4](#4-results-and-their-justification) |
+| Testing | a unit-test report and 65% branch coverage | 1313 tests, 97.0% / 86.1% branch coverage, two coverage checks in the build, the real screens tested off screen, tests designed by technique | [section 4](#4-results-and-their-justification) |
 | Robust business rules | the use cases' flows | state machines enforced in the code; "first claim wins" under concurrency; account deletion in one atomic step | [state-machines.md](state-machines.md); `DealRulesTest`, `AccountDeletionTest` |
 | Requirements engineering | the use cases | written client questions with every answer traced into code and tests; 94 open points decided and recorded | [client-answers.md](client-answers.md), [assumptions-register.md](assumptions-register.md) |
 
@@ -83,18 +83,18 @@ UC12 asks for a timer that checks at least once a second. Ours checks every 0.5 
 
 ### 1.4 Testing far beyond a unit-test report
 
-- **1308 tests, all passing**, in 76 test classes. Branch coverage is 97.0% on the logic and 85.4% on the whole
+- **1313 tests, all passing**, in 76 test classes. Branch coverage is 97.0% on the logic and 86.1% on the whole
   project, screens included; the build fails below 65% on either measure.
 - **The real screens are tested.** The JavaFX screens run off screen (`testsupport/OffScreenApp`): every buyer flow
   and its error cases is driven through the screens, and every page of the seller and admin portals is opened. Their
-  own fixes are checked through the screens too: the unread dot, R16 to R18, R20 to R22, the admin's Edit condition
+  own fixes are checked through the screens too: the unread dot, R16 to R18, R20 to R25, the admin's Edit condition
   and Add listing by type.
 - **Tests designed by technique**: equivalence partitions and boundary values, state-based tests of the state
   machines, basis-path tests, and thread tests that start two actions at the same instant (`SameMoment`, used in 8
   test classes).
 - **Planted bugs**: for three use cases we planted deliberate bugs (three each) to check that the tests catch them.
   They all did.
-- **Regression log**: 22 bugs so far, each with its input, the wrong and the right output, its cause, and the test
+- **Regression log**: 25 bugs so far, each with its input, the wrong and the right output, its cause, and the test
   that keeps it fixed (for R13 and R14, an acceptance scenario).
 - **178 acceptance scenarios** for system testing, written from the use cases.
 
@@ -157,7 +157,7 @@ UC12 asks for a timer that checks at least once a second. Ours checks every 0.5 
 
 **The test suite: fast and deterministic**
 
-- A clean build of the whole suite, both coverage reports and the JavaDoc takes about a minute and a half. The 97
+- A clean build of the whole suite, both coverage reports and the JavaDoc takes about a minute and a half. The 102
   screen tests take about 45 s, because one invisible app is shared and reset between tests instead of being
   started for each test.
 - **A simulated clock**: a "24 hours before" reminder is tested in milliseconds, without waiting.
@@ -186,7 +186,7 @@ tests and integration.
 |---|---|---|
 | Requirements | The confirmed use-case specification is the authority. Questions to the client were asked in writing, and the 8 answers of 16 Nov and the 4 follow-ups of 21 Nov are traced into code and tests. Open points were decided and recorded with who and when. | [client-answers.md](client-answers.md), [assumptions-register.md](assumptions-register.md) |
 | Design | Boundary, control and entity classes per use case; state machines for Listing and Offer; written plans with alternatives before the larger features (Deal History, Report Listing). | [course-concepts.md](course-concepts.md), [state-machines.md](state-machines.md), the class comments |
-| Configuration management | A branch per role (buyer, seller, admin) and 34 pull requests merged into `main`, from the first commit on 11 Oct 2026. Merges were built and checked on a temporary branch first, with written review notes listing the fixes needed. | the GitHub history and pull requests |
+| Configuration management | A branch per role (buyer, seller, admin) and 37 pull requests merged into `main`, from the first commit on 11 Oct 2026. Merges were built and checked on a temporary branch first, with written review notes listing the fixes needed. | the GitHub history and pull requests |
 | Quality gates | The build fails below 65% branch coverage on two measures. Tests are designed by technique. Every bug gets a test and an entry in the regression log. 178 acceptance scenarios. | [section 4](#4-results-and-their-justification), [regression-log.md](regression-log.md) |
 | Team support | The shared core (models, data store, services, shared screens) comes with guides for the seller and admin developers, written so that a teammate or their AI assistant can call it instead of rewriting it. | [shared-core-for-seller.md](shared-core-for-seller.md), [shared-core-for-admin.md](shared-core-for-admin.md) |
 
@@ -199,9 +199,9 @@ recommendation feature, so this section justifies the measurable results instead
 
 | Result | Figure | Check |
 |---|---|---|
-| Unit and integration tests | 1308 run, 0 failures, 0 errors, 0 skipped (100% pass) | [test report](reports/surefire.html) |
+| Unit and integration tests | 1313 run, 0 failures, 0 errors, 0 skipped (100% pass) | [test report](reports/surefire.html) |
 | Branch coverage, measured code | 96.95% (line 97.89%) | [JaCoCo report](reports/jacoco/index.html); the build fails below 65% |
-| Branch coverage, whole project | 85.36% (line 87.48%) | [JaCoCo report](reports/jacoco-all/index.html); the build fails below 65% |
+| Branch coverage, whole project | 86.11% (line 88.16%) | [JaCoCo report](reports/jacoco-all/index.html); the build fails below 65% |
 | JavaDoc | 0 warnings | [JavaDoc](reports/apidocs/index.html) |
 | Timer interval | 0.5 s | UC12 SR1 asks for at least once a second |
 
@@ -218,7 +218,7 @@ partitions and boundary values for inputs (prices, borrow periods, dates), state
 basis-path tests for the longer methods, and thread tests for the actions that can collide. The tests run against a
 temporary data folder and a simulated clock, so they are fast and give the same result every time.
 
-**Regression and acceptance testing.** The regression log records 22 bugs, each with the input that reproduces it,
+**Regression and acceptance testing.** The regression log records 25 bugs, each with the input that reproduces it,
 the wrong and the right output, and the test that keeps it fixed. The 178 acceptance scenarios cover each use
 case's basic flow, each alternative flow and each special requirement that a user can see; their results are
 recorded in the scenarios' Result column.

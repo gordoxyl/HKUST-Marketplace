@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>User.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.models</a> &gt; <span class="el_source">User.java</span></div><h1>User.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.models;
+
+import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.Objects;
+
+/**
+ * A marketplace account (User in the domain class diagram).
+ * Every user is exactly one of {@link Buyer}, {@link Seller} or {@link Admin} ({complete, disjoint}).
+ *
+ * The username is stored in lower case, because usernames are unique ignoring case (UC1 A1),
+ * and it cannot be changed (UC3 Special Requirement 1).
+ * Only a hash of the password is kept, never the password itself (UC1 Special Requirement 1).
+ */
+public abstract class User {
+
+    private final String username;
+    private String fullName;
+    private String passwordHash;
+<span class="fc" id="L20">    private boolean active = true;</span>
+    private LocalDateTime createdAt;
+
+<span class="fc" id="L23">    protected User(String username, String fullName, String passwordHash) {</span>
+<span class="fc" id="L24">        this.username = Objects.requireNonNull(username, &quot;username&quot;).toLowerCase(Locale.ROOT);</span>
+<span class="fc" id="L25">        this.fullName = Objects.requireNonNull(fullName, &quot;fullName&quot;);</span>
+<span class="fc" id="L26">        this.passwordHash = Objects.requireNonNull(passwordHash, &quot;passwordHash&quot;);</span>
+<span class="fc" id="L27">    }</span>
+
+    /** The account type, which decides the only portal this user can log in to (UC2). */
+    public abstract UserRole getRole();
+
+<span class="fc" id="L32">    public String getUsername() { return username; }</span>
+
+<span class="fc" id="L34">    public String getFullName() { return fullName; }</span>
+<span class="fc" id="L35">    public void setFullName(String fullName) { this.fullName = Objects.requireNonNull(fullName, &quot;fullName&quot;); }</span>
+
+    /** A hash made by PasswordHasher, never a plaintext password. */
+<span class="fc" id="L38">    public String getPasswordHash() { return passwordHash; }</span>
+<span class="fc" id="L39">    public void setPasswordHash(String passwordHash) { this.passwordHash = Objects.requireNonNull(passwordHash, &quot;passwordHash&quot;); }</span>
+
+    /** False once the admin deactivates the account; it then cannot log in (UC2 A4). */
+<span class="fc" id="L42">    public boolean isActive() { return active; }</span>
+<span class="fc" id="L43">    public void setActive(boolean active) { this.active = active; }</span>
+
+    /** When the account was registered (or seeded). Null until the account is added to DataStore. */
+<span class="fc" id="L46">    public LocalDateTime getCreatedAt() { return createdAt; }</span>
+
+    /** Called once by DataStore when the account is added: records when it was created. */
+    public void markAdded(LocalDateTime createdAt) {
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        if (this.createdAt != null) {</span>
+<span class="fc" id="L51">            throw new IllegalStateException(&quot;Account @&quot; + username + &quot; was already added.&quot;);</span>
+        }
+<span class="fc" id="L53">        this.createdAt = Objects.requireNonNull(createdAt, &quot;createdAt&quot;);</span>
+<span class="fc" id="L54">    }</span>
+
+    @Override
+    public String toString() {
+<span class="nc" id="L58">        return fullName + &quot; (@&quot; + username + &quot;)&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProfileService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">ProfileService.java</span></div><h1>ProfileService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.Admin;
+import com.hkust.marketplace.models.MeetupLocation;
+import com.hkust.marketplace.models.NotificationCategory;
+import com.hkust.marketplace.models.Seller;
+import com.hkust.marketplace.models.User;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+/**
+ * UC3 Manage Profile, shared by the User actor (Tasks 1.7, 2.6, 3.4): every user edits their
+ * own full name and password; a seller also edits the bio and preferred meet-up locations.
+ *
+ * &lt;p&gt;The checks run in the order of the use case: full name (A1), new password (A2),
+ * confirmation (A3). A problem is reported as a {@link ServiceException} with the message
+ * to show, and then nothing is changed. The username and a buyer's residence hall cannot be
+ * changed (Special Requirement 1), so there is no way to change them here.
+ *
+ * &lt;p&gt;When a buyer or seller saves a change, the admins are told which fields changed, never
+ * their values (Task 3.6; {@link AccountNotices#profileChanged}). The user is not notified:
+ * the screen confirms the save (step 9).
+ */
+public class ProfileService {
+
+    private final DataStore store;
+    private final NotificationService notifications;
+
+    public ProfileService() {
+<span class="fc" id="L33">        this(DataStore.getInstance());</span>
+<span class="fc" id="L34">    }</span>
+
+<span class="fc" id="L36">    public ProfileService(DataStore store) {</span>
+<span class="fc" id="L37">        this.store = store;</span>
+<span class="fc" id="L38">        this.notifications = new NotificationService(store);</span>
+<span class="fc" id="L39">    }</span>
+
+    /** The fields the admins can be told about, as they are before or after a save; the password is never read. */
+<span class="fc" id="L42">    private record ProfileFields(String fullName, String bio, List&lt;MeetupLocation&gt; locations) {</span>
+
+        static ProfileFields of(User user) {
+<span class="fc bfc" id="L45" title="All 2 branches covered.">            return user instanceof Seller seller</span>
+<span class="fc" id="L46">                    ? new ProfileFields(seller.getFullName(), seller.getBio(), seller.getPreferredMeetupLocations())</span>
+<span class="fc" id="L47">                    : new ProfileFields(user.getFullName(), null, List.of());</span>
+        }
+    }
+
+    /** The logged-in user's profile, for showing the current values (UC3 step 2). */
+    public User getMyProfile() {
+<span class="fc" id="L53">        return AccessControl.requireLoggedIn();</span>
+    }
+
+    /**
+     * Saves the logged-in user's full name and, if one is typed, a new password (UC3 steps 5-9).
+     * @param newPassword     empty or null keeps the current password (Special Requirement 2)
+     * @param confirmPassword must match a typed new password; ignored otherwise
+     * @throws ServiceException if a check fails (A1-A3); nothing is changed then
+     */
+    public void updateProfile(String fullName, String newPassword, String confirmPassword) {
+<span class="fc" id="L63">        User user = AccessControl.requireLoggedIn();</span>
+<span class="fc" id="L64">        String cleanName = checkedName(fullName);</span>
+<span class="fc" id="L65">        String newHash = checkedNewPasswordHash(newPassword, confirmPassword);</span>
+<span class="fc" id="L66">        store.transaction(() -&gt; {</span>
+<span class="fc" id="L67">            ProfileFields before = ProfileFields.of(user);</span>
+<span class="fc" id="L68">            user.setFullName(cleanName);</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">            if (newHash != null) {</span>
+<span class="fc" id="L70">                user.setPasswordHash(newHash);</span>
+            }
+<span class="fc bfc" id="L72" title="All 2 branches covered.">            tellAdmins(user, before, newHash != null);</span>
+<span class="fc" id="L73">        });</span>
+<span class="fc" id="L74">    }</span>
+
+    /**
+     * Saves the logged-in seller's profile: full name, new password if one is typed, bio and
+     * preferred meet-up locations (UC3 steps 3-9 for a seller).
+     * @param bio       optional; blank means no bio
+     * @param locations chosen from the predefined HKUST locations; may be empty
+     * @throws AccessDeniedException if the logged-in user is not a seller
+     * @throws ServiceException      if a check fails (A1-A3); nothing is changed then
+     */
+    public void updateSellerProfile(String fullName, String newPassword, String confirmPassword,
+                                    String bio, List&lt;MeetupLocation&gt; locations) {
+<span class="fc" id="L86">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L87">        String cleanName = checkedName(fullName);</span>
+<span class="fc" id="L88">        String newHash = checkedNewPasswordHash(newPassword, confirmPassword);</span>
+<span class="fc" id="L89">        store.transaction(() -&gt; {</span>
+<span class="fc" id="L90">            ProfileFields before = ProfileFields.of(seller);</span>
+<span class="fc" id="L91">            seller.setFullName(cleanName);</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">            if (newHash != null) {</span>
+<span class="fc" id="L93">                seller.setPasswordHash(newHash);</span>
+            }
+<span class="fc" id="L95">            seller.setBio(bio);</span>
+<span class="fc" id="L96">            seller.setPreferredMeetupLocations(locations);</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">            tellAdmins(seller, before, newHash != null);</span>
+<span class="fc" id="L98">        });</span>
+<span class="fc" id="L99">    }</span>
+
+    /**
+     * Task 3.6: tells every admin which fields a buyer or seller changed, in the order of the form, by comparing
+     * the fields before and after the save (so a name typed again with spaces around it is no change). Nothing is
+     * sent for an admin's own profile or for a save that changed nothing.
+     * @param passwordChanged true if a new password was saved; its value is never compared or shown
+     */
+    private void tellAdmins(User user, ProfileFields before, boolean passwordChanged) {
+<span class="fc bfc" id="L108" title="All 2 branches covered.">        if (user instanceof Admin) {</span>
+<span class="fc" id="L109">            return;</span>
+        }
+<span class="fc" id="L111">        ProfileFields after = ProfileFields.of(user);</span>
+<span class="fc" id="L112">        List&lt;String&gt; changed = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L113" title="All 2 branches covered.">        if (!before.fullName().equals(after.fullName())) {</span>
+<span class="fc" id="L114">            changed.add(AccountNotices.FULL_NAME);</span>
+        }
+<span class="fc bfc" id="L116" title="All 2 branches covered.">        if (passwordChanged) {</span>
+<span class="fc" id="L117">            changed.add(AccountNotices.PASSWORD);</span>
+        }
+<span class="fc bfc" id="L119" title="All 2 branches covered.">        if (!Objects.equals(before.bio(), after.bio())) {</span>
+<span class="fc" id="L120">            changed.add(AccountNotices.BIO);</span>
+        }
+<span class="fc bfc" id="L122" title="All 2 branches covered.">        if (!before.locations().equals(after.locations())) {</span>
+<span class="fc" id="L123">            changed.add(AccountNotices.MEETUP_LOCATIONS);</span>
+        }
+<span class="fc bfc" id="L125" title="All 2 branches covered.">        if (!changed.isEmpty()) {</span>
+<span class="fc" id="L126">            notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE, AccountNotices.profileChanged(user, changed));</span>
+        }
+<span class="fc" id="L128">    }</span>
+
+    /** A1: the full name must not be empty. Any characters are allowed (Special Requirement 3). */
+    private static String checkedName(String fullName) {
+<span class="fc" id="L132">        String error = AccountValidator.validateFullName(fullName);</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">        if (error != null) {</span>
+<span class="fc" id="L134">            throw new ServiceException(error);</span>
+        }
+<span class="fc" id="L136">        return fullName.trim();</span>
+    }
+
+    /**
+     * A2 and A3, only when a new password is typed. Returns the new password's hash, or null
+     * to keep the current password.
+     */
+    private static String checkedNewPasswordHash(String newPassword, String confirmPassword) {
+<span class="fc bfc" id="L144" title="All 4 branches covered.">        if (newPassword == null || newPassword.isEmpty()) {</span>
+<span class="fc" id="L145">            return null; // Special Requirement 2: blank keeps the current password</span>
+        }
+<span class="fc" id="L147">        String error = AccountValidator.validatePasswordShowingRules(newPassword);</span>
+<span class="fc bfc" id="L148" title="All 2 branches covered.">        if (error != null) {</span>
+<span class="fc" id="L149">            throw new ServiceException(error); // A2: say what is wrong and show the rules</span>
+        }
+<span class="fc" id="L151">        error = AccountValidator.validateConfirmation(newPassword, confirmPassword);</span>
+<span class="fc bfc" id="L152" title="All 2 branches covered.">        if (error != null) {</span>
+<span class="fc" id="L153">            throw new ServiceException(error); // A3</span>
+        }
+<span class="fc" id="L155">        return PasswordHasher.hash(newPassword); // stored hashed only (Special Requirement 4)</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

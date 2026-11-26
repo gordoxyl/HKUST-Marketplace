@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReviewService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">ReviewService.java</span></div><h1>ReviewService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.Buyer;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.NotificationCategory;
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.models.Review;
+
+/**
+ * UC10 Review Seller, for the Buyer (Task 1.10): rating the seller of a completed deal from 1
+ * to 5 stars, with a written review, once per deal.
+ *
+ * &lt;p&gt;&lt;b&gt;Design (Lecture 15).&lt;/b&gt; This is the use case's control class. Its boundary is
+ * {@code controllers.buyer.ReviewSellerFlow} with the form {@code ReviewDialog}, which starts
+ * from the prompt after a deal is completed or returned, or from the Rate Seller button of a
+ * completed deal on My Deals (step 1). The entities are {@link Review}, the reviewed
+ * {@link Offer} and the store, whose rating queries include every review that is not hidden
+ * (step 8).
+ *
+ * &lt;p&gt;&lt;b&gt;The client's answers&lt;/b&gt; ({@code docs/client-answers.md}) change the use case in two
+ * places: the written review is required (#8; Special Requirement 2 said it was optional), and
+ * the prompt also follows the return of a borrowed item, by the buyer or automatically (#3).
+ *
+ * &lt;p&gt;&lt;b&gt;Defensive programming (Lecture 10).&lt;/b&gt; Everything the form sends is untrusted: the
+ * deal's id, a rating that may be missing or out of range, and the comment. Each is checked
+ * here, in the order of the flow of events: the deal first, because a deal that cannot be
+ * reviewed ends the use case whatever was typed (A1), then the rating (A2), then the comment.
+ * The {@link Review} entity only receives clean values.
+ */
+<span class="fc" id="L31">public class ReviewService {</span>
+
+    /** UC10 A2. */
+    static final String RATING_REQUIRED = &quot;A rating from 1 to 5 stars is required.&quot;;
+    /** Client answer #8: the written part of a review is not optional. */
+    static final String COMMENT_REQUIRED = &quot;A written review is required. Tell other buyers how the deal went.&quot;;
+    /** UC10 A1, for each reason a deal cannot be reviewed. */
+    static final String NOT_YOURS = &quot;This is not one of your deals.&quot;;
+    static final String NOT_COMPLETED = &quot;This deal cannot be reviewed: it is not completed yet.&quot;;
+    static final String ALREADY_REVIEWED = &quot;This deal cannot be reviewed: you have already reviewed it.&quot;;
+
+    private final DataStore store;
+    private final NotificationService notifications;
+
+    public ReviewService() {
+<span class="fc" id="L46">        this(DataStore.getInstance());</span>
+<span class="fc" id="L47">    }</span>
+
+<span class="fc" id="L49">    public ReviewService(DataStore store) {</span>
+<span class="fc" id="L50">        this.store = store;</span>
+<span class="fc" id="L51">        this.notifications = new NotificationService(store);</span>
+<span class="fc" id="L52">    }</span>
+
+    // ========== Check Deal and show the form (steps 1-3) ==========
+
+    /**
+     * Starts reviewing one of the logged-in buyer's deals: checks that it is completed and not
+     * reviewed yet (step 2), and returns what the form shows (step 3).
+     * @throws DealNotReviewableException if the deal is not the buyer's, is not completed, or
+     *         has been reviewed already (A1)
+     */
+    public ReviewForm start(String offerId) {
+<span class="fc" id="L63">        Buyer buyer = AccessControl.requireBuyer();</span>
+<span class="fc" id="L64">        return store.read(() -&gt; {</span>
+<span class="fc" id="L65">            Offer deal = requireReviewable(buyer, offerId);</span>
+<span class="fc" id="L66">            Listing listing = store.getListingOf(deal);</span>
+<span class="fc" id="L67">            return new ReviewForm(deal.getId(), listing.getTitle(), store.getFullName(listing.getSellerUsername()));</span>
+        });
+    }
+
+    // ========== Check Rating, record the review and notify the seller (steps 5-9) ==========
+
+    /**
+     * Records the buyer's review of a deal, dated today, and notifies the seller (steps 6-9). It
+     * is one atomic step, so a deal gets one review even if it is submitted twice at the same
+     * moment (Special Requirement 1). The review cannot be changed afterwards (Special
+     * Requirement 3): this class has no way to edit or delete one.
+     * @param rating  the stars the buyer selected, or null if none was selected
+     * @param comment the written review as typed
+     * @return the recorded review
+     * @throws DealNotReviewableException if the deal can no longer be reviewed (A1): the use
+     *         case ends
+     * @throws ServiceException if the rating is missing or not 1 to 5 (A2), or the written review
+     *         is empty (client answer #8): the buyer corrects the form
+     */
+    public Review submit(String offerId, Integer rating, String comment) {
+<span class="fc" id="L87">        Buyer buyer = AccessControl.requireBuyer();</span>
+<span class="fc" id="L88">        return store.transaction(() -&gt; {</span>
+<span class="fc" id="L89">            Offer deal = requireReviewable(buyer, offerId); // {Check Deal} again: the form may be out of date</span>
+<span class="fc bfc" id="L90" title="All 6 branches covered.">            if (rating == null || rating &lt; Review.MIN_RATING || rating &gt; Review.MAX_RATING) {</span>
+<span class="fc" id="L91">                throw new ServiceException(RATING_REQUIRED); // A2</span>
+            }
+<span class="fc bfc" id="L93" title="All 4 branches covered.">            if (comment == null || comment.isBlank()) {</span>
+<span class="fc" id="L94">                throw new ServiceException(COMMENT_REQUIRED);</span>
+            }
+<span class="fc" id="L96">            Review review = store.addReview(new Review(deal.getId(), rating, comment)); // step 7, trimmed</span>
+<span class="fc" id="L97">            Listing listing = store.getListingOf(deal);</span>
+<span class="fc" id="L98">            notifications.send(listing.getSellerUsername(), NotificationCategory.REVIEW_RECEIVED,</span>
+<span class="fc" id="L99">                    news(buyer.getFullName(), review, listing)); // step 9</span>
+
+            // Postconditions of the use case. Assertions document and verify what must hold
+            // here; they are not input checks (Lecture 10).
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">            assert store.findReviewForOffer(deal.getId()) == review : &quot;the deal has its review&quot;;</span>
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">            assert store.getReviewsForSeller(listing.getSellerUsername()).contains(review)</span>
+                    : &quot;the seller's rating includes the review&quot;; // step 8
+<span class="fc" id="L106">            return review;</span>
+        });
+    }
+
+    // ========== Rules ==========
+
+    /** {Check Deal}: step 2, A1 and Special Requirement 1. */
+    private Offer requireReviewable(Buyer buyer, String offerId) {
+<span class="fc" id="L114">        Offer deal = store.findOffer(offerId);</span>
+<span class="fc bfc" id="L115" title="All 4 branches covered.">        if (deal == null || !deal.getBuyerUsername().equalsIgnoreCase(buyer.getUsername())) {</span>
+<span class="fc" id="L116">            throw new DealNotReviewableException(NOT_YOURS);</span>
+        }
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        if (!deal.isCompleted()) {</span>
+<span class="fc" id="L119">            throw new DealNotReviewableException(NOT_COMPLETED);</span>
+        }
+<span class="fc bfc" id="L121" title="All 2 branches covered.">        if (store.findReviewForOffer(deal.getId()) != null) {</span>
+<span class="fc" id="L122">            throw new DealNotReviewableException(ALREADY_REVIEWED);</span>
+        }
+<span class="fc" id="L124">        return deal;</span>
+    }
+
+    /** What the seller's notification says (step 9): &quot;Bea Lee rated you 4 out of 5 stars for 'Book': &quot;Smooth deal&quot;&quot;. */
+    private static String news(String buyerName, Review review, Listing listing) {
+<span class="fc" id="L129">        return buyerName + &quot; rated you &quot; + review.getRating() + &quot; out of &quot; + Review.MAX_RATING + &quot; stars for '&quot;</span>
+<span class="fc" id="L130">                + listing.getTitle() + &quot;': \&quot;&quot; + review.getComment() + &quot;\&quot;&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

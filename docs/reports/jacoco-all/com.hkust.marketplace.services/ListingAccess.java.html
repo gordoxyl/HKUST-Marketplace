@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ListingAccess.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">ListingAccess.java</span></div><h1>ListingAccess.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.Buyer;
+import com.hkust.marketplace.models.Listing;
+
+/**
+ * Which listings a buyer can open: the detail screen of UC8 Browse Marketplace (steps 5-7),
+ * which is also the precondition of UC9 Report Listing. One rule for both use cases, moved here
+ * from {@link BrowseService} when Report Listing became its second user (refactoring on the
+ * second use, Lecture 10).
+ */
+final class ListingAccess {
+
+    /** UC8's message for a listing the buyer can no longer open; UC9 uses the same one. */
+    static final String NOT_AVAILABLE = &quot;This listing is no longer on the marketplace.&quot;;
+
+    private ListingAccess() {
+        // Utility class
+    }
+
+    /**
+     * True if the buyer can open the listing's detail screen: it is live, available or not, or
+     * the buyer has a deal on it, whatever its status, so it can be reopened from My Deals.
+     * Call it inside one of the store's reads or transactions, so the answer stays true for
+     * what follows.
+     */
+    static boolean canOpen(DataStore store, Buyer buyer, Listing listing) {
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        return store.isLive(listing) || store.getOffersForListing(listing.getId()).stream()</span>
+<span class="fc bfc" id="L30" title="All 2 branches covered.">                .anyMatch(offer -&gt; offer.getBuyerUsername().equalsIgnoreCase(buyer.getUsername()));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

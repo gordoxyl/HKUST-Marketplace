@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReportService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">ReportService.java</span></div><h1>ReportService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.Buyer;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.NotificationCategory;
+import com.hkust.marketplace.models.Report;
+import com.hkust.marketplace.models.ReportReason;
+
+import java.util.List;
+
+/**
+ * UC9 Report Listing, for the Buyer (Task 1.4's Report Listing button): reporting a listing to
+ * the admin with a reason and details, once per listing.
+ *
+ * &lt;p&gt;&lt;b&gt;Design (Lecture 15).&lt;/b&gt; This is the use case's control class. Its boundary is
+ * {@code controllers.buyer.ReportListingFlow} with the form {@code ReportDialog}, which starts
+ * from the Report Listing button of the listing's detail screen (step 1). The entities are
+ * {@link Report}, the reported {@link Listing} and the admins' notifications (step 8).
+ *
+ * &lt;p&gt;&lt;b&gt;Defensive programming (Lecture 10).&lt;/b&gt; Everything the form sends is untrusted: the
+ * listing's id, a reason that may be missing, and the details. Each is checked here, in the
+ * order of the flow of events: the listing first, because a listing that cannot be reported
+ * ends the use case whatever was typed (A1), then the reason and the details (A2). The
+ * {@link Report} entity only receives clean values, and {@code DataStore.addReport} checks
+ * the listing and the reporter again, as the barricade's inner layer.
+ *
+ * &lt;p&gt;&lt;b&gt;Special Requirement 4.&lt;/b&gt; Only the admin sees reports: the notification goes to the
+ * admins only and does not name the reporter, and no buyer or seller service reads reports.
+ */
+<span class="fc" id="L31">public class ReportService {</span>
+
+    /** UC9 A1 (Special Requirement 3). */
+    static final String ALREADY_REPORTED = &quot;You have already reported this listing.&quot;;
+    /** UC9 A2, in the spec's words; the {@link Report} model's own check says the same. */
+    static final String REASON_AND_DETAILS_REQUIRED = &quot;Both a reason and details are required.&quot;;
+
+    private final DataStore store;
+    private final NotificationService notifications;
+
+    public ReportService() {
+<span class="fc" id="L42">        this(DataStore.getInstance());</span>
+<span class="fc" id="L43">    }</span>
+
+<span class="fc" id="L45">    public ReportService(DataStore store) {</span>
+<span class="fc" id="L46">        this.store = store;</span>
+<span class="fc" id="L47">        this.notifications = new NotificationService(store);</span>
+<span class="fc" id="L48">    }</span>
+
+    // ========== Check Report and show the form (steps 1-3) ==========
+
+    /**
+     * Starts reporting the listing the logged-in buyer is viewing: checks that the buyer has not
+     * reported it yet (step 2), and returns what the form shows (step 3).
+     * @throws ListingNotReportableException if the buyer has reported the listing already (A1),
+     *         or can no longer open it: the use case ends
+     */
+    public ReportForm start(String listingId) {
+<span class="fc" id="L59">        Buyer buyer = AccessControl.requireBuyer();</span>
+<span class="fc" id="L60">        return store.read(() -&gt; {</span>
+<span class="fc" id="L61">            Listing listing = requireReportable(buyer, listingId);</span>
+<span class="fc" id="L62">            return new ReportForm(listing.getId(), listing.getTitle(), List.of(ReportReason.values()));</span>
+        });
+    }
+
+    // ========== Check Details, record the report and notify the admins (steps 5-8) ==========
+
+    /**
+     * Records the buyer's report of a listing and notifies every admin (steps 6-8). It is one
+     * atomic step, so a buyer reports a listing once even if the form is submitted twice at the
+     * same moment (Special Requirement 3).
+     * @param reason  the reason the buyer chose, or null if none was chosen
+     * @param details the details as typed
+     * @return the recorded report, its details without the spaces around them
+     * @throws ListingNotReportableException if the listing can no longer be reported (A1), or
+     *         can no longer be opened: the use case ends
+     * @throws ServiceException if the reason or the details are missing (A2): the buyer corrects
+     *         the form
+     */
+    public Report submit(String listingId, ReportReason reason, String details) {
+<span class="fc" id="L81">        Buyer buyer = AccessControl.requireBuyer();</span>
+<span class="fc" id="L82">        return store.transaction(() -&gt; {</span>
+<span class="fc" id="L83">            Listing listing = requireReportable(buyer, listingId); // {Check Report} again: the form may be out of date</span>
+<span class="fc bfc" id="L84" title="All 6 branches covered.">            if (reason == null || details == null || details.isBlank()) {</span>
+<span class="fc" id="L85">                throw new ServiceException(REASON_AND_DETAILS_REQUIRED); // {Check Details}, A2</span>
+            }
+<span class="fc" id="L87">            Report report = new Report(listing.getId(), buyer.getUsername(), reason, details);</span>
+<span class="fc" id="L88">            boolean added = store.addReport(report); // step 7</span>
+<span class="pc bpc" id="L89" title="1 of 2 branches missed.">            assert added : &quot;not reported yet: checked above, under the same lock&quot;;</span>
+<span class="fc" id="L90">            notifications.sendToAdmins(NotificationCategory.LISTING_REPORTED,</span>
+<span class="fc" id="L91">                    news(listing, store.getFullName(listing.getSellerUsername()), reason)); // step 8</span>
+
+            // Postconditions of the use case. Assertions document and verify what must hold
+            // here; they are not input checks (Lecture 10).
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">            assert store.hasReported(buyer.getUsername(), listing.getId()) : &quot;the buyer has reported the listing&quot;;</span>
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">            assert store.getReportsForListing(listing.getId()).contains(report) : &quot;the admin can see the report&quot;;</span>
+<span class="fc" id="L97">            return report;</span>
+        });
+    }
+
+    // ========== Rules ==========
+
+    /** {Check Report}: UC9's precondition, step 2, A1 and Special Requirement 3. */
+    private Listing requireReportable(Buyer buyer, String listingId) {
+<span class="fc" id="L105">        Listing listing = store.findListing(listingId);</span>
+<span class="fc bfc" id="L106" title="All 4 branches covered.">        if (listing == null || !ListingAccess.canOpen(store, buyer, listing)) {</span>
+<span class="fc" id="L107">            throw new ListingNotReportableException(ListingAccess.NOT_AVAILABLE);</span>
+        }
+<span class="fc bfc" id="L109" title="All 2 branches covered.">        if (store.hasReported(buyer.getUsername(), listing.getId())) {</span>
+<span class="fc" id="L110">            throw new ListingNotReportableException(ALREADY_REPORTED);</span>
+        }
+<span class="fc" id="L112">        return listing;</span>
+    }
+
+    /**
+     * What the admins' notification says (step 8): &quot;'Desk Lamp' by Diana Ng was reported (Scam
+     * or fraud) and needs moderation.&quot; It names neither the reporter nor the details; the admin
+     * sees both when viewing the listing (Manage Marketplace Listings 5.1).
+     */
+    static String news(Listing listing, String sellerName, ReportReason reason) {
+<span class="fc" id="L121">        return &quot;'&quot; + listing.getTitle() + &quot;' by &quot; + sellerName + &quot; was reported (&quot; + reason.getDisplayName()</span>
+                + &quot;) and needs moderation.&quot;;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

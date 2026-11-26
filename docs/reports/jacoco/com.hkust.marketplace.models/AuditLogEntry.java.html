@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AuditLogEntry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.models</a> &gt; <span class="el_source">AuditLogEntry.java</span></div><h1>AuditLogEntry.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.models;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+/**
+ * One entry in the admin's Audit Log (Audit Log in the domain class diagram).
+ * Used for account deactivation and deletion and for hiding reviews (Manage All User
+ * Accounts and Reputation). Before an account is deleted, its data is kept here as a
+ * snapshot, which the store also writes to an encrypted .txt file of its own
+ * ({@code marketplace-audit/&lt;id&gt;.txt}; see {@link com.hkust.marketplace.data.EncryptedJsonStorage}).
+ */
+public class AuditLogEntry {
+
+    private String logReference;
+    private final String adminUsername;
+    private final String username;
+    private final String actionTaken;
+    private final String reason;
+    private LocalDateTime actionDate;
+    private final String dataSnapshot;
+
+    /**
+     * @param username     the account the action was taken on
+     * @param dataSnapshot the deleted data, or null if nothing was deleted
+     */
+<span class="fc" id="L27">    public AuditLogEntry(String adminUsername, String username, String actionTaken, String reason, String dataSnapshot) {</span>
+<span class="fc" id="L28">        this.adminUsername = Objects.requireNonNull(adminUsername, &quot;adminUsername&quot;);</span>
+<span class="fc" id="L29">        this.username = Objects.requireNonNull(username, &quot;username&quot;);</span>
+<span class="fc" id="L30">        this.actionTaken = Objects.requireNonNull(actionTaken, &quot;actionTaken&quot;);</span>
+<span class="fc" id="L31">        this.reason = reason;</span>
+<span class="fc" id="L32">        this.dataSnapshot = dataSnapshot;</span>
+<span class="fc" id="L33">    }</span>
+
+    /** Null until the entry is added to DataStore. */
+<span class="fc" id="L36">    public String getLogReference() { return logReference; }</span>
+
+    /** Called once by DataStore when the entry is added: gives it its log reference and action date. */
+    public void markAdded(String logReference, LocalDateTime actionDate) {
+<span class="pc bpc" id="L40" title="1 of 2 branches missed.">        if (this.logReference != null) {</span>
+<span class="nc" id="L41">            throw new IllegalStateException(&quot;Audit log entry already has reference &quot; + this.logReference);</span>
+        }
+<span class="fc" id="L43">        this.logReference = Objects.requireNonNull(logReference, &quot;logReference&quot;);</span>
+<span class="fc" id="L44">        this.actionDate = Objects.requireNonNull(actionDate, &quot;actionDate&quot;);</span>
+<span class="fc" id="L45">    }</span>
+
+<span class="fc" id="L47">    public String getAdminUsername() { return adminUsername; }</span>
+<span class="fc" id="L48">    public String getUsername() { return username; }</span>
+<span class="fc" id="L49">    public String getActionTaken() { return actionTaken; }</span>
+<span class="fc" id="L50">    public String getReason() { return reason; }</span>
+<span class="fc" id="L51">    public LocalDateTime getActionDate() { return actionDate; }</span>
+<span class="fc" id="L52">    public String getDataSnapshot() { return dataSnapshot; }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

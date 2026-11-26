@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CreateListingService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">CreateListingService.java</span></div><h1>CreateListingService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.Category;
+import com.hkust.marketplace.models.GiveawayListing;
+import com.hkust.marketplace.models.ItemCondition;
+import com.hkust.marketplace.models.LendListing;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.MeetupLocation;
+import com.hkust.marketplace.models.NotificationCategory;
+import com.hkust.marketplace.models.SaleListing;
+import com.hkust.marketplace.models.Seller;
+
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Task 2.3 Create New Listing, shared by the seller form and the admin's &quot;add a listing for a
+ * seller&quot; (Task 3.7, once it is wired). The use case (Create Listings) is implemented here:
+ * required fields are checked for the chosen type (A1), then the price (A2) or lending
+ * duration (A3), then the photos (A4, at most 6). The listing is saved as Pending Review, the
+ * admin is told it is waiting, and the seller gets a confirmation (steps 11-13).
+ *
+ * &lt;p&gt;Photos are imported only when the listing is submitted (step 8), so a cancelled form
+ * stores nothing. They are copied into the app's encrypted storage by {@link PhotoService};
+ * the listing keeps their ids and the first one is the thumbnail.
+ */
+public class CreateListingService {
+
+    private final DataStore store;
+    private final PhotoService photos;
+    private final NotificationService notifications;
+
+    public CreateListingService() {
+<span class="nc" id="L37">        this(DataStore.getInstance());</span>
+<span class="nc" id="L38">    }</span>
+
+<span class="fc" id="L40">    public CreateListingService(DataStore store) {</span>
+<span class="fc" id="L41">        this.store = store;</span>
+<span class="fc" id="L42">        this.photos = new PhotoService(store);</span>
+<span class="fc" id="L43">        this.notifications = new NotificationService(store);</span>
+<span class="fc" id="L44">    }</span>
+
+    /**
+     * Posts a Sell listing (Create Listings steps 3-13).
+     * @param typedPrice the asking price exactly as typed: digits with up to two decimals (A2)
+     * @param photoFiles optional; at most {@link Listing#MAX_PHOTOS}, the first is the thumbnail
+     * @throws AccessDeniedException if the logged-in user is not a seller
+     * @throws ServiceException      if a rule is broken; nothing is stored then
+     */
+    public Listing createSale(String title, Category category, ItemCondition condition,
+                              String description, MeetupLocation meetupLocation,
+                              String typedPrice, List&lt;Path&gt; photoFiles) {
+<span class="fc" id="L56">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L57">        ListingFormRules.requireCommonFields(title, category, condition, description, meetupLocation);</span>
+<span class="fc" id="L58">        double price = ListingFormRules.requirePriceText(typedPrice);</span>
+<span class="fc" id="L59">        return publish(seller, new SaleListing(seller.getUsername(), title.trim(), category,</span>
+<span class="fc" id="L60">                condition, description.trim(), meetupLocation, price), photoFiles);</span>
+    }
+
+    /**
+     * Posts a Lend listing.
+     * @param lendingDuration how long the item may be borrowed; at least the minimum borrow
+     *                        time of 5 seconds (A3)
+     * @throws AccessDeniedException if the logged-in user is not a seller
+     * @throws ServiceException      if a rule is broken; nothing is stored then
+     */
+    public Listing createLend(String title, Category category, ItemCondition condition,
+                              String description, MeetupLocation meetupLocation,
+                              Duration lendingDuration, List&lt;Path&gt; photoFiles) {
+<span class="fc" id="L73">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L74">        ListingFormRules.requireCommonFields(title, category, condition, description, meetupLocation);</span>
+<span class="fc" id="L75">        ListingFormRules.requireLendingDuration(lendingDuration);</span>
+<span class="fc" id="L76">        return publish(seller, new LendListing(seller.getUsername(), title.trim(), category,</span>
+<span class="fc" id="L77">                condition, description.trim(), meetupLocation, lendingDuration), photoFiles);</span>
+    }
+
+    /** Posts a Giveaway listing. It has no price or duration to check. */
+    public Listing createGiveaway(String title, Category category, ItemCondition condition,
+                                  String description, MeetupLocation meetupLocation,
+                                  List&lt;Path&gt; photoFiles) {
+<span class="fc" id="L84">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L85">        ListingFormRules.requireCommonFields(title, category, condition, description, meetupLocation);</span>
+<span class="fc" id="L86">        return publish(seller, new GiveawayListing(seller.getUsername(), title.trim(), category,</span>
+<span class="fc" id="L87">                condition, description.trim(), meetupLocation), photoFiles);</span>
+    }
+
+    /**
+     * Imports the photos, then adds the listing and sends both notifications as one step.
+     * The photo count is checked before anything is imported (A4).
+     */
+    private Listing publish(Seller seller, Listing listing, List&lt;Path&gt; photoFiles) {
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">        List&lt;Path&gt; files = photoFiles == null ? List.of() : photoFiles;</span>
+<span class="fc" id="L96">        ListingFormRules.requirePhotoCount(files.size());</span>
+<span class="fc" id="L97">        List&lt;String&gt; photoIds = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        for (Path file : files) {</span>
+<span class="fc" id="L99">            photoIds.add(photos.importPhoto(file));</span>
+<span class="fc" id="L100">        }</span>
+<span class="fc" id="L101">        return store.transaction(() -&gt; {</span>
+<span class="fc" id="L102">            store.addListing(listing);</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">            if (!photoIds.isEmpty()) {</span>
+<span class="fc" id="L104">                listing.setPhotos(photoIds);</span>
+            }
+<span class="fc" id="L106">            notifications.sendToAdmins(NotificationCategory.LISTING_SUBMITTED,</span>
+<span class="fc" id="L107">                    seller.getFullName() + &quot; submitted '&quot; + listing.getTitle() + &quot;' for review.&quot;);</span>
+<span class="fc" id="L108">            notifications.send(seller.getUsername(), NotificationCategory.LISTING_SUBMITTED,</span>
+<span class="fc" id="L109">                    &quot;Your listing '&quot; + listing.getTitle() + &quot;' is pending review.&quot;);</span>
+<span class="fc" id="L110">            return listing;</span>
+        });
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

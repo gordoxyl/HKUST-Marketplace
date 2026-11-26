@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MakeOfferFlow.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.controllers.buyer</a> &gt; <span class="el_source">MakeOfferFlow.java</span></div><h1>MakeOfferFlow.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.controllers.buyer;
+
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.services.ListingUnavailableException;
+import com.hkust.marketplace.services.OfferForm;
+import com.hkust.marketplace.services.OfferService;
+import com.hkust.marketplace.services.ServiceException;
+import com.hkust.marketplace.ui.Dialogs;
+import com.hkust.marketplace.ui.OfferText;
+
+import java.util.Optional;
+import java.util.function.Supplier;
+
+/**
+ * Walks the buyer through UC5 Make Offer, from any of its three starting points (step 1): the
+ * action button on a listing's detail screen, the Make Offer option in its chat, or agreeing
+ * to a seller's counter.
+ *
+ * &lt;p&gt;This is the use case's boundary (Lecture 15): it shows the forms and messages in the
+ * order of the flow of events and passes what the buyer entered to {@link OfferService},
+ * which makes every decision. The alternative flows end here as the use case says:
+ * &lt;ul&gt;
+ *   &lt;li&gt;A1, listing not available: a message, and the use case ends.&lt;/li&gt;
+ *   &lt;li&gt;A2 and A3, invalid price or period: a message, and the form comes back with what the
+ *       buyer entered, to be corrected ({Enter Terms}).&lt;/li&gt;
+ *   &lt;li&gt;A4, cancel: the use case ends without a message.&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+final class MakeOfferFlow {
+
+    private final OfferService offers;
+
+<span class="fc" id="L34">    MakeOfferFlow(OfferService offers) {</span>
+<span class="fc" id="L35">        this.offers = offers;</span>
+<span class="fc" id="L36">    }</span>
+
+    /**
+     * Make Offer on a listing, from its detail screen or its chat.
+     * @return true if an offer, borrow request or claim was submitted
+     */
+    boolean start(String listingId) {
+<span class="fc" id="L43">        return run(() -&gt; offers.start(listingId));</span>
+    }
+
+    /**
+     * Make Offer by agreeing to the seller's counter on one of the buyer's offers: the form
+     * starts with the counter's terms (Special Requirement 4).
+     * @return true if the new offer was submitted
+     */
+    boolean startFromCounter(String offerId) {
+<span class="fc" id="L52">        return run(() -&gt; offers.startFromCounter(offerId));</span>
+    }
+
+    private boolean run(Supplier&lt;OfferForm&gt; begin) {
+        OfferForm form;
+        try {
+<span class="fc" id="L58">            form = begin.get(); // {Check Availability}</span>
+<span class="fc" id="L59">        } catch (ServiceException e) {</span>
+<span class="fc" id="L60">            Dialogs.problem(e); // A1</span>
+<span class="fc" id="L61">            return false;</span>
+<span class="fc" id="L62">        }</span>
+<span class="fc" id="L63">        Listing listing = form.listing();</span>
+<span class="fc bfc" id="L64" title="All 3 branches covered.">        return switch (listing.getType()) {</span>
+<span class="fc" id="L65">            case SELL -&gt; offerPrice(listing, form.price());</span>
+<span class="fc" id="L66">            case LEND -&gt; requestBorrow(listing, OfferDialogs.Period.of(form.start(), form.end()));</span>
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">            case GIVEAWAY -&gt; submit(listing, () -&gt; offers.submitClaim(listing.getId())) == Outcome.SUBMITTED;</span>
+        };
+    }
+
+    /** {Enter Terms} for a sale listing, repeated until the price is accepted or the buyer cancels. */
+    private boolean offerPrice(Listing listing, String suggested) {
+<span class="fc" id="L73">        String price = suggested;</span>
+        while (true) {
+<span class="fc" id="L75">            Optional&lt;String&gt; typed = OfferDialogs.askPrice(listing, price);</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">            if (typed.isEmpty()) {</span>
+<span class="fc" id="L77">                return false; // A4</span>
+            }
+<span class="fc" id="L79">            price = typed.get();</span>
+<span class="fc" id="L80">            String entered = price;</span>
+<span class="fc" id="L81">            Outcome outcome = submit(listing, () -&gt; offers.submitPriceOffer(listing.getId(), entered));</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">            if (outcome != Outcome.CORRECT_AND_RETRY) {</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">                return outcome == Outcome.SUBMITTED;</span>
+            }
+<span class="fc" id="L85">        }</span>
+    }
+
+    /** {Enter Terms} for a lend listing, repeated until the period is accepted or the buyer cancels. */
+    private boolean requestBorrow(Listing listing, OfferDialogs.Period suggested) {
+<span class="fc" id="L90">        OfferDialogs.Period period = suggested;</span>
+        while (true) {
+<span class="fc" id="L92">            Optional&lt;OfferDialogs.Period&gt; entered = OfferDialogs.askPeriod(listing, period);</span>
+<span class="fc bfc" id="L93" title="All 2 branches covered.">            if (entered.isEmpty()) {</span>
+<span class="fc" id="L94">                return false; // A4</span>
+            }
+<span class="fc" id="L96">            period = entered.get();</span>
+<span class="fc" id="L97">            OfferDialogs.Period typed = period;</span>
+<span class="fc" id="L98">            Outcome outcome = submit(listing,</span>
+<span class="fc" id="L99">                    () -&gt; offers.submitBorrowRequest(listing.getId(), typed.start(), typed.end()));</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">            if (outcome != Outcome.CORRECT_AND_RETRY) {</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">                return outcome == Outcome.SUBMITTED;</span>
+            }
+<span class="fc" id="L103">        }</span>
+    }
+
+<span class="fc" id="L106">    private enum Outcome { SUBMITTED, CORRECT_AND_RETRY, ENDED }</span>
+
+    /** {Check Terms} and {Record Offer}: submits, and tells the buyer how it went (steps 5-9). */
+    private static Outcome submit(Listing listing, Supplier&lt;Offer&gt; submission) {
+        try {
+<span class="fc" id="L111">            Offer offer = submission.get();</span>
+<span class="fc" id="L112">            Dialogs.info(&quot;Submitted&quot;, OfferText.submitted(offer, listing.getTitle())); // step 9</span>
+<span class="fc" id="L113">            return Outcome.SUBMITTED;</span>
+<span class="fc" id="L114">        } catch (ListingUnavailableException e) {</span>
+<span class="fc" id="L115">            Dialogs.problem(e); // A1: nothing was recorded, and the use case ends</span>
+<span class="fc" id="L116">            return Outcome.ENDED;</span>
+<span class="fc" id="L117">        } catch (ServiceException e) {</span>
+<span class="fc" id="L118">            Dialogs.problem(e); // A2 or A3: back to {Enter Terms}</span>
+<span class="fc" id="L119">            return Outcome.CORRECT_AND_RETRY;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

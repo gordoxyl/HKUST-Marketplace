@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PhotoFrame.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">PhotoFrame.java</span></div><h1>PhotoFrame.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.data.DataStore;
+import javafx.application.Platform;
+import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.StackPane;
+
+import java.io.ByteArrayInputStream;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * A frame of a fixed size that shows one listing photo, the same everywhere a photo appears:
+ * the thumbnail on a listing card (Task 1.3), the photos on the listing detail screen (Task
+ * 1.4) and in the admin's review (Task 3.2).
+ * &lt;pre&gt;{@code
+ * for (String photoId : listing.getPhotos()) {
+ *     gallery.getChildren().add(new PhotoFrame(photoId, 240, 180));
+ * }
+ * }&lt;/pre&gt;
+ * The photo is read from the app's encrypted storage and decoded in the background, so a
+ * screen with many photos appears at once. Until it is ready, and when the listing has no
+ * photo or its file is missing or unreadable, the frame says &quot;No photo&quot;.
+ */
+public class PhotoFrame extends StackPane {
+
+    /** A frame for a photo in the app's store. */
+    public PhotoFrame(String photoId, double width, double height) {
+<span class="nc" id="L31">        this(DataStore.getInstance(), photoId, width, height);</span>
+<span class="nc" id="L32">    }</span>
+
+    /**
+     * @param store   the store that holds the photo
+     * @param photoId a photo id from {@code PhotoService.importPhoto}, or null for no photo
+     */
+<span class="fc" id="L38">    public PhotoFrame(DataStore store, String photoId, double width, double height) {</span>
+<span class="fc" id="L39">        getStyleClass().add(&quot;listing-card-thumbnail&quot;);</span>
+<span class="fc" id="L40">        setPrefSize(width, height);</span>
+<span class="fc" id="L41">        setMinSize(width, height);</span>
+<span class="fc" id="L42">        setMaxSize(width, height);</span>
+<span class="fc" id="L43">        Label none = new Label(&quot;No photo&quot;);</span>
+<span class="fc" id="L44">        none.getStyleClass().add(&quot;listing-card-date&quot;);</span>
+<span class="fc" id="L45">        getChildren().add(none);</span>
+
+<span class="fc bfc" id="L47" title="All 2 branches covered.">        if (photoId != null) {</span>
+<span class="fc" id="L48">            CompletableFuture</span>
+<span class="fc" id="L49">                    .supplyAsync(() -&gt; load(store, photoId, width, height))</span>
+<span class="fc" id="L50">                    .thenAccept(loaded -&gt; loaded.ifPresent(image -&gt; Platform.runLater(() -&gt; {</span>
+<span class="fc" id="L51">                        none.setVisible(false);</span>
+<span class="fc" id="L52">                        getChildren().add(new ImageView(image));</span>
+<span class="fc" id="L53">                    })));</span>
+        }
+<span class="fc" id="L55">    }</span>
+
+    /** Reads and decodes the photo to fit the frame, keeping its proportions. Empty if there is nothing to show. */
+    private static Optional&lt;Image&gt; load(DataStore store, String photoId, double width, double height) {
+        try {
+<span class="fc" id="L60">            return store.readPhoto(photoId)</span>
+<span class="fc" id="L61">                    .map(bytes -&gt; new Image(new ByteArrayInputStream(bytes), width, height, true, true))</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">                    .filter(image -&gt; !image.isError());</span>
+<span class="fc" id="L63">        } catch (RuntimeException e) {</span>
+            // A damaged photo file: the listing is still shown, without the photo
+<span class="fc" id="L65">            System.err.println(&quot;[PhotoFrame] Photo &quot; + photoId + &quot; could not be shown: &quot; + e.getMessage());</span>
+<span class="fc" id="L66">            return Optional.empty();</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

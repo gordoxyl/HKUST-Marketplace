@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DealDetails.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">DealDetails.java</span></div><h1>DealDetails.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.ListingType;
+import com.hkust.marketplace.models.Offer;
+
+import java.time.LocalDateTime;
+
+/**
+ * Everything the admin sees for VIEW DETAILS on one deal (Task 3.5, step 4.1). It holds no
+ * password hashes. Admin-only.
+ *
+ * @param residenceHall  the buyer's residence hall, or null if none or the account was deleted
+ * @param sellerBio      the seller's bio, or null
+ * @param amount         the offered price for a sale, otherwise null
+ * @param borrowStart    the borrow period start for a loan, otherwise null
+ * @param borrowEnd      the borrow period end for a loan, otherwise null
+ * @param reviewed       true if the buyer reviewed this deal
+ * @param reviewHidden   true if that review was hidden by the admin
+ */
+<span class="fc" id="L21">public record DealDetails(Offer offer, Listing listing,</span>
+                          String buyerUsername, String buyerFullName, String residenceHall,
+                          String sellerUsername, String sellerFullName, String sellerBio,
+                          ListingType dealType, Double amount,
+                          LocalDateTime borrowStart, LocalDateTime borrowEnd,
+                          LocalDateTime startDate, LocalDateTime completedDate, DealState state,
+                          boolean reviewed, boolean reviewHidden) { }
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

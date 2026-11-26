@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReportDialog.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.controllers.buyer</a> &gt; <span class="el_source">ReportDialog.java</span></div><h1>ReportDialog.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.controllers.buyer;
+
+import com.hkust.marketplace.models.ReportReason;
+import com.hkust.marketplace.services.ReportForm;
+import com.hkust.marketplace.ui.Dialogs;
+import com.hkust.marketplace.ui.ReportText;
+import javafx.collections.FXCollections;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextArea;
+import javafx.scene.layout.VBox;
+
+import java.util.Optional;
+
+/**
+ * The form of Report Listing (UC9 steps 3-5, {Enter Report}): a reason from Special
+ * Requirement 1's list, and the details.
+ *
+ * &lt;p&gt;A boundary class only (Lecture 15): it collects what the buyer chose and typed and hands
+ * it over unchecked; whether the report is complete is decided by {@code ReportService}. The
+ * form starts with no reason chosen, so the buyer chooses one (step 4). It returns empty when
+ * the buyer cancels (A3).
+ */
+final class ReportDialog {
+
+<span class="fc" id="L29">    private static final ButtonType SUBMIT = new ButtonType(&quot;Submit Report&quot;, ButtonBar.ButtonData.OK_DONE);</span>
+<span class="fc" id="L30">    private static final ButtonType CANCEL = new ButtonType(&quot;Cancel&quot;, ButtonBar.ButtonData.CANCEL_CLOSE);</span>
+
+    private ReportDialog() {
+        // Utility class
+    }
+
+    /**
+     * The form's contents exactly as entered, kept so that a form shown again has them, to be
+     * corrected (A2).
+     * @param reason  the chosen reason, or null if none is chosen
+     * @param details the details as typed
+     */
+<span class="fc" id="L42">    record Entry(ReportReason reason, String details) {</span>
+
+        /** A new form: no reason chosen, nothing written. */
+<span class="fc" id="L45">        static final Entry EMPTY = new Entry(null, &quot;&quot;);</span>
+    }
+
+    /**
+     * Asks for the reason and the details.
+     * @param entry what the form starts with: empty, or what the buyer entered before
+     * @return the report as entered, or empty if the buyer cancelled (A3)
+     */
+    static Optional&lt;Entry&gt; ask(ReportForm form, Entry entry) {
+<span class="fc" id="L54">        ComboBox&lt;ReportReason&gt; reason = new ComboBox&lt;&gt;(FXCollections.observableArrayList(form.reasons()));</span>
+<span class="fc" id="L55">        reason.setPromptText(&quot;Choose a reason&quot;);</span>
+<span class="fc" id="L56">        reason.setValue(entry.reason());</span>
+<span class="fc" id="L57">        reason.setMaxWidth(Double.MAX_VALUE);</span>
+
+<span class="fc" id="L59">        TextArea details = new TextArea(entry.details());</span>
+<span class="fc" id="L60">        details.setPromptText(&quot;What is wrong with this listing?&quot;);</span>
+<span class="fc" id="L61">        details.setWrapText(true);</span>
+<span class="fc" id="L62">        details.setPrefRowCount(4);</span>
+<span class="fc" id="L63">        details.setPrefColumnCount(32);</span>
+
+<span class="fc" id="L65">        Dialog&lt;ButtonType&gt; dialog = Dialogs.form(&quot;Report Listing&quot;, ReportText.formHeader(form), SUBMIT, CANCEL);</span>
+<span class="fc" id="L66">        dialog.getDialogPane().setContent(new VBox(8,</span>
+                new Label(&quot;Reason&quot;), reason,
+                new Label(&quot;Details&quot;), details,
+<span class="fc" id="L69">                Dialogs.hint(ReportText.HINT)));</span>
+<span class="fc" id="L70">        return dialog.showAndWait().filter(SUBMIT::equals)</span>
+<span class="fc" id="L71">                .map(button -&gt; new Entry(reason.getValue(), details.getText()));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

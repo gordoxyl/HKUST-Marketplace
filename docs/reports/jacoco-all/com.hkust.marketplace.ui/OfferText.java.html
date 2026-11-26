@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OfferText.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">OfferText.java</span></div><h1>OfferText.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.models.BorrowRequest;
+import com.hkust.marketplace.models.ListingType;
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.models.PriceOffer;
+
+import java.util.Optional;
+
+/**
+ * How a price offer, borrow request or claim reads on every screen that shows one: the chat
+ * history (UC6), My Deals (UC7), the seller's offers and the admin's deal records. One place,
+ * so a deal is worded the same in all three portals.
+ */
+public final class OfferText {
+
+    private OfferText() {
+        // Utility class
+    }
+
+    /**
+     * What the buyer's action on a listing is called, by listing type (Task 1.4): &quot;Make Offer&quot;
+     * for a sale, &quot;Request Borrow&quot; for a lend listing, &quot;Claim Item&quot; for a giveaway. The same
+     * words are on the detail screen's button and on the Make Offer option in a chat (UC5 step 1).
+     */
+    public static String actionText(ListingType type) {
+<span class="fc bfc" id="L27" title="All 3 branches covered.">        return switch (type) {</span>
+<span class="fc" id="L28">            case SELL -&gt; &quot;Make Offer&quot;;</span>
+<span class="fc" id="L29">            case LEND -&gt; &quot;Request Borrow&quot;;</span>
+<span class="fc" id="L30">            case GIVEAWAY -&gt; &quot;Claim Item&quot;;</span>
+        };
+    }
+
+    /**
+     * The confirmation after Make Offer (UC5 step 9):
+     * &quot;Your price offer for 'Desk Lamp' was submitted: HK$ 160. The seller has been notified.&quot;
+     * For a claim, which has no terms: &quot;Your claim for 'Desk Lamp' was submitted. The seller has been notified.&quot;
+     */
+    public static String submitted(Offer offer, String listingTitle) {
+<span class="fc" id="L40">        String terms = terms(offer);</span>
+<span class="fc" id="L41">        return &quot;Your &quot; + offer.getKindName() + &quot; for '&quot; + listingTitle + &quot;' was submitted&quot;</span>
+<span class="fc bfc" id="L42" title="All 2 branches covered.">                + (terms.isEmpty() ? &quot;.&quot; : &quot;: &quot; + terms + &quot;.&quot;) + &quot; The seller has been notified.&quot;;</span>
+    }
+
+    /** &quot;Price offer&quot;, &quot;Borrow request&quot; or &quot;Claim&quot;. */
+    public static String kind(Offer offer) {
+<span class="fc" id="L47">        String name = offer.getKindName();</span>
+<span class="fc" id="L48">        return Character.toUpperCase(name.charAt(0)) + name.substring(1);</span>
+    }
+
+    /**
+     * What the buyer proposed: &quot;Price offer: HK$ 160&quot;,
+     * &quot;Borrow request: 10 Nov 2026 09:00 – 17 Nov 2026 09:00&quot;, or &quot;Claim&quot; (a claim has no terms).
+     */
+    public static String summary(Offer offer) {
+<span class="fc" id="L56">        String terms = terms(offer);</span>
+<span class="fc bfc" id="L57" title="All 2 branches covered.">        return terms.isEmpty() ? kind(offer) : kind(offer) + &quot;: &quot; + terms;</span>
+    }
+
+    /**
+     * What the buyer proposed, without the kind of offer: &quot;HK$ 160&quot; or
+     * &quot;10 Nov 2026 09:00 – 17 Nov 2026 09:00&quot;. Empty for a claim, which has no terms.
+     */
+    public static String terms(Offer offer) {
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if (offer instanceof PriceOffer price) {</span>
+<span class="fc" id="L66">            return Formats.price(price.getOfferedPrice());</span>
+        }
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        if (offer instanceof BorrowRequest borrow) {</span>
+<span class="fc" id="L69">            return Formats.period(borrow.getProposedStartDate(), borrow.getProposedEndDate());</span>
+        }
+<span class="fc" id="L71">        return &quot;&quot;;</span>
+    }
+
+    /**
+     * The seller's counter, if there is one: &quot;Seller's counter: HK$ 170&quot; or
+     * &quot;Seller's counter: 11 Nov 2026 09:00 – 18 Nov 2026 09:00&quot;. Empty for an offer that was
+     * not countered; a claim cannot be countered.
+     */
+    public static Optional&lt;String&gt; counter(Offer offer) {
+<span class="fc" id="L80">        return counterTerms(offer).map(terms -&gt; &quot;Seller's counter: &quot; + terms);</span>
+    }
+
+    /** The terms of the seller's counter, without a label: &quot;HK$ 170&quot; or a period; empty if there is none. */
+    public static Optional&lt;String&gt; counterTerms(Offer offer) {
+<span class="fc bfc" id="L85" title="All 4 branches covered.">        if (offer instanceof PriceOffer price &amp;&amp; price.getCounterPrice() != null) {</span>
+<span class="fc" id="L86">            return Optional.of(Formats.price(price.getCounterPrice()));</span>
+        }
+<span class="fc bfc" id="L88" title="All 4 branches covered.">        if (offer instanceof BorrowRequest borrow &amp;&amp; borrow.getCounterStartDate() != null) {</span>
+<span class="fc" id="L89">            return Optional.of(Formats.period(borrow.getCounterStartDate(), borrow.getCounterEndDate()));</span>
+        }
+<span class="fc" id="L91">        return Optional.empty();</span>
+    }
+
+    /**
+     * &quot;Pending&quot;, &quot;Accepted&quot;, &quot;Declined&quot; or &quot;Countered&quot;. Once the deal is completed: &quot;Completed&quot;
+     * for a purchase or claim, and for a borrowed item &quot;Returned&quot; if the buyer returned it or
+     * &quot;Auto-returned&quot; if it was returned when its period ended (UC12 step 4; UC11).
+     */
+    public static String status(Offer offer) {
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        if (!offer.isCompleted()) {</span>
+<span class="fc" id="L101">            return offer.getStatus().getDisplayName();</span>
+        }
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        if (offer instanceof BorrowRequest request) {</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">            return request.isAutoReturned() ? &quot;Auto-returned&quot; : &quot;Returned&quot;;</span>
+        }
+<span class="fc" id="L106">        return &quot;Completed&quot;;</span>
+    }
+
+    /** The status badge's style class in styles.css: orange while waiting, green, red, or blue. */
+    public static String badgeStyle(Offer offer) {
+<span class="fc bfc" id="L111" title="All 2 branches covered.">        if (offer.isCompleted()) {</span>
+<span class="fc" id="L112">            return &quot;badge-sold&quot;;</span>
+        }
+<span class="fc bfc" id="L114" title="All 4 branches covered.">        return switch (offer.getStatus()) {</span>
+<span class="fc" id="L115">            case PENDING -&gt; &quot;badge-pending&quot;;</span>
+<span class="fc" id="L116">            case ACCEPTED -&gt; &quot;badge-live&quot;;</span>
+<span class="fc" id="L117">            case DECLINED -&gt; &quot;badge-rejected&quot;;</span>
+<span class="fc" id="L118">            case COUNTERED -&gt; &quot;badge-sold&quot;;</span>
+        };
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

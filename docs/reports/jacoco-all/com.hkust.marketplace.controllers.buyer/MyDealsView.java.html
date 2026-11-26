@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MyDealsView.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.controllers.buyer</a> &gt; <span class="el_source">MyDealsView.java</span></div><h1>MyDealsView.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.controllers.buyer;
+
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.services.Deal;
+import com.hkust.marketplace.services.MyDealsService;
+import com.hkust.marketplace.services.ServiceException;
+import com.hkust.marketplace.ui.DealText;
+import com.hkust.marketplace.ui.Dialogs;
+import com.hkust.marketplace.ui.OfferText;
+import com.hkust.marketplace.ui.Refreshable;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+
+import java.util.List;
+
+/**
+ * The My Deals screen (UC7; Task 1.6): the buyer's current deals, followed by the completed
+ * ones. Each deal shows its listing, seller, type, status, terms, the seller's counter and,
+ * for a borrowed item, the due date; and it has the buttons for what can be done with it.
+ *
+ * &lt;p&gt;This is the use case's boundary (Lecture 15). Which buttons a deal gets is decided by
+ * {@link MyDealsService} ({@link Deal#canBeMarkedComplete()} and the like), and the wording
+ * is in the tested {@link DealText} and {@link OfferText}. This class asks the buyer to
+ * confirm (steps 4-5; A3), calls the service, and hands the rest to the dashboard through
+ * {@link Actions}: reopening the listing or the chat (A4), agreeing to a counter (UC5) and
+ * rating the seller (UC10).
+ */
+public class MyDealsView extends ScrollPane implements Refreshable {
+
+    /** What the dashboard does when the buyer leaves My Deals for another use case. */
+    public interface Actions {
+
+        /** A4: show the deal's listing detail screen. */
+        void viewListing(Deal deal);
+
+        /** A4: show the deal's chat thread. */
+        void openChat(Deal deal);
+
+        /** Special Requirement 4: agree to the seller's counter, through Make Offer (UC5). */
+        void agreeToCounter(Deal deal);
+
+        /** Step 9 and Special Requirement 6: rate and review the seller, through Review Seller (UC10). */
+        void rateSeller(Deal deal);
+    }
+
+    private final MyDealsService service;
+    private final Actions actions;
+<span class="fc" id="L56">    private final VBox list = new VBox(12);</span>
+
+<span class="fc" id="L58">    public MyDealsView(MyDealsService service, Actions actions) {</span>
+<span class="fc" id="L59">        this.service = service;</span>
+<span class="fc" id="L60">        this.actions = actions;</span>
+<span class="fc" id="L61">        list.setPadding(new Insets(4, 12, 12, 4));</span>
+<span class="fc" id="L62">        setContent(list);</span>
+<span class="fc" id="L63">        setFitToWidth(true);</span>
+<span class="fc" id="L64">        refresh();</span>
+<span class="fc" id="L65">    }</span>
+
+    /**
+     * Reloads the deals: after one was completed or returned, when the buyer comes back to this
+     * screen, or when the borrowing-deadline timer returned an item (UC12 step 4).
+     */
+    @Override
+    public final void refresh() {
+<span class="fc" id="L73">        list.getChildren().clear();</span>
+        List&lt;Deal&gt; deals;
+        try {
+<span class="fc" id="L76">            deals = service.getMyDeals();</span>
+<span class="fc" id="L77">        } catch (ServiceException e) {</span>
+<span class="fc" id="L78">            Dialogs.problem(e);</span>
+<span class="fc" id="L79">            return;</span>
+<span class="fc" id="L80">        }</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">        if (deals.isEmpty()) {</span>
+<span class="fc" id="L82">            Label none = new Label(DealText.NO_DEALS); // A1</span>
+<span class="fc" id="L83">            none.setWrapText(true);</span>
+<span class="fc" id="L84">            none.getStyleClass().add(&quot;text-muted&quot;);</span>
+<span class="fc" id="L85">            list.getChildren().add(none);</span>
+<span class="fc" id="L86">            return;</span>
+        }
+<span class="fc" id="L88">        section(&quot;Current deals&quot;, deals.stream().filter(Deal::isCurrent).toList());</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        section(&quot;Completed deals&quot;, deals.stream().filter(deal -&gt; !deal.isCurrent()).toList());</span>
+<span class="fc" id="L90">    }</span>
+
+    private void section(String title, List&lt;Deal&gt; deals) {
+<span class="fc bfc" id="L93" title="All 2 branches covered.">        if (deals.isEmpty()) {</span>
+<span class="fc" id="L94">            return;</span>
+        }
+<span class="fc" id="L96">        Label heading = new Label(title);</span>
+<span class="fc" id="L97">        heading.getStyleClass().add(&quot;section-title&quot;);</span>
+<span class="fc" id="L98">        list.getChildren().add(heading);</span>
+<span class="fc bfc" id="L99" title="All 2 branches covered.">        for (Deal deal : deals) {</span>
+<span class="fc" id="L100">            list.getChildren().add(card(deal));</span>
+<span class="fc" id="L101">        }</span>
+<span class="fc" id="L102">    }</span>
+
+    // ---------- One deal (UC7 step 2) ----------
+
+    private Node card(Deal deal) {
+<span class="fc" id="L107">        Offer offer = deal.offer();</span>
+<span class="fc" id="L108">        Label title = new Label(deal.listing().getTitle());</span>
+<span class="fc" id="L109">        title.getStyleClass().add(&quot;listing-card-title&quot;);</span>
+<span class="fc" id="L110">        Label status = new Label(OfferText.status(offer));</span>
+<span class="fc" id="L111">        status.getStyleClass().addAll(&quot;badge&quot;, OfferText.badgeStyle(offer));</span>
+<span class="fc" id="L112">        status.setMinWidth(Region.USE_PREF_SIZE);</span>
+<span class="fc" id="L113">        HBox top = new HBox(10, title, status);</span>
+<span class="fc" id="L114">        top.setAlignment(Pos.CENTER_LEFT);</span>
+
+<span class="fc" id="L116">        VBox card = new VBox(5, top, line(DealText.about(deal), &quot;listing-card-line&quot;),</span>
+<span class="fc" id="L117">                line(OfferText.summary(offer), &quot;chat-offer-terms&quot;));</span>
+<span class="fc" id="L118">        OfferText.counter(offer).ifPresent(counter -&gt; card.getChildren().add(line(counter, &quot;chat-text&quot;)));</span>
+<span class="fc" id="L119">        DealText.due(deal).ifPresent(due -&gt; card.getChildren().add(line(due, &quot;chat-text&quot;)));</span>
+<span class="fc" id="L120">        card.getChildren().addAll(line(DealText.dates(deal), &quot;listing-card-date&quot;), buttons(deal));</span>
+<span class="fc" id="L121">        card.getStyleClass().add(&quot;card&quot;);</span>
+<span class="fc" id="L122">        card.setPadding(new Insets(14, 16, 14, 16));</span>
+<span class="fc" id="L123">        return card;</span>
+    }
+
+    /** The buttons for what can be done with the deal now, then the two that reopen its listing and chat. */
+    private HBox buttons(Deal deal) {
+<span class="fc" id="L128">        HBox buttons = new HBox(8);</span>
+<span class="fc" id="L129">        buttons.setAlignment(Pos.CENTER_LEFT);</span>
+<span class="fc" id="L130">        buttons.setPadding(new Insets(4, 0, 0, 0));</span>
+<span class="fc bfc" id="L131" title="All 2 branches covered.">        if (deal.canBeMarkedComplete()) {</span>
+<span class="fc" id="L132">            buttons.getChildren().add(button(&quot;Mark Complete&quot;, &quot;btn-primary&quot;, () -&gt; markComplete(deal)));</span>
+        }
+<span class="fc bfc" id="L134" title="All 2 branches covered.">        if (deal.canBeReturned()) {</span>
+<span class="fc" id="L135">            buttons.getChildren().add(button(&quot;Return Item&quot;, &quot;btn-primary&quot;, () -&gt; returnItem(deal)));</span>
+        }
+<span class="fc bfc" id="L137" title="All 2 branches covered.">        if (deal.hasCounter()) {</span>
+<span class="fc" id="L138">            buttons.getChildren().add(button(&quot;Agree to Counter&quot;, &quot;btn-primary&quot;, () -&gt; actions.agreeToCounter(deal)));</span>
+        }
+<span class="fc bfc" id="L140" title="All 2 branches covered.">        if (deal.canBeReviewed()) {</span>
+<span class="fc" id="L141">            buttons.getChildren().add(button(&quot;Rate Seller&quot;, &quot;btn-primary&quot;, () -&gt; actions.rateSeller(deal)));</span>
+        }
+<span class="fc" id="L143">        Region spacer = new Region();</span>
+<span class="fc" id="L144">        HBox.setHgrow(spacer, Priority.ALWAYS);</span>
+<span class="fc" id="L145">        buttons.getChildren().addAll(spacer,</span>
+<span class="fc" id="L146">                button(&quot;View Listing&quot;, &quot;btn-outline&quot;, () -&gt; actions.viewListing(deal)),</span>
+<span class="fc" id="L147">                button(&quot;Open Chat&quot;, &quot;btn-outline&quot;, () -&gt; actions.openChat(deal)));</span>
+<span class="fc" id="L148">        return buttons;</span>
+    }
+
+    // ---------- Mark complete (UC7 steps 3-9) and return (A2) ----------
+
+    private void markComplete(Deal deal) {
+<span class="fc bfc" id="L154" title="All 2 branches covered.">        if (!Dialogs.confirm(&quot;Mark Complete&quot;, DealText.confirmComplete(deal))) {</span>
+<span class="fc" id="L155">            return; // A3: the deal is left unchanged</span>
+        }
+        Deal completed;
+        try {
+<span class="fc" id="L159">            completed = service.markComplete(deal.offer().getId());</span>
+<span class="fc" id="L160">        } catch (ServiceException e) {</span>
+<span class="fc" id="L161">            Dialogs.problem(e);</span>
+<span class="fc" id="L162">            refresh();</span>
+<span class="fc" id="L163">            return;</span>
+<span class="fc" id="L164">        }</span>
+<span class="fc" id="L165">        refresh(); // step 7: shown as completed</span>
+<span class="fc bfc" id="L166" title="All 2 branches covered.">        if (Dialogs.confirm(&quot;Deal completed&quot;, DealText.ratePrompt(completed))) { // step 9</span>
+<span class="fc" id="L167">            actions.rateSeller(completed);</span>
+        }
+<span class="fc" id="L169">    }</span>
+
+    private void returnItem(Deal deal) {
+<span class="fc bfc" id="L172" title="All 2 branches covered.">        if (!Dialogs.confirm(&quot;Return Item&quot;, DealText.confirmReturn(deal))) {</span>
+<span class="fc" id="L173">            return; // A3</span>
+        }
+        Deal returned;
+        try {
+<span class="fc" id="L177">            returned = service.returnItem(deal.offer().getId());</span>
+<span class="fc" id="L178">        } catch (ServiceException e) {</span>
+<span class="fc" id="L179">            Dialogs.problem(e);</span>
+<span class="fc" id="L180">            refresh();</span>
+<span class="fc" id="L181">            return;</span>
+<span class="fc" id="L182">        }</span>
+<span class="fc" id="L183">        refresh(); // shown as returned</span>
+<span class="fc bfc" id="L184" title="All 2 branches covered.">        if (Dialogs.confirm(&quot;Item returned&quot;, DealText.returnedRatePrompt(returned))) { // client answer #3</span>
+<span class="fc" id="L185">            actions.rateSeller(returned);</span>
+        }
+<span class="fc" id="L187">    }</span>
+
+    // ---------- Small parts ----------
+
+    private static Button button(String text, String style, Runnable action) {
+<span class="fc" id="L192">        Button button = new Button(text);</span>
+<span class="fc" id="L193">        button.getStyleClass().addAll(style, &quot;btn-sm&quot;);</span>
+<span class="fc" id="L194">        button.setMinWidth(Region.USE_PREF_SIZE);</span>
+<span class="fc" id="L195">        button.setOnAction(e -&gt; action.run());</span>
+<span class="fc" id="L196">        return button;</span>
+    }
+
+    private static Label line(String text, String styleClass) {
+<span class="fc" id="L200">        Label label = new Label(text);</span>
+<span class="fc" id="L201">        label.setWrapText(true);</span>
+<span class="fc" id="L202">        label.getStyleClass().add(styleClass);</span>
+<span class="fc" id="L203">        return label;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

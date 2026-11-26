@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatThread.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.models</a> &gt; <span class="el_source">ChatThread.java</span></div><h1>ChatThread.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.models;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+/**
+ * The private chat between one buyer and the seller of one listing (ChatThread in the
+ * domain class diagram; UC6). The thread holds its messages in order; its offers are the
+ * offers with the same buyer and listing, kept in DataStore.
+ */
+public class ChatThread {
+
+    private String id;
+    private final String buyerUsername;
+    private final String listingId;
+    private final String sellerUsername;
+    private LocalDateTime createdAt;
+<span class="fc" id="L20">    private final List&lt;Message&gt; messages = new ArrayList&lt;&gt;();</span>
+
+    /** Only the buyer starts a thread (UC6 Special Requirement 1). */
+    public ChatThread(String buyerUsername, Listing listing) {
+<span class="fc" id="L24">        this(buyerUsername, listing.getId(), listing.getSellerUsername());</span>
+<span class="fc" id="L25">    }</span>
+
+    /** Used by the public constructor, and when a saved thread is loaded from file. */
+<span class="fc" id="L28">    private ChatThread(String buyerUsername, String listingId, String sellerUsername) {</span>
+<span class="fc" id="L29">        this.buyerUsername = Objects.requireNonNull(buyerUsername, &quot;buyerUsername&quot;);</span>
+<span class="fc" id="L30">        this.listingId = Objects.requireNonNull(listingId, &quot;listing id&quot;);</span>
+<span class="fc" id="L31">        this.sellerUsername = Objects.requireNonNull(sellerUsername, &quot;sellerUsername&quot;);</span>
+<span class="fc" id="L32">    }</span>
+
+    /** Null until the thread is added to DataStore. */
+<span class="fc" id="L35">    public String getId() { return id; }</span>
+
+    /** Called once by DataStore when the thread is added: gives it its id and creation time. */
+    public void markAdded(String id, LocalDateTime createdAt) {
+<span class="fc bfc" id="L39" title="All 2 branches covered.">        if (this.id != null) {</span>
+<span class="fc" id="L40">            throw new IllegalStateException(&quot;Chat thread already has id &quot; + this.id);</span>
+        }
+<span class="fc" id="L42">        this.id = Objects.requireNonNull(id, &quot;id&quot;);</span>
+<span class="fc" id="L43">        this.createdAt = Objects.requireNonNull(createdAt, &quot;createdAt&quot;);</span>
+<span class="fc" id="L44">    }</span>
+
+<span class="fc" id="L46">    public String getBuyerUsername() { return buyerUsername; }</span>
+<span class="fc" id="L47">    public String getListingId() { return listingId; }</span>
+<span class="fc" id="L48">    public String getSellerUsername() { return sellerUsername; }</span>
+
+    /** Null until the thread is added to DataStore. */
+<span class="fc" id="L51">    public LocalDateTime getCreatedAt() { return createdAt; }</span>
+
+    /** True for the thread's buyer and the listing's seller, the only people who may read or write it. */
+    public boolean isParticipant(String username) {
+<span class="fc bfc" id="L55" title="All 4 branches covered.">        return buyerUsername.equalsIgnoreCase(username) || sellerUsername.equalsIgnoreCase(username);</span>
+    }
+
+    /** All messages, oldest first. Messages are never edited or deleted (UC6 Special Requirement 2). */
+    public List&lt;Message&gt; getMessages() {
+<span class="fc" id="L60">        return List.copyOf(messages);</span>
+    }
+
+    /**
+     * Appends a message.
+     * @throws IllegalArgumentException if the message is empty, or the sender is not the
+     *         thread's buyer or the listing's seller ({the sender of a Message must be ...})
+     */
+    public void addMessage(Message message) {
+<span class="fc bfc" id="L69" title="All 2 branches covered.">        if (!isParticipant(message.getSenderUsername())) {</span>
+<span class="fc" id="L70">            throw new IllegalArgumentException(&quot;Only the buyer and the seller can write in this chat.&quot;);</span>
+        }
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (message.getContent().isBlank()) {</span>
+<span class="fc" id="L73">            throw new IllegalArgumentException(&quot;A message cannot be empty.&quot;);</span>
+        }
+<span class="fc" id="L75">        messages.add(message);</span>
+<span class="fc" id="L76">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MarketplaceApp.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace</a> &gt; <span class="el_source">MarketplaceApp.java</span></div><h1>MarketplaceApp.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.services.BorrowingDeadlineService;
+import com.hkust.marketplace.services.BorrowingDeadlineTimer;
+import com.hkust.marketplace.ui.LiveUpdates;
+import com.hkust.marketplace.utils.SceneManager;
+import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.scene.control.Alert;
+import javafx.stage.Stage;
+
+/**
+ * HKUST Marketplace - Main Application Entry Point
+ *
+ * &lt;p&gt;This application provides the Buyer, Seller and Admin portals. All data is kept in
+ * DataStore, which saves it to an encrypted file after every change and loads it here
+ * at start-up. While it runs, the borrowing-deadline timer (UC12) sends due-date reminders and
+ * returns borrowed items whose period has ended, whichever screen is open.
+ */
+<span class="nc" id="L21">public class MarketplaceApp extends Application {</span>
+
+    private BorrowingDeadlineTimer deadlineTimer;
+
+    @Override
+    public void start(Stage primaryStage) {
+        // Load the saved data (or create the demo data) before the first screen opens
+<span class="nc" id="L28">        DataStore store = DataStore.getInstance();</span>
+
+<span class="nc" id="L30">        SceneManager.init(primaryStage);</span>
+<span class="nc" id="L31">        SceneManager.showWelcome();</span>
+<span class="nc" id="L32">        primaryStage.setTitle(&quot;HKUST Marketplace&quot;);</span>
+<span class="nc" id="L33">        primaryStage.setMinWidth(1100);</span>
+<span class="nc" id="L34">        primaryStage.setMinHeight(700);</span>
+<span class="nc" id="L35">        primaryStage.show();</span>
+
+        // UC12: the Timer actor. Its first check runs at once, so items that became due while
+        // the app was closed are returned now. A change is shown on the open screen (step 4).
+<span class="nc" id="L39">        deadlineTimer = new BorrowingDeadlineTimer(new BorrowingDeadlineService(store),</span>
+<span class="nc" id="L40">                BorrowingDeadlineTimer.CHECK_EVERY, report -&gt; Platform.runLater(LiveUpdates::dataChanged));</span>
+<span class="nc" id="L41">        deadlineTimer.start();</span>
+
+<span class="nc bnc" id="L43" title="All 2 branches missed.">        if (store.getLoadProblem() != null) {</span>
+<span class="nc" id="L44">            Alert alert = new Alert(Alert.AlertType.WARNING, store.getLoadProblem());</span>
+<span class="nc" id="L45">            alert.setTitle(&quot;Saved data not loaded&quot;);</span>
+<span class="nc" id="L46">            alert.setHeaderText(&quot;The saved data could not be read&quot;);</span>
+<span class="nc" id="L47">            alert.showAndWait();</span>
+        }
+<span class="nc" id="L49">    }</span>
+
+    /** The app is closing: the timer stops after the check it may be running, so that check is saved. */
+    @Override
+    public void stop() {
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        if (deadlineTimer != null) {</span>
+<span class="nc" id="L55">            deadlineTimer.stop();</span>
+        }
+<span class="nc" id="L57">    }</span>
+
+    public static void main(String[] args) {
+<span class="nc" id="L60">        launch(args);</span>
+<span class="nc" id="L61">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

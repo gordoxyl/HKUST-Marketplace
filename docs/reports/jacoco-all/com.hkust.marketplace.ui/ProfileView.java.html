@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProfileView.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">ProfileView.java</span></div><h1>ProfileView.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.models.Buyer;
+import com.hkust.marketplace.models.MeetupLocation;
+import com.hkust.marketplace.models.Seller;
+import com.hkust.marketplace.models.User;
+import com.hkust.marketplace.services.AccountValidator;
+import com.hkust.marketplace.services.ProfileService;
+import com.hkust.marketplace.services.ServiceException;
+import javafx.geometry.Insets;
+import javafx.scene.control.*;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * The profile screen, the same in all three portals (UC3 Manage Profile; Tasks 1.7, 2.6,
+ * 3.4). Everyone edits their full name and password; a seller also edits the bio and
+ * preferred meet-up locations. The username and a buyer's residence hall are shown but
+ * cannot be changed.
+ * &lt;pre&gt;{@code
+ * host.show(&quot;Manage Profile&quot;, new ProfileView(new ProfileService(), this::showGreeting));
+ * }&lt;/pre&gt;
+ * The second argument runs after every successful save, so the dashboard can show the new
+ * name in its greeting at once.
+ * All checks are in the tested {@link ProfileService}; this class only shows the form.
+ */
+public class ProfileView extends ScrollPane {
+
+    private final ProfileService service;
+    private final Runnable onSaved;
+<span class="fc" id="L35">    private final VBox form = new VBox(10);</span>
+
+    public ProfileView(ProfileService service) {
+<span class="nc" id="L38">        this(service, () -&gt; { });</span>
+<span class="nc" id="L39">    }</span>
+
+    /** @param onSaved runs after each successful save, for whatever else on screen shows the profile */
+<span class="fc" id="L42">    public ProfileView(ProfileService service, Runnable onSaved) {</span>
+<span class="fc" id="L43">        this.service = service;</span>
+<span class="fc" id="L44">        this.onSaved = onSaved;</span>
+<span class="fc" id="L45">        form.getStyleClass().add(&quot;card&quot;);</span>
+<span class="fc" id="L46">        form.setPadding(new Insets(20));</span>
+<span class="fc" id="L47">        form.setMaxWidth(480);</span>
+<span class="fc" id="L48">        VBox page = new VBox(form);</span>
+<span class="fc" id="L49">        page.setPadding(new Insets(4));</span>
+<span class="fc" id="L50">        setContent(page);</span>
+<span class="fc" id="L51">        setFitToWidth(true);</span>
+<span class="fc" id="L52">        fill();</span>
+<span class="fc" id="L53">    }</span>
+
+    /** Shows the current profile, discarding any unsaved edits (UC3 step 2 and A4). */
+    private void fill() {
+<span class="fc" id="L57">        form.getChildren().clear();</span>
+        User user;
+        try {
+<span class="fc" id="L60">            user = service.getMyProfile();</span>
+<span class="fc" id="L61">        } catch (ServiceException e) {</span>
+<span class="fc" id="L62">            Dialogs.problem(e);</span>
+<span class="fc" id="L63">            return;</span>
+<span class="fc" id="L64">        }</span>
+
+<span class="fc" id="L66">        Label title = new Label(&quot;Your profile&quot;);</span>
+<span class="fc" id="L67">        title.getStyleClass().add(&quot;section-title&quot;);</span>
+<span class="fc" id="L68">        form.getChildren().addAll(title, fixedValue(&quot;Username&quot;, &quot;@&quot; + user.getUsername()));</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">        if (user instanceof Buyer buyer) {</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">            String hall = buyer.getResidenceHall() == null ? &quot;Not given&quot; : buyer.getResidenceHall();</span>
+<span class="fc" id="L71">            form.getChildren().add(fixedValue(&quot;Residence hall&quot;, hall));</span>
+        }
+
+<span class="fc" id="L74">        TextField fullName = new TextField(user.getFullName());</span>
+<span class="fc" id="L75">        PasswordField newPassword = new PasswordField();</span>
+<span class="fc" id="L76">        newPassword.setPromptText(&quot;Leave blank to keep your current password&quot;);</span>
+<span class="fc" id="L77">        PasswordField confirm = new PasswordField();</span>
+<span class="fc" id="L78">        confirm.setPromptText(&quot;Type the new password again&quot;);</span>
+<span class="fc" id="L79">        Label rules = hint(AccountValidator.PASSWORD_RULES);</span>
+<span class="fc" id="L80">        form.getChildren().addAll(</span>
+                new Label(&quot;Full name&quot;), fullName,
+                new Label(&quot;New password&quot;), newPassword,
+                new Label(&quot;Confirm new password&quot;), confirm, rules);
+
+<span class="fc" id="L85">        TextArea bio = null;</span>
+<span class="fc" id="L86">        List&lt;CheckBox&gt; locations = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L87" title="All 2 branches covered.">        if (user instanceof Seller seller) {</span>
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">            bio = new TextArea(seller.getBio() == null ? &quot;&quot; : seller.getBio());</span>
+<span class="fc" id="L89">            bio.setPrefRowCount(3);</span>
+<span class="fc" id="L90">            bio.setWrapText(true);</span>
+<span class="fc" id="L91">            FlowPane choices = new FlowPane(12, 6);</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">            for (MeetupLocation location : MeetupLocation.values()) {</span>
+<span class="fc" id="L93">                CheckBox box = new CheckBox(location.getDisplayName());</span>
+<span class="fc" id="L94">                box.setUserData(location);</span>
+<span class="fc" id="L95">                box.setSelected(seller.getPreferredMeetupLocations().contains(location));</span>
+<span class="fc" id="L96">                locations.add(box);</span>
+<span class="fc" id="L97">                choices.getChildren().add(box);</span>
+            }
+<span class="fc" id="L99">            form.getChildren().addAll(new Label(&quot;Bio (optional)&quot;), bio,</span>
+                    new Label(&quot;Preferred meet-up locations (optional)&quot;), choices);
+        }
+
+<span class="fc" id="L103">        Button save = new Button(&quot;Save Changes&quot;);</span>
+<span class="fc" id="L104">        save.getStyleClass().add(&quot;btn-primary&quot;);</span>
+<span class="fc" id="L105">        Button cancel = new Button(&quot;Cancel&quot;);</span>
+<span class="fc" id="L106">        cancel.getStyleClass().add(&quot;btn-outline&quot;);</span>
+<span class="fc" id="L107">        cancel.setOnAction(e -&gt; fill()); // A4: keep the profile as it was</span>
+<span class="fc" id="L108">        TextArea bioField = bio;</span>
+<span class="fc" id="L109">        save.setOnAction(e -&gt; save(user, fullName.getText(), newPassword.getText(), confirm.getText(),</span>
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">                bioField == null ? null : bioField.getText(), locations));</span>
+<span class="fc" id="L111">        form.getChildren().add(new HBox(10, save, cancel));</span>
+<span class="fc" id="L112">    }</span>
+
+    private void save(User user, String fullName, String newPassword, String confirm,
+                      String bio, List&lt;CheckBox&gt; locationBoxes) {
+        try {
+<span class="pc bpc" id="L117" title="1 of 2 branches missed.">            if (user instanceof Seller) {</span>
+<span class="nc" id="L118">                List&lt;MeetupLocation&gt; chosen = locationBoxes.stream()</span>
+<span class="nc" id="L119">                        .filter(CheckBox::isSelected)</span>
+<span class="nc" id="L120">                        .map(box -&gt; (MeetupLocation) box.getUserData())</span>
+<span class="nc" id="L121">                        .toList();</span>
+<span class="nc" id="L122">                service.updateSellerProfile(fullName, newPassword, confirm, bio, chosen);</span>
+<span class="nc" id="L123">            } else {</span>
+<span class="fc" id="L124">                service.updateProfile(fullName, newPassword, confirm);</span>
+            }
+<span class="fc" id="L126">        } catch (ServiceException e) {</span>
+<span class="fc" id="L127">            Dialogs.problem(e); // A1-A3: the typed values stay so they can be corrected</span>
+<span class="fc" id="L128">            return;</span>
+<span class="fc" id="L129">        }</span>
+<span class="fc" id="L130">        onSaved.run();</span>
+<span class="fc bfc" id="L131" title="All 2 branches covered.">        String passwordNote = newPassword.isEmpty() ? &quot;&quot; : &quot; Use your new password the next time you log in.&quot;;</span>
+<span class="fc" id="L132">        Dialogs.info(&quot;Profile updated&quot;, &quot;Your profile was updated successfully.&quot; + passwordNote);</span>
+<span class="fc" id="L133">        fill();</span>
+<span class="fc" id="L134">    }</span>
+
+    /** A value that cannot be changed (UC3 Special Requirement 1). */
+    private static VBox fixedValue(String name, String value) {
+<span class="fc" id="L138">        Label label = new Label(name);</span>
+<span class="fc" id="L139">        Label shown = new Label(value);</span>
+<span class="fc" id="L140">        shown.getStyleClass().add(&quot;fixed-value&quot;);</span>
+<span class="fc" id="L141">        return new VBox(2, label, shown, hint(&quot;This cannot be changed.&quot;));</span>
+    }
+
+    private static Label hint(String text) {
+<span class="fc" id="L145">        Label hint = new Label(text);</span>
+<span class="fc" id="L146">        hint.setWrapText(true);</span>
+<span class="fc" id="L147">        hint.getStyleClass().add(&quot;field-hint&quot;);</span>
+<span class="fc" id="L148">        return hint;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

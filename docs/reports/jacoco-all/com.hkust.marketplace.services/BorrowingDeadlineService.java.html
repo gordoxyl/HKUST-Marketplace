@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BorrowingDeadlineService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">BorrowingDeadlineService.java</span></div><h1>BorrowingDeadlineService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.BorrowRequest;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.NotificationCategory;
+import com.hkust.marketplace.models.OfferStatus;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * UC12 Process Borrowing Deadlines (Task 1.6: auto-return; Task 1.8: due-date reminders):
+ * as time passes, buyers are reminded that a borrowed item is nearly due, and items whose
+ * borrowing period has ended are returned automatically.
+ *
+ * &lt;p&gt;&lt;b&gt;Design (Lectures 15-16).&lt;/b&gt; The actor is the Timer, not a person: the active class
+ * {@link BorrowingDeadlineTimer} calls {@link #process()} at least once a second. This is the
+ * use case's control class, so there is no logged-in user to check here. The entities are the
+ * borrow requests and their listings. What a return does to the listing and whom it notifies
+ * is the same as for a buyer's own return, so it is done by {@link DealRules#returnItem}.
+ *
+ * &lt;p&gt;&lt;b&gt;Running on another thread.&lt;/b&gt; {@link #process()} is called from the timer's thread
+ * while the user works in the screens. All its changes are one {@link DataStore#transaction},
+ * so a buyer who returns an item at the same moment either finds it borrowed or finds it
+ * returned, never half of each (Special Requirement 5).
+ */
+public class BorrowingDeadlineService {
+
+    private final DataStore store;
+    private final DealRules rules;
+    private final NotificationService notifications;
+
+    public BorrowingDeadlineService() {
+<span class="nc" id="L36">        this(DataStore.getInstance());</span>
+<span class="nc" id="L37">    }</span>
+
+<span class="fc" id="L39">    public BorrowingDeadlineService(DataStore store) {</span>
+<span class="fc" id="L40">        this.store = store;</span>
+<span class="fc" id="L41">        this.rules = new DealRules(store);</span>
+<span class="fc" id="L42">        this.notifications = new NotificationService(store);</span>
+<span class="fc" id="L43">    }</span>
+
+    /**
+     * One run of the use case, for the moment the store's clock shows now:
+     * &lt;ol&gt;
+     *   &lt;li&gt;{Send Reminders}: every borrowed item that has reached its reminder time and has
+     *       had no reminder yet gets one, with the item title and the due date (step 2).&lt;/li&gt;
+     *   &lt;li&gt;{Return Item}: every borrowed item whose due date has come is returned
+     *       automatically. The due date becomes the completion date, the listing is Live
+     *       again unless the admin removed it (A1), and buyer and seller are notified
+     *       (step 3).&lt;/li&gt;
+     * &lt;/ol&gt;
+     * A borrowed item is an accepted borrow request that has not been returned. An item whose
+     * reminder time and due date have both come, for example because the app was closed in
+     * between, is reminded and then returned in the same run.
+     * @return what was done; {@link DeadlineReport#NOTHING} if no deadline was reached
+     */
+    public DeadlineReport process() {
+        // Most runs find nothing to do. Looking first, without a transaction, keeps them from saving.
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (!store.read(this::hasWork)) {</span>
+<span class="fc" id="L63">            return DeadlineReport.NOTHING;</span>
+        }
+<span class="fc" id="L65">        return store.transaction(() -&gt; {</span>
+<span class="fc" id="L66">            LocalDateTime now = store.now();</span>
+<span class="fc" id="L67">            List&lt;BorrowRequest&gt; reminded = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">            for (BorrowRequest request : borrowedItems()) {</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">                if (isReminderDue(request, now)) {</span>
+<span class="fc" id="L70">                    remind(request);</span>
+<span class="fc" id="L71">                    reminded.add(request);</span>
+                }
+<span class="fc" id="L73">            }</span>
+<span class="fc" id="L74">            List&lt;BorrowRequest&gt; returned = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L75" title="All 2 branches covered.">            for (BorrowRequest request : borrowedItems()) {</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">                if (isDue(request, now)) {</span>
+<span class="fc" id="L77">                    rules.returnItem(request, true);</span>
+<span class="fc" id="L78">                    returned.add(request);</span>
+                }
+<span class="fc" id="L80">            }</span>
+<span class="fc" id="L81">            return new DeadlineReport(reminded, returned);</span>
+        });
+    }
+
+    private boolean hasWork() {
+<span class="fc" id="L86">        LocalDateTime now = store.now();</span>
+<span class="fc bfc" id="L87" title="All 4 branches covered.">        return borrowedItems().stream().anyMatch(request -&gt; isReminderDue(request, now) || isDue(request, now));</span>
+    }
+
+    /** The accepted borrow requests whose items have not been returned. */
+    private List&lt;BorrowRequest&gt; borrowedItems() {
+<span class="fc" id="L92">        return store.getAllOffers().stream()</span>
+<span class="fc bfc" id="L93" title="All 2 branches covered.">                .filter(offer -&gt; offer instanceof BorrowRequest</span>
+<span class="fc bfc" id="L94" title="All 4 branches covered.">                        &amp;&amp; offer.getStatus() == OfferStatus.ACCEPTED &amp;&amp; !offer.isCompleted())</span>
+<span class="fc" id="L95">                .map(offer -&gt; (BorrowRequest) offer)</span>
+<span class="fc" id="L96">                .toList();</span>
+    }
+
+    /** Special Requirements 2 and 3: the reminder time has been reached, and no reminder was sent yet. */
+    private static boolean isReminderDue(BorrowRequest request, LocalDateTime now) {
+<span class="fc bfc" id="L101" title="All 4 branches covered.">        return !request.isReminderSent() &amp;&amp; !now.isBefore(request.getReminderTime());</span>
+    }
+
+    /**
+     * The borrowing period has ended. The due date itself counts, matching Manage My Deals,
+     * where a buyer can return an item only before the due date (UC7 Special Requirement 3).
+     */
+    private static boolean isDue(BorrowRequest request, LocalDateTime now) {
+<span class="fc bfc" id="L109" title="All 2 branches covered.">        return !now.isBefore(request.getDueDate());</span>
+    }
+
+    private void remind(BorrowRequest request) {
+<span class="fc" id="L113">        Listing listing = store.getListingOf(request);</span>
+<span class="fc" id="L114">        notifications.send(request.getBuyerUsername(), NotificationCategory.DUE_DATE_REMINDER,</span>
+<span class="fc" id="L115">                &quot;Reminder: '&quot; + listing.getTitle() + &quot;' is due on &quot;</span>
+<span class="fc" id="L116">                        + BorrowRequest.formatBorrowTime(request.getDueDate()) + &quot;.&quot;);</span>
+<span class="fc" id="L117">        request.markReminderSent();</span>
+<span class="fc" id="L118">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReviewForm.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">ReviewForm.java</span></div><h1>ReviewForm.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import java.util.Objects;
+
+/**
+ * What the review form shows (UC10 step 3), after the deal was found to be completed and not
+ * reviewed yet.
+ *
+ * @param offerId      the deal being reviewed
+ * @param listingTitle the title of the deal's listing
+ * @param sellerName   the seller's full name, or the username if the account was deleted
+ */
+public record ReviewForm(String offerId, String listingTitle, String sellerName) {
+
+<span class="fc" id="L15">    public ReviewForm {</span>
+<span class="fc" id="L16">        Objects.requireNonNull(offerId, &quot;offerId&quot;);</span>
+<span class="fc" id="L17">        Objects.requireNonNull(listingTitle, &quot;listingTitle&quot;);</span>
+<span class="fc" id="L18">        Objects.requireNonNull(sellerName, &quot;sellerName&quot;);</span>
+<span class="fc" id="L19">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

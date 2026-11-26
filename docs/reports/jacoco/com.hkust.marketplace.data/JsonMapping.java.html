@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JsonMapping.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.data</a> &gt; <span class="el_source">JsonMapping.java</span></div><h1>JsonMapping.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.data;
+
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.hkust.marketplace.models.*;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+
+/**
+ * How the model classes are turned into JSON and back, for {@link EncryptedJsonStorage}.
+ *
+ * &lt;p&gt;The models stay free of library annotations: everything Jackson needs is attached here as
+ * &quot;mix-ins&quot;. Jackson saves every field (not the getters, so derived values such as
+ * {@code getPriceDisplay()} are not saved). To load an object it calls the model's own
+ * constructor, so the constructor's checks run on loaded data too, and then fills in the
+ * remaining fields. The {@code &quot;kind&quot;} property records which subclass an object is (for
+ * example Buyer or Seller), because User, Listing and Offer are abstract.
+ *
+ * &lt;p&gt;If you add a field to a model, it is saved automatically. If you add a model class or
+ * change a constructor's parameters, update the matching mix-in below.
+ */
+final class JsonMapping {
+
+    private JsonMapping() {
+        // Utility class
+    }
+
+    static ObjectMapper newMapper() {
+<span class="fc" id="L39">        return JsonMapper.builder()</span>
+<span class="fc" id="L40">                .addModule(new JavaTimeModule())</span>
+<span class="fc" id="L41">                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)      // &quot;2026-11-02T12:00:00&quot;</span>
+<span class="fc" id="L42">                .disable(SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS)  // &quot;PT5S&quot;</span>
+<span class="fc" id="L43">                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)   // older files with removed fields still load</span>
+<span class="fc" id="L44">                .visibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE)</span>
+<span class="fc" id="L45">                .visibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)</span>
+<span class="fc" id="L46">                .addMixIn(User.class, UserMixIn.class)</span>
+<span class="fc" id="L47">                .addMixIn(Buyer.class, BuyerMixIn.class)</span>
+<span class="fc" id="L48">                .addMixIn(Seller.class, SellerMixIn.class)</span>
+<span class="fc" id="L49">                .addMixIn(Admin.class, AdminMixIn.class)</span>
+<span class="fc" id="L50">                .addMixIn(Listing.class, ListingMixIn.class)</span>
+<span class="fc" id="L51">                .addMixIn(SaleListing.class, SaleListingMixIn.class)</span>
+<span class="fc" id="L52">                .addMixIn(LendListing.class, LendListingMixIn.class)</span>
+<span class="fc" id="L53">                .addMixIn(GiveawayListing.class, GiveawayListingMixIn.class)</span>
+<span class="fc" id="L54">                .addMixIn(Offer.class, OfferMixIn.class)</span>
+<span class="fc" id="L55">                .addMixIn(PriceOffer.class, PriceOfferMixIn.class)</span>
+<span class="fc" id="L56">                .addMixIn(BorrowRequest.class, BorrowRequestMixIn.class)</span>
+<span class="fc" id="L57">                .addMixIn(Claim.class, ClaimMixIn.class)</span>
+<span class="fc" id="L58">                .addMixIn(ChatThread.class, ChatThreadMixIn.class)</span>
+<span class="fc" id="L59">                .addMixIn(Message.class, MessageMixIn.class)</span>
+<span class="fc" id="L60">                .addMixIn(Review.class, ReviewMixIn.class)</span>
+<span class="fc" id="L61">                .addMixIn(Report.class, ReportMixIn.class)</span>
+<span class="fc" id="L62">                .addMixIn(Notification.class, NotificationMixIn.class)</span>
+<span class="fc" id="L63">                .addMixIn(ListingActionRecord.class, ListingActionRecordMixIn.class)</span>
+<span class="fc" id="L64">                .addMixIn(AuditLogEntry.class, AuditLogEntryMixIn.class)</span>
+<span class="fc" id="L65">                .build();</span>
+    }
+
+    // ---------- Abstract classes: record the subclass ----------
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = &quot;kind&quot;)
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = Buyer.class, name = &quot;Buyer&quot;),
+            @JsonSubTypes.Type(value = Seller.class, name = &quot;Seller&quot;),
+            @JsonSubTypes.Type(value = Admin.class, name = &quot;Admin&quot;)})
+<span class="nc" id="L75">    abstract static class UserMixIn { }</span>
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = &quot;kind&quot;)
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = SaleListing.class, name = &quot;SaleListing&quot;),
+            @JsonSubTypes.Type(value = LendListing.class, name = &quot;LendListing&quot;),
+            @JsonSubTypes.Type(value = GiveawayListing.class, name = &quot;GiveawayListing&quot;)})
+<span class="nc" id="L82">    abstract static class ListingMixIn { }</span>
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = &quot;kind&quot;)
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = PriceOffer.class, name = &quot;PriceOffer&quot;),
+            @JsonSubTypes.Type(value = BorrowRequest.class, name = &quot;BorrowRequest&quot;),
+            @JsonSubTypes.Type(value = Claim.class, name = &quot;Claim&quot;)})
+<span class="nc" id="L89">    abstract static class OfferMixIn { }</span>
+
+    // ---------- Concrete classes: which constructor to call when loading ----------
+
+    abstract static class BuyerMixIn {
+        @JsonCreator
+        BuyerMixIn(@JsonProperty(&quot;username&quot;) String username, @JsonProperty(&quot;fullName&quot;) String fullName,
+<span class="nc" id="L96">                   @JsonProperty(&quot;passwordHash&quot;) String passwordHash, @JsonProperty(&quot;residenceHall&quot;) String residenceHall) { }</span>
+    }
+
+    abstract static class SellerMixIn {
+        @JsonCreator
+        SellerMixIn(@JsonProperty(&quot;username&quot;) String username, @JsonProperty(&quot;fullName&quot;) String fullName,
+<span class="nc" id="L102">                    @JsonProperty(&quot;passwordHash&quot;) String passwordHash) { }</span>
+    }
+
+    abstract static class AdminMixIn {
+        @JsonCreator
+        AdminMixIn(@JsonProperty(&quot;username&quot;) String username, @JsonProperty(&quot;fullName&quot;) String fullName,
+<span class="nc" id="L108">                   @JsonProperty(&quot;passwordHash&quot;) String passwordHash) { }</span>
+    }
+
+    abstract static class SaleListingMixIn {
+        @JsonCreator
+        SaleListingMixIn(@JsonProperty(&quot;sellerUsername&quot;) String sellerUsername, @JsonProperty(&quot;title&quot;) String title,
+                         @JsonProperty(&quot;category&quot;) Category category, @JsonProperty(&quot;condition&quot;) ItemCondition condition,
+                         @JsonProperty(&quot;description&quot;) String description,
+                         @JsonProperty(&quot;meetupLocation&quot;) MeetupLocation meetupLocation,
+<span class="nc" id="L117">                         @JsonProperty(&quot;price&quot;) double price) { }</span>
+    }
+
+    abstract static class LendListingMixIn {
+        @JsonCreator
+        LendListingMixIn(@JsonProperty(&quot;sellerUsername&quot;) String sellerUsername, @JsonProperty(&quot;title&quot;) String title,
+                         @JsonProperty(&quot;category&quot;) Category category, @JsonProperty(&quot;condition&quot;) ItemCondition condition,
+                         @JsonProperty(&quot;description&quot;) String description,
+                         @JsonProperty(&quot;meetupLocation&quot;) MeetupLocation meetupLocation,
+<span class="nc" id="L126">                         @JsonProperty(&quot;lendingDuration&quot;) Duration lendingDuration) { }</span>
+    }
+
+    abstract static class GiveawayListingMixIn {
+        @JsonCreator
+        GiveawayListingMixIn(@JsonProperty(&quot;sellerUsername&quot;) String sellerUsername, @JsonProperty(&quot;title&quot;) String title,
+                             @JsonProperty(&quot;category&quot;) Category category,
+                             @JsonProperty(&quot;condition&quot;) ItemCondition condition,
+                             @JsonProperty(&quot;description&quot;) String description,
+<span class="nc" id="L135">                             @JsonProperty(&quot;meetupLocation&quot;) MeetupLocation meetupLocation) { }</span>
+    }
+
+    abstract static class PriceOfferMixIn {
+        @JsonCreator
+        PriceOfferMixIn(@JsonProperty(&quot;listingId&quot;) String listingId, @JsonProperty(&quot;buyerUsername&quot;) String buyerUsername,
+<span class="nc" id="L141">                        @JsonProperty(&quot;offeredPrice&quot;) double offeredPrice) { }</span>
+    }
+
+    abstract static class BorrowRequestMixIn {
+        @JsonCreator
+        BorrowRequestMixIn(@JsonProperty(&quot;listingId&quot;) String listingId, @JsonProperty(&quot;buyerUsername&quot;) String buyerUsername,
+                           @JsonProperty(&quot;proposedStartDate&quot;) LocalDateTime proposedStartDate,
+<span class="nc" id="L148">                           @JsonProperty(&quot;proposedEndDate&quot;) LocalDateTime proposedEndDate) { }</span>
+    }
+
+    abstract static class ClaimMixIn {
+        @JsonCreator
+<span class="nc" id="L153">        ClaimMixIn(@JsonProperty(&quot;listingId&quot;) String listingId, @JsonProperty(&quot;buyerUsername&quot;) String buyerUsername) { }</span>
+    }
+
+    abstract static class ChatThreadMixIn {
+        @JsonCreator
+        ChatThreadMixIn(@JsonProperty(&quot;buyerUsername&quot;) String buyerUsername, @JsonProperty(&quot;listingId&quot;) String listingId,
+<span class="nc" id="L159">                        @JsonProperty(&quot;sellerUsername&quot;) String sellerUsername) { }</span>
+    }
+
+    abstract static class MessageMixIn {
+        @JsonCreator
+        MessageMixIn(@JsonProperty(&quot;senderUsername&quot;) String senderUsername, @JsonProperty(&quot;content&quot;) String content,
+<span class="nc" id="L165">                     @JsonProperty(&quot;sentAt&quot;) LocalDateTime sentAt) { }</span>
+    }
+
+    abstract static class ReviewMixIn {
+        @JsonCreator
+        ReviewMixIn(@JsonProperty(&quot;offerId&quot;) String offerId, @JsonProperty(&quot;rating&quot;) int rating,
+<span class="nc" id="L171">                    @JsonProperty(&quot;comment&quot;) String comment) { }</span>
+    }
+
+    abstract static class ReportMixIn {
+        @JsonCreator
+        ReportMixIn(@JsonProperty(&quot;listingId&quot;) String listingId, @JsonProperty(&quot;buyerUsername&quot;) String buyerUsername,
+<span class="nc" id="L177">                    @JsonProperty(&quot;reason&quot;) ReportReason reason, @JsonProperty(&quot;details&quot;) String details) { }</span>
+    }
+
+    abstract static class NotificationMixIn {
+        @JsonCreator
+        NotificationMixIn(@JsonProperty(&quot;recipientUsername&quot;) String recipientUsername,
+                          @JsonProperty(&quot;category&quot;) NotificationCategory category,
+<span class="nc" id="L184">                          @JsonProperty(&quot;content&quot;) String content) { }</span>
+    }
+
+    abstract static class ListingActionRecordMixIn {
+        @JsonCreator
+        ListingActionRecordMixIn(@JsonProperty(&quot;listingId&quot;) String listingId,
+                                 @JsonProperty(&quot;adminUsername&quot;) String adminUsername,
+                                 @JsonProperty(&quot;typeOfAction&quot;) ListingAction typeOfAction,
+<span class="nc" id="L192">                                 @JsonProperty(&quot;reason&quot;) String reason) { }</span>
+    }
+
+    abstract static class AuditLogEntryMixIn {
+        @JsonCreator
+        AuditLogEntryMixIn(@JsonProperty(&quot;adminUsername&quot;) String adminUsername, @JsonProperty(&quot;username&quot;) String username,
+                           @JsonProperty(&quot;actionTaken&quot;) String actionTaken, @JsonProperty(&quot;reason&quot;) String reason,
+<span class="nc" id="L199">                           @JsonProperty(&quot;dataSnapshot&quot;) String dataSnapshot) { }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

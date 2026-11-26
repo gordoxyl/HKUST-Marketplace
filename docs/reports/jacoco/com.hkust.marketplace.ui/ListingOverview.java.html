@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ListingOverview.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">ListingOverview.java</span></div><h1>ListingOverview.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.Listing;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.control.Label;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+
+/**
+ * The top of a listing's detail screen, the same in every portal: all photos, the title with
+ * the status badge and the price, every field, and the full description (UC8 step 7; the
+ * admin's &quot;full listing details&quot;, Manage Marketplace Listings 5.1). Each portal adds its own
+ * parts below it: the buyer's buttons and the seller's reviews
+ * ({@code controllers/buyer/ListingDetailView}), the admin's reports and actions.
+ * &lt;pre&gt;{@code
+ * ListingSummary summary = ListingSummary.of(listing, UserRole.ADMIN, store);
+ * VBox page = new VBox(16, new ListingOverview(summary, store), ListingOverview.card(reports));
+ * }&lt;/pre&gt;
+ * It was moved out of the buyer's detail screen so that the admin's listing screen shows a
+ * listing the same way instead of repeating this layout (Lecture 10: refactoring, remove a
+ * duplicate; Lecture 17: favour composition). What it says comes from the tested
+ * {@link ListingSummary}.
+ */
+public class ListingOverview extends VBox {
+
+    private static final double PHOTO_WIDTH = 200;
+    private static final double PHOTO_HEIGHT = 150;
+
+    /**
+     * @param summary what to show, for the viewer's role
+     * @param store   the store that holds the listing's photos
+     */
+    public ListingOverview(ListingSummary summary, DataStore store) {
+<span class="fc" id="L40">        super(16, photos(summary.listing(), store), heading(summary), fields(summary), description(summary));</span>
+<span class="fc" id="L41">    }</span>
+
+    /** One part of a detail screen in a white card, as this overview shows its fields and description. */
+    public static VBox card(Node content) {
+<span class="fc" id="L45">        VBox card = new VBox(content);</span>
+<span class="fc" id="L46">        card.getStyleClass().add(&quot;card&quot;);</span>
+<span class="fc" id="L47">        card.setPadding(new Insets(14, 16, 14, 16));</span>
+<span class="fc" id="L48">        return card;</span>
+    }
+
+    /** All the listing's photos, at most {@link Listing#MAX_PHOTOS}, in order; one empty frame if there are none. */
+    private static Node photos(Listing listing, DataStore store) {
+<span class="fc" id="L53">        FlowPane photos = new FlowPane(10, 10);</span>
+<span class="fc bfc" id="L54" title="All 2 branches covered.">        for (String photoId : listing.getPhotos()) {</span>
+<span class="fc" id="L55">            photos.getChildren().add(new PhotoFrame(store, photoId, PHOTO_WIDTH, PHOTO_HEIGHT));</span>
+<span class="fc" id="L56">        }</span>
+<span class="fc bfc" id="L57" title="All 2 branches covered.">        if (listing.getPhotos().isEmpty()) {</span>
+<span class="fc" id="L58">            photos.getChildren().add(new PhotoFrame(store, null, PHOTO_WIDTH, PHOTO_HEIGHT));</span>
+        }
+<span class="fc" id="L60">        return photos;</span>
+    }
+
+    private static Node heading(ListingSummary summary) {
+<span class="fc" id="L64">        Label title = new Label(summary.title());</span>
+<span class="fc" id="L65">        title.getStyleClass().add(&quot;section-title&quot;);</span>
+<span class="fc" id="L66">        title.setWrapText(true);</span>
+<span class="fc" id="L67">        Label availability = new Label(summary.badgeText());</span>
+<span class="fc" id="L68">        availability.getStyleClass().addAll(&quot;badge&quot;, summary.badgeStyle());</span>
+<span class="fc" id="L69">        availability.setMinWidth(Region.USE_PREF_SIZE);</span>
+<span class="fc" id="L70">        Label price = new Label(summary.priceText());</span>
+<span class="fc" id="L71">        price.getStyleClass().add(&quot;listing-card-price&quot;);</span>
+<span class="fc" id="L72">        price.setMinWidth(Region.USE_PREF_SIZE);</span>
+<span class="fc" id="L73">        HBox heading = new HBox(12, title, availability, price);</span>
+<span class="fc" id="L74">        heading.setAlignment(Pos.CENTER_LEFT);</span>
+<span class="fc" id="L75">        return heading;</span>
+    }
+
+    /** Every field of the listing, as a table of names and values. */
+    private static Node fields(ListingSummary summary) {
+<span class="fc" id="L80">        GridPane table = new GridPane();</span>
+<span class="fc" id="L81">        table.setHgap(24);</span>
+<span class="fc" id="L82">        table.setVgap(6);</span>
+<span class="fc" id="L83">        int row = 0;</span>
+<span class="fc bfc" id="L84" title="All 2 branches covered.">        for (ListingSummary.Field field : summary.fields()) {</span>
+<span class="fc" id="L85">            Label name = new Label(field.name());</span>
+<span class="fc" id="L86">            name.getStyleClass().add(&quot;listing-card-line&quot;);</span>
+<span class="fc" id="L87">            Label value = new Label(field.value());</span>
+<span class="fc" id="L88">            value.getStyleClass().add(&quot;chat-text&quot;);</span>
+<span class="fc" id="L89">            table.addRow(row++, name, value);</span>
+<span class="fc" id="L90">        }</span>
+<span class="fc" id="L91">        return card(table);</span>
+    }
+
+    private static Node description(ListingSummary summary) {
+<span class="fc" id="L95">        Label heading = new Label(&quot;Description&quot;);</span>
+<span class="fc" id="L96">        heading.getStyleClass().add(&quot;listing-card-title&quot;);</span>
+<span class="fc" id="L97">        Label text = new Label(summary.descriptionText());</span>
+<span class="fc" id="L98">        text.setWrapText(true);</span>
+<span class="fc" id="L99">        text.setMinHeight(Region.USE_PREF_SIZE); // the full description, never cut short</span>
+<span class="fc" id="L100">        text.getStyleClass().add(&quot;chat-text&quot;);</span>
+<span class="fc" id="L101">        return card(new VBox(6, heading, text));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

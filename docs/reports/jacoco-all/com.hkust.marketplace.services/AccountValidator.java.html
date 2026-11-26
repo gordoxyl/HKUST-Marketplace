@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AccountValidator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">AccountValidator.java</span></div><h1>AccountValidator.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import java.util.function.IntPredicate;
+
+/**
+ * Validation rules for account details, shared by buyers, sellers and admins.
+ * Follows UC1 Register as Buyer (alternative flows A1-A4 and Special Requirements 2-3);
+ * Register as Seller and UC3 Manage Profile use the same rules.
+ *
+ * Each method returns an error message to show the user, or null if the value is valid.
+ * Checking that a username is not already taken needs the user store, so that check
+ * is done in {@link AuthService}.
+ */
+public final class AccountValidator {
+
+    public static final int MIN_PASSWORD_LENGTH = 8;
+
+    /** The password rules, for showing next to the password field. */
+    public static final String PASSWORD_RULES =
+            &quot;At least &quot; + MIN_PASSWORD_LENGTH + &quot; characters, with at least one uppercase letter, &quot;
+            + &quot;one lowercase letter, one digit and one special character (such as ! @ # $ %). &quot;
+            + &quot;ASCII characters only.&quot;;
+
+    private AccountValidator() {
+        // Utility class
+    }
+
+    /** UC1 A1: the username must not be empty and may contain only ASCII characters. */
+    public static String validateUsername(String username) {
+<span class="fc bfc" id="L30" title="All 4 branches covered.">        if (username == null || username.isBlank()) {</span>
+<span class="fc" id="L31">            return &quot;Username cannot be empty.&quot;;</span>
+        }
+<span class="fc bfc" id="L33" title="All 2 branches covered.">        if (!isPrintableAscii(username)) {</span>
+<span class="fc" id="L34">            return &quot;Username can only contain English letters, digits and ASCII symbols.&quot;;</span>
+        }
+<span class="fc" id="L36">        return null;</span>
+    }
+
+    /** UC1 A2: the full name must not be empty. Any characters are allowed (Special Requirement 3). */
+    public static String validateFullName(String fullName) {
+<span class="fc bfc" id="L41" title="All 4 branches covered.">        if (fullName == null || fullName.isBlank()) {</span>
+<span class="fc" id="L42">            return &quot;Full name cannot be empty.&quot;;</span>
+        }
+<span class="fc" id="L44">        return null;</span>
+    }
+
+    /** UC1 A3: the password must be ASCII only and meet the strength rules (Special Requirement 2). */
+    public static String validatePassword(String password) {
+<span class="fc bfc" id="L49" title="All 4 branches covered.">        if (password == null || password.isEmpty()) {</span>
+<span class="fc" id="L50">            return &quot;Password cannot be empty.&quot;;</span>
+        }
+<span class="fc bfc" id="L52" title="All 2 branches covered.">        if (!isPrintableAscii(password)) {</span>
+<span class="fc" id="L53">            return &quot;Password can only contain English letters, digits and ASCII symbols.&quot;;</span>
+        }
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        if (password.length() &lt; MIN_PASSWORD_LENGTH) {</span>
+<span class="fc" id="L56">            return &quot;Password must be at least &quot; + MIN_PASSWORD_LENGTH + &quot; characters.&quot;;</span>
+        }
+        // The kinds of character, in the order the rules are listed
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (!contains(password, AccountValidator::isUppercase)) {</span>
+<span class="fc" id="L60">            return &quot;Password must contain at least one uppercase letter.&quot;;</span>
+        }
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (!contains(password, AccountValidator::isLowercase)) {</span>
+<span class="fc" id="L63">            return &quot;Password must contain at least one lowercase letter.&quot;;</span>
+        }
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if (!contains(password, AccountValidator::isDigit)) {</span>
+<span class="fc" id="L66">            return &quot;Password must contain at least one digit.&quot;;</span>
+        }
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        if (!contains(password, AccountValidator::isSymbol)) {</span>
+<span class="fc" id="L69">            return &quot;Password must contain at least one special character (such as ! @ # $ %).&quot;;</span>
+        }
+<span class="fc" id="L71">        return null;</span>
+    }
+
+    /**
+     * What a user is told about a password that is refused (UC1 A3, UC3 A2): what is wrong with
+     * it, then the password rules. Registration and profile changes both use it.
+     * @return null if the password is acceptable
+     */
+    public static String validatePasswordShowingRules(String password) {
+<span class="fc" id="L80">        String error = validatePassword(password);</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">        return error == null ? null : error + &quot; Password rules: &quot; + PASSWORD_RULES;</span>
+    }
+
+    /** True if at least one character of the text passes the test. */
+    private static boolean contains(String text, IntPredicate test) {
+<span class="fc" id="L86">        return text.chars().anyMatch(test);</span>
+    }
+
+    private static boolean isUppercase(int c) {
+<span class="fc bfc" id="L90" title="All 4 branches covered.">        return c &gt;= 'A' &amp;&amp; c &lt;= 'Z';</span>
+    }
+
+    private static boolean isLowercase(int c) {
+<span class="fc bfc" id="L94" title="All 4 branches covered.">        return c &gt;= 'a' &amp;&amp; c &lt;= 'z';</span>
+    }
+
+    private static boolean isDigit(int c) {
+<span class="fc bfc" id="L98" title="All 4 branches covered.">        return c &gt;= '0' &amp;&amp; c &lt;= '9';</span>
+    }
+
+    /**
+     * Any other printable ASCII character except the space is a symbol, such as ! @ # $ %.
+     * Only called after {@link #isPrintableAscii} has passed.
+     */
+    private static boolean isSymbol(int c) {
+<span class="fc bfc" id="L106" title="All 8 branches covered.">        return c != ' ' &amp;&amp; !isUppercase(c) &amp;&amp; !isLowercase(c) &amp;&amp; !isDigit(c);</span>
+    }
+
+    /** UC1 A4: the confirmation password must match the password. */
+    public static String validateConfirmation(String password, String confirmPassword) {
+<span class="fc bfc" id="L111" title="All 4 branches covered.">        if (password == null || !password.equals(confirmPassword)) {</span>
+<span class="fc" id="L112">            return &quot;The two passwords do not match.&quot;;</span>
+        }
+<span class="fc" id="L114">        return null;</span>
+    }
+
+    /** True if every character is printable ASCII (space to ~). */
+    private static boolean isPrintableAscii(String s) {
+<span class="fc bfc" id="L119" title="All 2 branches covered.">        for (char c : s.toCharArray()) {</span>
+<span class="fc bfc" id="L120" title="All 4 branches covered.">            if (c &lt; ' ' || c &gt; '~') {</span>
+<span class="fc" id="L121">                return false;</span>
+            }
+        }
+<span class="fc" id="L124">        return true;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

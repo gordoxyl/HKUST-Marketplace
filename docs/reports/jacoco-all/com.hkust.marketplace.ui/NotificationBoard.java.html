@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NotificationBoard.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">NotificationBoard.java</span></div><h1>NotificationBoard.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.models.Notification;
+import com.hkust.marketplace.models.NotificationCategory;
+import com.hkust.marketplace.services.NotificationService;
+import com.hkust.marketplace.services.ServiceException;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+
+import java.util.List;
+
+/**
+ * The notification board, the same in all three portals (UC4 View Notifications; Tasks 1.8,
+ * 2.7, 3.6). It shows the logged-in user's notifications newest first, each with its
+ * category, content and timestamp. Unread ones are marked, and can be marked as read one by
+ * one (UC4 step 3) or all at once with Mark all as read (assumptions register 91). A category
+ * filter shows one category at a time (assumptions register 93).
+ * &lt;pre&gt;{@code
+ * host.show(&quot;Notification Board&quot;, new NotificationBoard(new NotificationService()));
+ * }&lt;/pre&gt;
+ * All rules (whose notifications, the order, the categories, marking as read) are in the tested
+ * {@link NotificationService}; this class only displays them. After marking, it also updates the
+ * sidebar's {@link NotificationDot}.
+ */
+public class NotificationBoard extends ScrollPane implements Refreshable {
+
+    private static final String ALL_CATEGORIES = &quot;All categories&quot;;
+
+    private final NotificationService service;
+<span class="fc" id="L39">    private final VBox list = new VBox(12);</span>
+    /** The category the filter shows; null for all of them. It stays chosen when the board reloads. */
+    private NotificationCategory shownCategory;
+
+<span class="fc" id="L43">    public NotificationBoard(NotificationService service) {</span>
+<span class="fc" id="L44">        this.service = service;</span>
+<span class="fc" id="L45">        list.setPadding(new Insets(4));</span>
+<span class="fc" id="L46">        setContent(list);</span>
+<span class="fc" id="L47">        setFitToWidth(true);</span>
+<span class="fc" id="L48">        refresh();</span>
+<span class="fc" id="L49">    }</span>
+
+    /** Reloads the board, for example after a notification was marked as read, or a due-date reminder came. */
+    @Override
+    public final void refresh() {
+<span class="fc" id="L54">        list.getChildren().clear();</span>
+        List&lt;Notification&gt; all;
+        List&lt;NotificationCategory&gt; categories;
+        List&lt;Notification&gt; shown;
+        try {
+<span class="fc" id="L59">            all = service.getMyNotifications();</span>
+<span class="fc" id="L60">            categories = service.getMyCategories();</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">            shown = shownCategory == null ? all : service.getMyNotifications(shownCategory);</span>
+<span class="fc" id="L62">        } catch (ServiceException e) {</span>
+<span class="fc" id="L63">            Dialogs.problem(e);</span>
+<span class="fc" id="L64">            return;</span>
+<span class="fc" id="L65">        }</span>
+
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        int unread = (int) all.stream().filter(n -&gt; !n.isRead()).count();</span>
+<span class="fc" id="L68">        list.getChildren().add(heading(unread, categories));</span>
+
+<span class="fc bfc" id="L70" title="All 2 branches covered.">        if (all.isEmpty()) {</span>
+            // UC4 A1
+<span class="fc" id="L72">            Label empty = new Label(&quot;There are no notifications yet.&quot;);</span>
+<span class="fc" id="L73">            empty.getStyleClass().add(&quot;text-muted&quot;);</span>
+<span class="fc" id="L74">            list.getChildren().add(empty);</span>
+<span class="fc" id="L75">            return;</span>
+        }
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        for (Notification notification : shown) {</span>
+<span class="fc" id="L78">            list.getChildren().add(item(notification));</span>
+<span class="fc" id="L79">        }</span>
+<span class="fc" id="L80">    }</span>
+
+    /** How many are unread; then the category filter, and Mark all as read while anything is unread. */
+    private Node heading(int unread, List&lt;NotificationCategory&gt; categories) {
+<span class="fc" id="L84">        Label summary = new Label(Formats.unreadSummary(unread));</span>
+<span class="fc" id="L85">        summary.getStyleClass().add(&quot;section-title&quot;);</span>
+<span class="fc" id="L86">        Region spacer = new Region();</span>
+<span class="fc" id="L87">        HBox.setHgrow(spacer, Priority.ALWAYS);</span>
+<span class="fc" id="L88">        HBox heading = new HBox(10, summary, spacer);</span>
+<span class="fc" id="L89">        heading.setAlignment(Pos.CENTER_LEFT);</span>
+<span class="fc bfc" id="L90" title="All 2 branches covered.">        if (!categories.isEmpty()) {</span>
+<span class="fc" id="L91">            heading.getChildren().add(categoryFilter(categories));</span>
+        }
+<span class="fc bfc" id="L93" title="All 2 branches covered.">        if (unread &gt; 0) {</span>
+<span class="fc" id="L94">            Button markAll = new Button(&quot;Mark all as read&quot;);</span>
+<span class="fc" id="L95">            markAll.getStyleClass().addAll(&quot;btn-outline&quot;, &quot;btn-sm&quot;);</span>
+<span class="fc" id="L96">            markAll.setMinWidth(Region.USE_PREF_SIZE);</span>
+<span class="fc" id="L97">            markAll.setOnAction(e -&gt; marked(service::markAllRead));</span>
+<span class="fc" id="L98">            heading.getChildren().add(markAll);</span>
+        }
+<span class="fc" id="L100">        return heading;</span>
+    }
+
+    /** &quot;All categories&quot;, then each category the user's notifications have, as the buyer's filters offer choices ({@link Choices}). */
+    private ComboBox&lt;String&gt; categoryFilter(List&lt;NotificationCategory&gt; categories) {
+<span class="fc" id="L105">        NotificationCategory[] values = categories.toArray(NotificationCategory[]::new);</span>
+<span class="fc" id="L106">        ComboBox&lt;String&gt; filter = Choices.withAll(ALL_CATEGORIES, values);</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">        if (shownCategory != null) {</span>
+<span class="fc" id="L108">            filter.getSelectionModel().select(shownCategory.toString());</span>
+        }
+<span class="fc" id="L110">        filter.setOnAction(e -&gt; {</span>
+<span class="fc" id="L111">            shownCategory = Choices.chosen(filter, values);</span>
+<span class="fc" id="L112">            refresh();</span>
+<span class="fc" id="L113">        });</span>
+<span class="fc" id="L114">        return filter;</span>
+    }
+
+    private VBox item(Notification notification) {
+<span class="fc" id="L118">        Label category = new Label(notification.getCategory().getDisplayName());</span>
+<span class="fc" id="L119">        category.getStyleClass().addAll(&quot;badge&quot;, &quot;badge-sold&quot;);</span>
+<span class="fc" id="L120">        Label time = new Label(Formats.dateTime(notification.getTimestamp()));</span>
+<span class="fc" id="L121">        time.getStyleClass().add(&quot;notif-time&quot;);</span>
+<span class="fc" id="L122">        Region spacer = new Region();</span>
+<span class="fc" id="L123">        HBox.setHgrow(spacer, Priority.ALWAYS);</span>
+<span class="fc" id="L124">        HBox top = new HBox(8, category, time, spacer);</span>
+<span class="fc" id="L125">        top.setAlignment(Pos.CENTER_LEFT);</span>
+
+<span class="fc" id="L127">        Label content = new Label(notification.getContent());</span>
+<span class="fc" id="L128">        content.setWrapText(true);</span>
+<span class="fc" id="L129">        content.getStyleClass().add(&quot;notif-text&quot;);</span>
+
+<span class="fc" id="L131">        VBox box = new VBox(6, top, content);</span>
+<span class="fc" id="L132">        box.getStyleClass().add(&quot;notif-item&quot;);</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">        if (notification.isRead()) {</span>
+<span class="fc" id="L134">            box.getStyleClass().add(&quot;notif-read&quot;);</span>
+        } else {
+<span class="fc" id="L136">            Label unread = new Label(&quot;Unread&quot;);</span>
+<span class="fc" id="L137">            unread.getStyleClass().addAll(&quot;badge&quot;, &quot;badge-pending&quot;);</span>
+<span class="fc" id="L138">            Button markRead = new Button(&quot;Mark as read&quot;);</span>
+<span class="fc" id="L139">            markRead.getStyleClass().addAll(&quot;btn-outline&quot;, &quot;btn-sm&quot;);</span>
+<span class="fc" id="L140">            markRead.setMinWidth(Region.USE_PREF_SIZE);</span>
+<span class="fc" id="L141">            markRead.setOnAction(e -&gt; marked(() -&gt; service.markRead(notification.getId()))); // UC4 step 3</span>
+<span class="fc" id="L142">            top.getChildren().addAll(unread, markRead);</span>
+        }
+<span class="fc" id="L144">        return box;</span>
+    }
+
+    /**
+     * Marks one notification or all of them as read, then shows the board and the sidebar's dot
+     * as they are now. A refusal (the account can no longer act) is shown and changes nothing.
+     */
+    private void marked(Runnable marking) {
+        try {
+<span class="fc" id="L153">            marking.run();</span>
+<span class="fc" id="L154">        } catch (ServiceException e) {</span>
+<span class="fc" id="L155">            Dialogs.problem(e);</span>
+<span class="fc" id="L156">            return;</span>
+<span class="fc" id="L157">        }</span>
+<span class="fc" id="L158">        refresh();</span>
+<span class="fc" id="L159">        NotificationDot.update();</span>
+<span class="fc" id="L160">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

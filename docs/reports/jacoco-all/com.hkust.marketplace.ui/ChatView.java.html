@@ -1,0 +1,510 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatView.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">ChatView.java</span></div><h1>ChatView.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.services.ChatEntry;
+import com.hkust.marketplace.services.ChatService;
+import com.hkust.marketplace.services.Conversation;
+import com.hkust.marketplace.services.OfferAction;
+import com.hkust.marketplace.services.ServiceException;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * The chat screen, the same in the buyer and seller portals (UC6 Chat About Listing; Tasks
+ * 1.5 and 2.5): the history of messages and offers with sender and time, a box to write a
+ * message, and a search of the history that jumps to the chosen message and highlights it.
+ * A chat is shown in the chat screen, {@link ChatList}, beside the user's other chats:
+ * &lt;pre&gt;{@code
+ * Conversation chat = chatService.openForOffer(offer.getId());       // or openForListing(listingId)
+ * new ChatList(chatService, host, onOpen).openFrom(chat, &quot;Back to Offers &amp; Requests&quot;, back);
+ * }&lt;/pre&gt;
+ *
+ * &lt;p&gt;&lt;b&gt;Deal actions.&lt;/b&gt; The offers in the history only show what happened and their status.
+ * What can be done with them is in one row under Send, the same in both portals, and a button
+ * is there only while it is that person's turn (assumptions register 71):
+ * &lt;ul&gt;
+ *   &lt;li&gt;the buyer portal adds Make Offer with {@link #setOnMakeOffer} and, while the seller
+ *       has countered, Agree to Counter with {@link #setOnAgreeToCounter} (UC5 step 1). Agree
+ *       to Counter opens {@code OfferChoiceDialog}, which lists the countered offers and
+ *       returns the one chosen;&lt;/li&gt;
+ *   &lt;li&gt;the seller portal adds Respond in Offers &amp;amp; Requests with
+ *       {@link #setOnRespondToOffers}: a link, not an answer. The seller answers offers only on
+ *       Offers &amp;amp; Requests (Task 2.5; Manage Offers &amp;amp; Requests 3.3-3.5), so the chat does
+ *       not repeat that screen's actions.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;All rules (who may read and write, empty messages, searching, which offers allow which
+ * action) are in the tested {@link ChatService}, {@link Conversation} and {@link OfferAction};
+ * the wording is in {@link ChatText} and {@link OfferText}. This class only lays the chat out.
+ */
+<span class="fc" id="L56">public class ChatView extends VBox implements Refreshable {</span>
+
+    private static final double BUBBLE_WIDTH = 520;
+
+    private final ChatService service;
+    private Conversation conversation;
+
+<span class="fc" id="L63">    private final VBox history = new VBox(4);</span>
+<span class="fc" id="L64">    private final ScrollPane historyPane = new ScrollPane(history);</span>
+    /** The history's rows, in order: row i shows the entry at position i. */
+<span class="fc" id="L66">    private final List&lt;Node&gt; rows = new ArrayList&lt;&gt;();</span>
+    private Node highlighted;
+    /** True while the newest message should stay in view; false after jumping to a search result. */
+<span class="fc" id="L69">    private boolean followNewest = true;</span>
+
+<span class="fc" id="L71">    private final TextField searchField = new TextField();</span>
+<span class="fc" id="L72">    private final VBox searchResults = new VBox(6);</span>
+<span class="fc" id="L73">    private final TextArea input = new TextArea();</span>
+    /** The deal actions under Send; empty and hidden while there is nothing to do. */
+<span class="fc" id="L75">    private final HBox dealActions = new HBox(8);</span>
+    /** The buyer's Make Offer; null while it is not offered. */
+    private Runnable makeOffer;
+    /** The buyer's Agree to Counter; null while it is not offered. */
+    private AgreeToCounter agreeToCounter;
+    /** The seller's link to Offers &amp;amp; Requests; null while it is not offered. */
+    private RespondToOffers respondToOffers;
+    /** Told when the user's own action has changed the history, such as the chat screen's list beside it. */
+<span class="pc" id="L83">    private Runnable historyChanged = () -&gt; { };</span>
+
+    public ChatView(ChatService service, Conversation conversation) {
+<span class="fc" id="L86">        super(12);</span>
+<span class="fc" id="L87">        this.service = service;</span>
+<span class="fc" id="L88">        this.conversation = conversation;</span>
+<span class="fc" id="L89">        setPadding(new Insets(4));</span>
+
+<span class="fc" id="L91">        history.getStyleClass().add(&quot;chat-history&quot;);</span>
+<span class="fc" id="L92">        history.heightProperty().addListener((obs, old, height) -&gt; {</span>
+<span class="pc bpc" id="L93" title="1 of 2 branches missed.">            if (followNewest) {</span>
+<span class="fc" id="L94">                historyPane.setVvalue(1); // keep the newest message in view as the history is laid out</span>
+            }
+<span class="fc" id="L96">        });</span>
+<span class="fc" id="L97">        historyPane.setFitToWidth(true);</span>
+<span class="fc" id="L98">        VBox.setVgrow(historyPane, Priority.ALWAYS);</span>
+
+<span class="fc" id="L100">        searchResults.getStyleClass().add(&quot;card&quot;);</span>
+<span class="fc" id="L101">        searchResults.setPadding(new Insets(10, 14, 10, 14));</span>
+<span class="fc" id="L102">        hideSearch();</span>
+
+<span class="fc" id="L104">        getChildren().addAll(header(), searchResults, historyPane, composer());</span>
+<span class="fc" id="L105">        showHistory();</span>
+<span class="fc" id="L106">    }</span>
+
+    /** The chat this screen shows, as it was last loaded: the listing it is about and the people in it. */
+    public Conversation conversation() {
+<span class="fc" id="L110">        return conversation;</span>
+    }
+
+    // ---------- Deal actions: what each portal plugs in ----------
+
+    /**
+     * What the buyer's Agree to Counter does with the countered offer they chose: Make Offer
+     * with the counter's terms filled in (UC5 step 1 and Special Requirement 4).
+     */
+    @FunctionalInterface
+    public interface AgreeToCounter {
+
+        /**
+         * Pre: the offer is one of this chat's offers and the seller has countered it.
+         * @param countered the buyer's offer that the seller countered
+         * @return true if a new offer was submitted; false if the buyer cancelled or it was refused
+         */
+        boolean agree(Offer countered);
+    }
+
+    /**
+     * What the seller's Respond in Offers &amp;amp; Requests does: the seller portal shows its Manage
+     * Offers &amp;amp; Requests screen with these offers marked ({@link Scrolling#JUMP_HIGHLIGHT}) and
+     * the newest one scrolled into view ({@link Scrolling#bringIntoView}), as a chat search
+     * result is (UC6 A2 step 4). The seller answers them there (Task 2.5; assumptions register 71).
+     */
+    @FunctionalInterface
+    public interface RespondToOffers {
+
+        /**
+         * Pre: the viewer is this chat's seller, and {@code waiting} is not empty: this chat's open
+         * offers (Pending or Countered) of its one buyer on its one listing, newest first, as
+         * {@link Conversation#offersToActOn()} lists them.
+         * Post: the chat itself has changed nothing.
+         * @param waiting the offers the seller is to answer
+         */
+        void respond(List&lt;Offer&gt; waiting);
+    }
+
+    /**
+     * Adds the Make Offer option for the buyer (UC5 step 1: &quot;the Make Offer option in the
+     * listing's chat thread&quot;), named after the listing type: Make Offer, Request Borrow or
+     * Claim Item. The action runs Make Offer; afterwards the history is reloaded, so a new
+     * offer appears in it. Nothing is shown when the viewer is the seller.
+     */
+    public void setOnMakeOffer(Runnable makeOffer) {
+<span class="fc" id="L156">        this.makeOffer = makeOffer;</span>
+<span class="fc" id="L157">        showActions();</span>
+<span class="fc" id="L158">    }</span>
+
+    /**
+     * Adds Agree to Counter for the buyer (UC5 step 1: &quot;choosing to agree to a seller's counter
+     * on one of their earlier offers&quot;). The button is shown while the seller has countered one
+     * of the buyer's offers in this chat, with how many: &quot;Agree to Counter (1)&quot;. It opens the
+     * list of countered offers, each with the buyer's terms and the seller's counter, and Agree
+     * runs {@code agree}. Nothing is shown when the viewer is the seller.
+     */
+    public void setOnAgreeToCounter(AgreeToCounter agree) {
+<span class="fc" id="L168">        this.agreeToCounter = agree;</span>
+<span class="fc" id="L169">        showActions();</span>
+<span class="fc" id="L170">    }</span>
+
+    /**
+     * Gives the chat the seller's link to Offers &amp;amp; Requests. While the chat has open offers,
+     * the seller sees &quot;Respond in Offers &amp;amp; Requests (n)&quot;, which calls {@code respond} with
+     * them. The chat never shows the seller Accept, Decline or Counter. Without the link, or
+     * when the viewer is the buyer, nothing is shown.
+     */
+    public void setOnRespondToOffers(RespondToOffers respond) {
+<span class="fc" id="L179">        this.respondToOffers = respond;</span>
+<span class="fc" id="L180">        showActions();</span>
+<span class="fc" id="L181">    }</span>
+
+    /**
+     * What else follows when the user's own action changes this chat's history: a message sent,
+     * or an offer made with Make Offer or Agree to Counter. The chat screen ({@link ChatList})
+     * reloads its list of chats, so this chat moves to the top (assumptions register 90).
+     */
+    public void setOnHistoryChanged(Runnable changed) {
+<span class="fc" id="L189">        this.historyChanged = changed;</span>
+<span class="fc" id="L190">    }</span>
+
+    /** Reloads the history, for example after an offer was made or the other party wrote. */
+    @Override
+    public final void refresh() {
+<span class="fc" id="L195">        reload();</span>
+<span class="fc" id="L196">    }</span>
+
+    /** Reloads the history and the deal actions; false if the chat could not be loaded (the problem was shown). */
+    private boolean reload() {
+        try {
+<span class="fc" id="L201">            conversation = service.reload(conversation);</span>
+<span class="fc" id="L202">        } catch (ServiceException e) {</span>
+<span class="fc" id="L203">            Dialogs.problem(e);</span>
+<span class="fc" id="L204">            return false;</span>
+<span class="fc" id="L205">        }</span>
+<span class="fc" id="L206">        showHistory();</span>
+<span class="fc" id="L207">        return true;</span>
+    }
+
+    // ---------- Layout ----------
+
+    private Node header() {
+<span class="fc" id="L213">        Label title = new Label(conversation.listing().getTitle());</span>
+<span class="fc" id="L214">        title.getStyleClass().add(&quot;listing-card-title&quot;);</span>
+<span class="fc" id="L215">        title.setWrapText(true); // beside the list of chats, a long title takes a second line instead of being cut</span>
+<span class="fc" id="L216">        Label subtitle = new Label(ChatText.subtitle(conversation));</span>
+<span class="fc" id="L217">        subtitle.getStyleClass().add(&quot;listing-card-line&quot;);</span>
+<span class="fc" id="L218">        subtitle.setWrapText(true);</span>
+<span class="fc" id="L219">        Region spacer = new Region();</span>
+<span class="fc" id="L220">        HBox.setHgrow(spacer, Priority.ALWAYS);</span>
+
+<span class="fc" id="L222">        searchField.setPromptText(&quot;Search this chat&quot;);</span>
+<span class="fc" id="L223">        searchField.setPrefWidth(220);</span>
+<span class="pc" id="L224">        searchField.setOnAction(e -&gt; search());</span>
+<span class="fc" id="L225">        Button searchButton = new Button(&quot;Search&quot;);</span>
+<span class="fc" id="L226">        searchButton.getStyleClass().addAll(&quot;btn-outline&quot;, &quot;btn-sm&quot;);</span>
+<span class="fc" id="L227">        searchButton.setMinWidth(Region.USE_PREF_SIZE);</span>
+<span class="fc" id="L228">        searchButton.setOnAction(e -&gt; search());</span>
+
+<span class="fc" id="L230">        HBox header = new HBox(10, new VBox(2, title, subtitle), spacer, searchField, searchButton);</span>
+<span class="fc" id="L231">        header.setAlignment(Pos.CENTER_LEFT);</span>
+<span class="fc" id="L232">        header.getStyleClass().add(&quot;card&quot;);</span>
+<span class="fc" id="L233">        header.setPadding(new Insets(12, 16, 12, 16));</span>
+<span class="fc" id="L234">        return header;</span>
+    }
+
+    private Node composer() {
+<span class="fc" id="L238">        input.setPromptText(&quot;Write a message. Enter sends it; Shift+Enter starts a new line.&quot;);</span>
+<span class="fc" id="L239">        input.setPrefRowCount(2);</span>
+<span class="fc" id="L240">        input.setWrapText(true);</span>
+<span class="fc" id="L241">        input.addEventFilter(KeyEvent.KEY_PRESSED, event -&gt; {</span>
+<span class="fc bfc" id="L242" title="All 2 branches covered.">            if (event.getCode() != KeyCode.ENTER) {</span>
+<span class="fc" id="L243">                return;</span>
+            }
+<span class="fc" id="L245">            event.consume();</span>
+<span class="fc bfc" id="L246" title="All 2 branches covered.">            if (event.isShiftDown()) {</span>
+<span class="fc" id="L247">                input.replaceSelection(&quot;\n&quot;);</span>
+            } else {
+<span class="fc" id="L249">                send();</span>
+            }
+<span class="fc" id="L251">        });</span>
+<span class="fc" id="L252">        HBox.setHgrow(input, Priority.ALWAYS);</span>
+
+<span class="fc" id="L254">        Button send = new Button(&quot;Send&quot;);</span>
+<span class="fc" id="L255">        send.getStyleClass().add(&quot;btn-primary&quot;);</span>
+<span class="fc" id="L256">        send.setMinWidth(Region.USE_PREF_SIZE); // never cut to &quot;...&quot;: in a narrow chat, the message box gives up the room</span>
+<span class="fc" id="L257">        send.setOnAction(e -&gt; send());</span>
+
+<span class="fc" id="L259">        HBox writing = new HBox(10, input, send);</span>
+<span class="fc" id="L260">        writing.setAlignment(Pos.BOTTOM_LEFT);</span>
+<span class="fc" id="L261">        dealActions.setAlignment(Pos.CENTER_RIGHT);</span>
+<span class="fc" id="L262">        return new VBox(8, writing, dealActions);</span>
+    }
+
+    // ---------- History (UC6 step 2) ----------
+
+    private void showHistory() {
+<span class="fc" id="L268">        showActions();</span>
+<span class="fc" id="L269">        history.getChildren().clear();</span>
+<span class="fc" id="L270">        rows.clear();</span>
+<span class="fc" id="L271">        highlighted = null;</span>
+<span class="fc" id="L272">        followNewest = true;</span>
+<span class="fc bfc" id="L273" title="All 2 branches covered.">        if (conversation.entries().isEmpty()) {</span>
+<span class="fc" id="L274">            Label empty = new Label(&quot;No messages yet.&quot;);</span>
+<span class="fc" id="L275">            empty.getStyleClass().add(&quot;listing-card-line&quot;);</span>
+<span class="fc" id="L276">            history.getChildren().add(empty);</span>
+<span class="fc" id="L277">            return;</span>
+        }
+<span class="fc bfc" id="L279" title="All 2 branches covered.">        for (ChatEntry entry : conversation.entries()) {</span>
+<span class="fc bfc" id="L280" title="All 2 branches covered.">            Node row = entry.isOffer() ? offerRow(entry) : messageRow(entry);</span>
+<span class="fc" id="L281">            rows.add(row);</span>
+<span class="fc" id="L282">            history.getChildren().add(row);</span>
+<span class="fc" id="L283">        }</span>
+<span class="fc" id="L284">        historyPane.setVvalue(1);</span>
+<span class="fc" id="L285">    }</span>
+
+    /** A message: the viewer's own on the right, the other party's on the left. */
+    private Node messageRow(ChatEntry entry) {
+<span class="fc" id="L289">        boolean mine = conversation.isSentByViewer(entry);</span>
+<span class="fc" id="L290">        VBox bubble = new VBox(3, meta(entry), text(entry.content(), &quot;chat-text&quot;));</span>
+<span class="fc bfc" id="L291" title="All 2 branches covered.">        bubble.getStyleClass().addAll(&quot;chat-bubble&quot;, mine ? &quot;chat-mine&quot; : &quot;chat-theirs&quot;);</span>
+<span class="fc" id="L292">        bubble.setMaxWidth(BUBBLE_WIDTH);</span>
+<span class="fc bfc" id="L293" title="All 2 branches covered.">        return row(bubble, mine ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);</span>
+    }
+
+    /** An offer, borrow request or claim, shown in the middle with its current status (Special Requirement 3). */
+    private Node offerRow(ChatEntry entry) {
+<span class="fc" id="L298">        Offer offer = entry.offer();</span>
+<span class="fc" id="L299">        Label status = new Label(OfferText.status(offer));</span>
+<span class="fc" id="L300">        status.getStyleClass().addAll(&quot;badge&quot;, OfferText.badgeStyle(offer));</span>
+<span class="fc" id="L301">        status.setMinWidth(Region.USE_PREF_SIZE);</span>
+<span class="fc" id="L302">        HBox terms = new HBox(8, text(OfferText.summary(offer), &quot;chat-offer-terms&quot;), status);</span>
+<span class="fc" id="L303">        terms.setAlignment(Pos.CENTER_LEFT);</span>
+
+<span class="fc" id="L305">        VBox card = new VBox(3, meta(entry), terms);</span>
+<span class="fc" id="L306">        OfferText.counter(offer).ifPresent(counter -&gt; card.getChildren().add(text(counter, &quot;chat-text&quot;)));</span>
+<span class="fc" id="L307">        card.getStyleClass().add(&quot;chat-offer&quot;);</span>
+<span class="fc" id="L308">        card.setMaxWidth(BUBBLE_WIDTH);</span>
+<span class="fc" id="L309">        return row(card, Pos.CENTER);</span>
+    }
+
+    private static Node row(Node content, Pos alignment) {
+<span class="fc" id="L313">        HBox row = new HBox(content);</span>
+<span class="fc" id="L314">        row.setAlignment(alignment);</span>
+<span class="fc" id="L315">        row.getStyleClass().add(&quot;chat-row&quot;);</span>
+<span class="fc" id="L316">        return row;</span>
+    }
+
+    /** Sender and time, above every message and offer. */
+    private Label meta(ChatEntry entry) {
+<span class="fc" id="L321">        Label meta = new Label(ChatText.header(conversation, entry));</span>
+<span class="fc" id="L322">        meta.getStyleClass().add(&quot;chat-meta&quot;);</span>
+<span class="fc" id="L323">        return meta;</span>
+    }
+
+    private static Label text(String content, String styleClass) {
+<span class="fc" id="L327">        Label label = new Label(content);</span>
+<span class="fc" id="L328">        label.setWrapText(true);</span>
+<span class="fc" id="L329">        label.setMinHeight(Region.USE_PREF_SIZE); // wrap long text instead of cutting it short</span>
+<span class="fc" id="L330">        label.getStyleClass().add(styleClass);</span>
+<span class="fc" id="L331">        return label;</span>
+    }
+
+    // ---------- Deal actions under Send (assumptions register 71) ----------
+
+    /** Shows the deal buttons that fit the chat as it is now, and hides the row when there are none. */
+    private void showActions() {
+<span class="fc" id="L338">        dealActions.getChildren().clear();</span>
+<span class="fc" id="L339">        int waiting = conversation.offersToActOn().size();</span>
+<span class="fc bfc" id="L340" title="All 2 branches covered.">        if (conversation.viewerIsBuyer()) {</span>
+<span class="fc" id="L341">            addBuyerActions(waiting);</span>
+        } else {
+<span class="fc" id="L343">            addSellerActions(waiting);</span>
+        }
+<span class="fc bfc" id="L345" title="All 2 branches covered.">        boolean any = !dealActions.getChildren().isEmpty();</span>
+<span class="fc" id="L346">        dealActions.setVisible(any);</span>
+<span class="fc" id="L347">        dealActions.setManaged(any);</span>
+<span class="fc" id="L348">    }</span>
+
+    /** Make Offer, and Agree to Counter while the seller has countered ({@code waiting} offers). */
+    private void addBuyerActions(int waiting) {
+<span class="fc bfc" id="L352" title="All 2 branches covered.">        if (makeOffer != null) {</span>
+<span class="fc" id="L353">            dealActions.getChildren().add(actionButton(OfferText.actionText(conversation.listing().getType()), () -&gt; {</span>
+<span class="fc" id="L354">                makeOffer.run();</span>
+<span class="pc bpc" id="L355" title="1 of 2 branches missed.">                if (reload()) {</span>
+<span class="fc" id="L356">                    historyChanged.run();</span>
+                }
+<span class="fc" id="L358">            }));</span>
+        }
+<span class="fc bfc" id="L360" title="All 4 branches covered.">        if (agreeToCounter != null &amp;&amp; waiting &gt; 0) {</span>
+<span class="fc" id="L361">            dealActions.getChildren().add(actionButton(ChatText.agreeButton(waiting), this::chooseCounterAndAgree));</span>
+        }
+<span class="fc" id="L363">    }</span>
+
+    /** The link to Offers &amp;amp; Requests while the chat has open offers ({@code waiting} of them). */
+    private void addSellerActions(int waiting) {
+<span class="pc bpc" id="L367" title="1 of 4 branches missed.">        if (respondToOffers != null &amp;&amp; waiting &gt; 0) {</span>
+<span class="fc" id="L368">            dealActions.getChildren().add(actionButton(ChatText.respondButton(waiting),</span>
+<span class="nc" id="L369">                    () -&gt; respondToOffers.respond(conversation.offersToActOn())));</span>
+        }
+<span class="fc" id="L371">    }</span>
+
+    private static Button actionButton(String text, Runnable action) {
+<span class="fc" id="L374">        Button button = new Button(text);</span>
+<span class="fc" id="L375">        button.getStyleClass().add(&quot;btn-outline&quot;);</span>
+<span class="fc" id="L376">        button.setMinWidth(Region.USE_PREF_SIZE);</span>
+<span class="fc" id="L377">        button.setOnAction(e -&gt; action.run());</span>
+<span class="fc" id="L378">        return button;</span>
+    }
+
+    /**
+     * Lists the offers the seller countered, runs the buyer's Agree to Counter on the chosen one
+     * and reloads the chat. When the buyer cancels the Make Offer form or it is refused (agree
+     * returns false), the list opens again, until the buyer cancels it, an offer is submitted, or
+     * no countered offer is left.
+     */
+    private void chooseCounterAndAgree() {
+        while (true) {
+<span class="fc" id="L389">            List&lt;Offer&gt; countered = conversation.offersToActOn();</span>
+<span class="fc bfc" id="L390" title="All 2 branches covered.">            if (countered.isEmpty()) {</span>
+<span class="fc" id="L391">                return;</span>
+            }
+<span class="fc" id="L393">            Optional&lt;Offer&gt; chosen = OfferChoiceDialog.show(conversation, countered);</span>
+<span class="fc bfc" id="L394" title="All 2 branches covered.">            if (chosen.isEmpty()) {</span>
+<span class="fc" id="L395">                return; // cancelled</span>
+            }
+            // Precondition of AgreeToCounter (Lecture 10): the dialog lists only countered offers
+<span class="pc bpc" id="L398" title="1 of 2 branches missed.">            assert conversation.actionsFor(chosen.get()).contains(OfferAction.AGREE_TO_COUNTER)</span>
+                    : &quot;the chosen offer is countered&quot;;
+            boolean submitted;
+            try {
+<span class="fc" id="L402">                submitted = agreeToCounter.agree(chosen.get());</span>
+<span class="nc" id="L403">            } catch (ServiceException e) { // a safety net: Make Offer shows its own problems</span>
+<span class="nc" id="L404">                Dialogs.problem(e);</span>
+<span class="nc" id="L405">                submitted = false;</span>
+<span class="fc" id="L406">            }</span>
+<span class="fc bfc" id="L407" title="All 2 branches covered.">            if (!reload()) {</span>
+<span class="fc" id="L408">                return;</span>
+            }
+<span class="fc bfc" id="L410" title="All 2 branches covered.">            if (submitted) {</span>
+<span class="fc" id="L411">                historyChanged.run(); // a new offer in the history</span>
+<span class="fc" id="L412">                return;</span>
+            }
+<span class="fc" id="L414">        }</span>
+    }
+
+    // ---------- Writing (UC6 steps 3-6, A1) ----------
+
+    private void send() {
+        try {
+<span class="fc" id="L421">            conversation = service.send(conversation, input.getText());</span>
+<span class="fc" id="L422">        } catch (ServiceException e) {</span>
+<span class="fc" id="L423">            Dialogs.problem(e); // A1: the message stays in the box</span>
+<span class="fc" id="L424">            input.requestFocus();</span>
+<span class="fc" id="L425">            return;</span>
+<span class="fc" id="L426">        }</span>
+<span class="fc" id="L427">        input.clear();</span>
+<span class="fc" id="L428">        hideSearch();</span>
+<span class="fc" id="L429">        showHistory();</span>
+<span class="fc" id="L430">        input.requestFocus();</span>
+<span class="fc" id="L431">        historyChanged.run();</span>
+<span class="fc" id="L432">    }</span>
+
+    // ---------- Searching (UC6 A2) ----------
+
+    private void search() {
+<span class="fc" id="L437">        String keyword = searchField.getText();</span>
+        List&lt;ChatEntry&gt; matches;
+        try {
+<span class="fc" id="L440">            conversation = service.reload(conversation);</span>
+<span class="fc" id="L441">            showHistory(); // the rows on screen now match the positions of the matches</span>
+<span class="fc" id="L442">            matches = service.search(conversation, keyword);</span>
+<span class="fc" id="L443">        } catch (ServiceException e) {</span>
+<span class="fc" id="L444">            Dialogs.problem(e);</span>
+<span class="fc" id="L445">            return;</span>
+<span class="fc" id="L446">        }</span>
+
+<span class="fc" id="L448">        Label summary = new Label(ChatText.searchSummary(keyword, matches.size())); // A2 step 2</span>
+<span class="fc" id="L449">        summary.getStyleClass().add(&quot;chat-text&quot;);</span>
+<span class="fc" id="L450">        Region spacer = new Region();</span>
+<span class="fc" id="L451">        HBox.setHgrow(spacer, Priority.ALWAYS);</span>
+<span class="fc" id="L452">        Button close = new Button(&quot;Close search&quot;);</span>
+<span class="fc" id="L453">        close.getStyleClass().addAll(&quot;btn-outline&quot;, &quot;btn-sm&quot;);</span>
+<span class="fc" id="L454">        close.setMinWidth(Region.USE_PREF_SIZE);</span>
+<span class="fc" id="L455">        close.setOnAction(e -&gt; hideSearch());</span>
+<span class="fc" id="L456">        HBox top = new HBox(8, summary, spacer, close);</span>
+<span class="fc" id="L457">        top.setAlignment(Pos.CENTER_LEFT);</span>
+
+<span class="fc" id="L459">        VBox list = new VBox(4);</span>
+<span class="fc bfc" id="L460" title="All 2 branches covered.">        for (ChatEntry match : matches) {</span>
+<span class="fc" id="L461">            list.getChildren().add(resultRow(match));</span>
+<span class="fc" id="L462">        }</span>
+<span class="fc" id="L463">        ScrollPane listPane = new ScrollPane(list);</span>
+<span class="fc" id="L464">        listPane.setFitToWidth(true);</span>
+<span class="fc" id="L465">        listPane.setMaxHeight(150);</span>
+
+<span class="fc" id="L467">        searchResults.getChildren().setAll(top);</span>
+<span class="fc bfc" id="L468" title="All 2 branches covered.">        if (!matches.isEmpty()) {</span>
+<span class="fc" id="L469">            searchResults.getChildren().add(listPane);</span>
+        }
+<span class="fc" id="L471">        searchResults.setVisible(true);</span>
+<span class="fc" id="L472">        searchResults.setManaged(true);</span>
+<span class="fc" id="L473">    }</span>
+
+    /** One matching message with its sender and time; choosing it jumps to the message (A2 steps 3-4). */
+    private Node resultRow(ChatEntry match) {
+<span class="fc" id="L477">        Label line = new Label(ChatText.header(conversation, match) + &quot;    &quot;</span>
+<span class="fc" id="L478">                + Formats.preview(match.content(), ChatText.PREVIEW_LENGTH));</span>
+<span class="fc" id="L479">        line.getStyleClass().add(&quot;chat-text&quot;);</span>
+<span class="fc" id="L480">        HBox row = new HBox(line);</span>
+<span class="fc" id="L481">        row.getStyleClass().add(&quot;chat-result&quot;);</span>
+<span class="fc" id="L482">        row.setOnMouseClicked(e -&gt; jumpTo(match.position()));</span>
+<span class="fc" id="L483">        return row;</span>
+    }
+
+    private void jumpTo(int position) {
+<span class="pc bpc" id="L487" title="2 of 4 branches missed.">        if (position &lt; 0 || position &gt;= rows.size()) {</span>
+<span class="nc" id="L488">            return;</span>
+        }
+<span class="fc bfc" id="L490" title="All 2 branches covered.">        if (highlighted != null) {</span>
+<span class="fc" id="L491">            highlighted.getStyleClass().remove(Scrolling.JUMP_HIGHLIGHT);</span>
+        }
+<span class="fc" id="L493">        highlighted = rows.get(position);</span>
+<span class="fc" id="L494">        highlighted.getStyleClass().add(Scrolling.JUMP_HIGHLIGHT);</span>
+
+<span class="fc" id="L496">        followNewest = false;</span>
+<span class="fc" id="L497">        Scrolling.bringIntoView(historyPane, highlighted);</span>
+<span class="fc" id="L498">    }</span>
+
+    private void hideSearch() {
+<span class="fc" id="L501">        searchResults.getChildren().clear();</span>
+<span class="fc" id="L502">        searchResults.setVisible(false);</span>
+<span class="fc" id="L503">        searchResults.setManaged(false);</span>
+<span class="fc bfc" id="L504" title="All 2 branches covered.">        if (highlighted != null) {</span>
+<span class="fc" id="L505">            highlighted.getStyleClass().remove(Scrolling.JUMP_HIGHLIGHT);</span>
+<span class="fc" id="L506">            highlighted = null;</span>
+        }
+<span class="fc" id="L508">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

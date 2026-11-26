@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LoginResult.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">LoginResult.java</span></div><h1>LoginResult.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+/**
+ * Outcome of {@link AuthService#login}. Each failure matches one alternative
+ * flow of UC2 Log In, and carries the message to show the user.
+ */
+<span class="fc" id="L7">public enum LoginResult {</span>
+<span class="fc" id="L8">    SUCCESS(&quot;Login successful.&quot;),</span>
+    /** UC2 A1 */
+<span class="fc" id="L10">    MISSING_FIELDS(&quot;Please enter both username and password.&quot;),</span>
+    /** UC2 A2: one message for both cases, so it never reveals whether the username exists. */
+<span class="fc" id="L12">    INVALID_CREDENTIALS(&quot;Incorrect username or password.&quot;),</span>
+    /** UC2 A3 */
+<span class="fc" id="L14">    WRONG_ACCOUNT_TYPE(&quot;This account cannot log in to this portal. Please use the portal for your account type.&quot;),</span>
+    /** UC2 A4 */
+<span class="fc" id="L16">    DEACTIVATED(&quot;This account has been deactivated. Please contact the admin.&quot;);</span>
+
+    private final String message;
+
+<span class="fc" id="L20">    LoginResult(String message) {</span>
+<span class="fc" id="L21">        this.message = message;</span>
+<span class="fc" id="L22">    }</span>
+
+    public String getMessage() {
+<span class="fc" id="L25">        return message;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

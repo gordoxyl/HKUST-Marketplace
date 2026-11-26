@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SellerOfferService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">SellerOfferService.java</span></div><h1>SellerOfferService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.BorrowRequest;
+import com.hkust.marketplace.models.Claim;
+import com.hkust.marketplace.models.LendListing;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.NotificationCategory;
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.models.OfferStatus;
+import com.hkust.marketplace.models.PriceOffer;
+import com.hkust.marketplace.models.SaleListing;
+import com.hkust.marketplace.models.Seller;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.OptionalDouble;
+
+/**
+ * Task 2.5 Manage Offers &amp;amp; Requests: the seller's inbox of the price offers, borrow
+ * requests and claims made on their listings, and the four actions the use case gives them
+ * (Manage Offers &amp;amp; Requests 3.3-3.6).
+ *
+ * &lt;ul&gt;
+ *   &lt;li&gt;&lt;b&gt;Accept&lt;/b&gt; - {@link DealRules#accept} does the cross-role work: the offer becomes
+ *       Accepted, the listing Reserved or Lent, every other open offer is declined with a
+ *       notification, and the buyer is told.&lt;/li&gt;
+ *   &lt;li&gt;&lt;b&gt;Decline&lt;/b&gt; - only an open (Pending or Countered) offer; the buyer is notified.&lt;/li&gt;
+ *   &lt;li&gt;&lt;b&gt;Counter&lt;/b&gt; - only a Pending price offer or borrow request (A3: a claim cannot be
+ *       countered); the terms are validated (A4) and the buyer is notified.&lt;/li&gt;
+ *   &lt;li&gt;&lt;b&gt;Open chat&lt;/b&gt; is the shared {@link ChatService#openForOffer}, called by the screen.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;Every method checks that the logged-in user is a seller and that the offer is on one of
+ * that seller's listings, so a seller cannot act on someone else's offer.
+ */
+public class SellerOfferService {
+
+    /** Manage Offers &amp;amp; Requests A4: the same message for a non-number and for a non-positive price. */
+    private static final String COUNTER_PRICE_MESSAGE =
+            &quot;The counter price must be a positive amount, such as 150 or 99.50.&quot;;
+
+    private final DataStore store;
+    private final DealRules rules;
+    private final NotificationService notifications;
+
+    public SellerOfferService() {
+<span class="fc" id="L49">        this(DataStore.getInstance());</span>
+<span class="fc" id="L50">    }</span>
+
+<span class="fc" id="L52">    public SellerOfferService(DataStore store) {</span>
+<span class="fc" id="L53">        this.store = store;</span>
+<span class="fc" id="L54">        this.rules = new DealRules(store);</span>
+<span class="fc" id="L55">        this.notifications = new NotificationService(store);</span>
+<span class="fc" id="L56">    }</span>
+
+    /**
+     * Manage Offers &amp;amp; Requests step 2: the offers still waiting for an answer on the
+     * seller's listings, oldest first, so the screen can group them by listing.
+     * @throws AccessDeniedException if the logged-in user is not a seller
+     */
+    public List&lt;Offer&gt; openOffers() {
+<span class="fc" id="L64">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L65">        return store.getOffersForSeller(seller.getUsername()).stream()</span>
+<span class="fc" id="L66">                .filter(Offer::isOpen)</span>
+<span class="fc" id="L67">                .toList();</span>
+    }
+
+    /**
+     * Accepts one offer (Manage Offers &amp;amp; Requests 3.3): the listing becomes Reserved or
+     * Lent, the other open offers are declined, and the buyer is notified.
+     * @throws ServiceException if the offer is not pending or its listing is no longer Live (A2)
+     */
+    public void accept(String offerId) {
+<span class="fc" id="L76">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L77">        rules.accept(requireOwnedOffer(offerId, seller));</span>
+<span class="fc" id="L78">    }</span>
+
+    /**
+     * Declines one open offer (3.4) and tells its buyer.
+     * @throws ServiceException if the offer is already accepted or declined
+     */
+    public void decline(String offerId) {
+<span class="fc" id="L85">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L86">        store.transaction(() -&gt; {</span>
+<span class="fc" id="L87">            Offer offer = requireOwnedOffer(offerId, seller);</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">            if (!offer.isOpen()) {</span>
+<span class="fc" id="L89">                throw new ServiceException(&quot;This &quot; + offer.getKindName() + &quot; is no longer open.&quot;);</span>
+            }
+<span class="fc" id="L91">            Listing listing = store.getListingOf(offer);</span>
+<span class="fc" id="L92">            offer.decline();</span>
+<span class="fc" id="L93">            notifications.send(offer.getBuyerUsername(), NotificationCategory.OFFER_UPDATE,</span>
+<span class="fc" id="L94">                    seller.getFullName() + &quot; declined your &quot; + offer.getKindName()</span>
+<span class="fc" id="L95">                            + &quot; for '&quot; + listing.getTitle() + &quot;'.&quot;);</span>
+<span class="fc" id="L96">        });</span>
+<span class="fc" id="L97">    }</span>
+
+    /**
+     * Counters a pending price offer with another price (3.5) and tells the buyer, who answers
+     * by making a new offer (UC5 Special Requirement 4). The price is exactly what the seller
+     * typed: untrusted input, parsed at the barricade with {@link Amounts#parse}, so digits with
+     * up to two decimals (&quot;150&quot;, &quot;99.50&quot;) pass and &quot;abc&quot;, &quot;1e3&quot;, &quot;-5&quot; or &quot;1,000&quot; are refused
+     * with the same message as a non-positive price (Manage Offers &amp;amp; Requests A4).
+     * @throws ServiceException if the offer cannot be countered or the price is not a plain positive amount
+     */
+    public void counterPrice(String offerId, String typedPrice) {
+<span class="fc" id="L108">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L109">        OptionalDouble amount = Amounts.parse(typedPrice);</span>
+<span class="fc bfc" id="L110" title="All 4 branches covered.">        if (amount.isEmpty() || amount.getAsDouble() &lt;= 0) {</span>
+<span class="fc" id="L111">            throw new ServiceException(COUNTER_PRICE_MESSAGE);</span>
+        }
+<span class="fc" id="L113">        counterPrice(seller, offerId, amount.getAsDouble());</span>
+<span class="fc" id="L114">    }</span>
+
+    /** The rules of countering a price, after the price itself was checked. */
+    private void counterPrice(Seller seller, String offerId, double price) {
+<span class="fc" id="L118">        Offer offer = requireOwnedOffer(offerId, seller);</span>
+<span class="fc bfc" id="L119" title="All 2 branches covered.">        if (offer instanceof Claim) {</span>
+<span class="fc" id="L120">            throw new ServiceException(&quot;Claims cannot be countered.&quot;);</span>
+        }
+<span class="fc bfc" id="L122" title="All 2 branches covered.">        if (!(offer instanceof PriceOffer priceOffer)) {</span>
+<span class="fc" id="L123">            throw new ServiceException(&quot;Only a price offer can be countered with a price.&quot;);</span>
+        }
+<span class="fc" id="L125">        requirePending(offer);</span>
+<span class="fc" id="L126">        store.transaction(() -&gt; {</span>
+<span class="fc" id="L127">            Listing listing = store.getListingOf(offer);</span>
+<span class="fc" id="L128">            priceOffer.counter(price);</span>
+<span class="fc" id="L129">            notifications.send(offer.getBuyerUsername(), NotificationCategory.OFFER_UPDATE,</span>
+<span class="fc" id="L130">                    seller.getFullName() + &quot; countered your price offer for '&quot; + listing.getTitle()</span>
+<span class="fc" id="L131">                            + &quot;' with &quot; + SaleListing.formatPrice(price) + &quot;.&quot;);</span>
+<span class="fc" id="L132">        });</span>
+<span class="fc" id="L133">    }</span>
+
+    /**
+     * Counters a pending borrow request with other dates (3.5, A4) and tells the buyer.
+     * @throws ServiceException if the offer is not a pending borrow request, a date is missing,
+     *                          the start is in the past, or the period is shorter than the
+     *                          minimum borrow time
+     */
+    public void counterBorrow(String offerId, LocalDateTime start, LocalDateTime end) {
+<span class="fc" id="L142">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L143">        Offer offer = requireOwnedOffer(offerId, seller);</span>
+<span class="fc bfc" id="L144" title="All 2 branches covered.">        if (offer instanceof Claim) {</span>
+<span class="fc" id="L145">            throw new ServiceException(&quot;Claims cannot be countered.&quot;);</span>
+        }
+<span class="fc bfc" id="L147" title="All 2 branches covered.">        if (!(offer instanceof BorrowRequest request)) {</span>
+<span class="fc" id="L148">            throw new ServiceException(&quot;Only a borrow request can be countered with dates.&quot;);</span>
+        }
+<span class="fc" id="L150">        requirePending(offer);</span>
+<span class="fc" id="L151">        requireCounterPeriod(start, end);</span>
+<span class="fc" id="L152">        store.transaction(() -&gt; {</span>
+<span class="fc" id="L153">            Listing listing = store.getListingOf(offer);</span>
+<span class="fc" id="L154">            request.counter(start, end);</span>
+<span class="fc" id="L155">            notifications.send(offer.getBuyerUsername(), NotificationCategory.OFFER_UPDATE,</span>
+<span class="fc" id="L156">                    seller.getFullName() + &quot; countered your borrow request for '&quot; + listing.getTitle()</span>
+<span class="fc" id="L157">                            + &quot;' with &quot; + BorrowRequest.formatBorrowTime(start) + &quot; – &quot;</span>
+<span class="fc" id="L158">                            + BorrowRequest.formatBorrowTime(end) + &quot;.&quot;);</span>
+<span class="fc" id="L159">        });</span>
+<span class="fc" id="L160">    }</span>
+
+    /** The offer must exist and be on one of the logged-in seller's listings. */
+    private Offer requireOwnedOffer(String offerId, Seller seller) {
+<span class="fc" id="L164">        Offer offer = store.findOffer(offerId);</span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">        if (offer == null) {</span>
+<span class="fc" id="L166">            throw new ServiceException(&quot;This offer is no longer available.&quot;);</span>
+        }
+<span class="fc" id="L168">        Listing listing = store.getListingOf(offer);</span>
+<span class="pc bpc" id="L169" title="1 of 4 branches missed.">        if (listing == null || !listing.getSellerUsername().equalsIgnoreCase(seller.getUsername())) {</span>
+<span class="fc" id="L170">            throw new ServiceException(&quot;This offer is not on one of your listings.&quot;);</span>
+        }
+<span class="fc" id="L172">        return offer;</span>
+    }
+
+    /** Only a Pending offer can be countered; a Countered one waits for the buyer's answer. */
+    private static void requirePending(Offer offer) {
+<span class="fc bfc" id="L177" title="All 2 branches covered.">        if (offer.getStatus() != OfferStatus.PENDING) {</span>
+<span class="fc" id="L178">            throw new ServiceException(&quot;Only a pending &quot; + offer.getKindName() + &quot; can be countered.&quot;);</span>
+        }
+<span class="fc" id="L180">    }</span>
+
+    /** Manage Offers &amp;amp; Requests A4, in the order the use case names the problems. */
+    private void requireCounterPeriod(LocalDateTime start, LocalDateTime end) {
+<span class="pc bpc" id="L184" title="1 of 4 branches missed.">        if (start == null || end == null) {</span>
+<span class="fc" id="L185">            throw new ServiceException(&quot;Please enter both the start and the end of the counter period, &quot;</span>
+                    + &quot;each with a date and a time.&quot;);
+        }
+<span class="fc bfc" id="L188" title="All 2 branches covered.">        if (start.isBefore(store.now())) {</span>
+<span class="fc" id="L189">            throw new ServiceException(&quot;The counter period cannot start in the past.&quot;);</span>
+        }
+<span class="fc bfc" id="L191" title="All 2 branches covered.">        if (Duration.between(start, end).compareTo(BorrowRequest.MIN_BORROW_TIME) &lt; 0) {</span>
+<span class="fc" id="L192">            throw new ServiceException(&quot;The counter period must end at least &quot;</span>
+<span class="fc" id="L193">                    + LendListing.formatDuration(BorrowRequest.MIN_BORROW_TIME)</span>
+                    + &quot; after it starts.&quot;);
+        }
+<span class="fc" id="L196">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

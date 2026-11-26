@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatEntry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">ChatEntry.java</span></div><h1>ChatEntry.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.models.Offer;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+/**
+ * One line in a chat's history (UC6 step 2): a free-text message, or a price offer, borrow
+ * request or claim the buyer made on the listing, which appears in the history alongside the
+ * messages (UC6 Special Requirement 3). Exactly one of {@code content} and {@code offer} is set.
+ *
+ * @param position       the line's place in the history, counted from 0; a search result uses
+ *                       it to jump to the line (UC6 A2)
+ * @param senderUsername who sent it; for an offer, the buyer
+ * @param senderName     the sender's full name, for display
+ * @param time           when the message was sent, or when the offer was made
+ * @param content        the message text; null for an offer
+ * @param offer          the offer, with its current status; null for a message
+ */
+public record ChatEntry(int position, String senderUsername, String senderName, LocalDateTime time,
+                        String content, Offer offer) {
+
+<span class="fc" id="L24">    public ChatEntry {</span>
+<span class="fc" id="L25">        Objects.requireNonNull(senderUsername, &quot;senderUsername&quot;);</span>
+<span class="fc" id="L26">        Objects.requireNonNull(senderName, &quot;senderName&quot;);</span>
+<span class="fc" id="L27">        Objects.requireNonNull(time, &quot;time&quot;);</span>
+<span class="fc bfc" id="L28" title="All 6 branches covered.">        if ((content == null) == (offer == null)) {</span>
+<span class="fc" id="L29">            throw new IllegalArgumentException(&quot;A chat entry is either a message or an offer.&quot;);</span>
+        }
+<span class="fc" id="L31">    }</span>
+
+    /** True for an offer, borrow request or claim; false for a message. */
+    public boolean isOffer() {
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        return offer != null;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ListingActionRecord.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.models</a> &gt; <span class="el_source">ListingActionRecord.java</span></div><h1>ListingActionRecord.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.models;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+/** A record of one action an admin took on a listing (ListingActionRecord in the domain class diagram). */
+public class ListingActionRecord {
+
+    private String id;
+    private final String listingId;
+    private final String adminUsername;
+    private final ListingAction typeOfAction;
+    private final String reason;
+    private LocalDateTime actionDate;
+
+    /**
+     * @param reason may be null, except for the actions that require one
+     * @throws IllegalArgumentException if the action requires a reason and none is given
+     *         ({reason is required for RejectListing, TakedownListing and RemoveListing})
+     */
+<span class="fc" id="L21">    public ListingActionRecord(String listingId, String adminUsername, ListingAction typeOfAction, String reason) {</span>
+<span class="fc" id="L22">        this.listingId = Objects.requireNonNull(listingId, &quot;listingId&quot;);</span>
+<span class="fc" id="L23">        this.adminUsername = Objects.requireNonNull(adminUsername, &quot;adminUsername&quot;);</span>
+<span class="fc" id="L24">        this.typeOfAction = Objects.requireNonNull(typeOfAction, &quot;typeOfAction&quot;);</span>
+<span class="fc bfc" id="L25" title="All 4 branches covered.">        boolean noReason = reason == null || reason.isBlank();</span>
+<span class="fc bfc" id="L26" title="All 4 branches covered.">        if (typeOfAction.requiresReason() &amp;&amp; noReason) {</span>
+<span class="fc" id="L27">            throw new IllegalArgumentException(&quot;A reason is required to &quot; + typeOfAction.getDisplayName().toLowerCase() + &quot;.&quot;);</span>
+        }
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        this.reason = noReason ? null : reason.trim();</span>
+<span class="fc" id="L30">    }</span>
+
+    /** Null until the record is added to DataStore. */
+<span class="nc" id="L33">    public String getId() { return id; }</span>
+
+    /** Called once by DataStore when the record is added: gives it its id and action date. */
+    public void markAdded(String id, LocalDateTime actionDate) {
+<span class="pc bpc" id="L37" title="1 of 2 branches missed.">        if (this.id != null) {</span>
+<span class="nc" id="L38">            throw new IllegalStateException(&quot;Listing action record already has id &quot; + this.id);</span>
+        }
+<span class="fc" id="L40">        this.id = Objects.requireNonNull(id, &quot;id&quot;);</span>
+<span class="fc" id="L41">        this.actionDate = Objects.requireNonNull(actionDate, &quot;actionDate&quot;);</span>
+<span class="fc" id="L42">    }</span>
+
+<span class="fc" id="L44">    public String getListingId() { return listingId; }</span>
+<span class="fc" id="L45">    public String getAdminUsername() { return adminUsername; }</span>
+<span class="fc" id="L46">    public ListingAction getTypeOfAction() { return typeOfAction; }</span>
+
+    /** Null if no reason was given. */
+<span class="fc" id="L49">    public String getReason() { return reason; }</span>
+<span class="fc" id="L50">    public LocalDateTime getActionDate() { return actionDate; }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

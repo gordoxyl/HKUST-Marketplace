@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AdminReputationService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">AdminReputationService.java</span></div><h1>AdminReputationService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.*;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * Control class for Task 3.8 Seller Ratings Overview: the seller summary (step 5), a seller's
+ * reviews (6.5) and hiding a review (6.6). Every method starts with the admin role check.
+ * This class does not use the ui layer.
+ */
+public class AdminReputationService {
+
+    private final DataStore store;
+    private final NotificationService notifications;
+
+    public AdminReputationService() {
+<span class="fc" id="L21">        this(DataStore.getInstance());</span>
+<span class="fc" id="L22">    }</span>
+
+<span class="fc" id="L24">    public AdminReputationService(DataStore store) {</span>
+<span class="fc" id="L25">        this.store = store;</span>
+<span class="fc" id="L26">        this.notifications = new NotificationService(store);</span>
+<span class="fc" id="L27">    }</span>
+
+    /**
+     * Lists the sellers with their rating data for the first view of the Seller Ratings tab,
+     * ordered by username. Hidden reviews are not counted (Special Requirement 3).
+     *
+     * @param usernameText part of a seller's username, ignoring case; null or blank for all sellers
+     * @return the matching sellers; empty if none match, never null
+     */
+    public List&lt;SellerRating&gt; findSellerRatings(String usernameText) {
+<span class="fc" id="L37">        AccessControl.requireAdmin();</span>
+<span class="fc" id="L38">        String text = normalise(usernameText);</span>
+
+<span class="fc" id="L40">        return store.read(() -&gt; store.getUsersByRole(UserRole.SELLER).stream()</span>
+<span class="pc bpc" id="L41" title="3 of 4 branches missed.">                .filter(u -&gt; text.isEmpty() || u.getUsername().toLowerCase(Locale.ROOT).contains(text))</span>
+<span class="fc" id="L42">                .sorted(Comparator.comparing(User::getUsername))</span>
+<span class="fc" id="L43">                .map(u -&gt; new SellerRating(u.getUsername(), u.getFullName(),</span>
+<span class="fc" id="L44">                        store.getRating(u.getUsername()),</span>
+<span class="fc" id="L45">                        store.getCompletedDealCount(u.getUsername())))</span>
+<span class="fc" id="L46">                .toList());</span>
+    }
+
+    /**
+     * Lists reviews for the admin (Task 3.8, 6.5), including hidden ones. Every chosen filter
+     * must match; a null filter field means &quot;no filter&quot;. Results are sorted newest first.
+     * The screen can mark a review the seller flagged with {@code Review.isFlagged()}.
+     *
+     * @param filter the filter options, or null for no filter
+     * @return matching reviews, never null; empty if none match
+     * @throws ServiceException if the rating filter is outside 1 to 5
+     */
+    public List&lt;Review&gt; findReviews(ReviewFilter filter) {
+<span class="fc" id="L59">        AccessControl.requireAdmin();</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">        ReviewFilter f = filter == null ? ReviewFilter.none() : filter;</span>
+
+<span class="fc" id="L62">        checkRating(f);</span>
+<span class="fc" id="L63">        String sellerText = normalise(f.seller());</span>
+
+<span class="fc" id="L65">        return store.read(() -&gt; store.getAllReviews().stream()</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">                .filter(r -&gt; sellerText.isEmpty()</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">                        || store.getSellerUsername(r).toLowerCase(Locale.ROOT).contains(sellerText))</span>
+<span class="fc bfc" id="L68" title="All 4 branches covered.">                .filter(r -&gt; f.rating() == null || r.getRating() == f.rating())</span>
+<span class="fc bfc" id="L69" title="All 4 branches covered.">                .filter(r -&gt; f.fromDate() == null || !r.getReviewDate().isBefore(f.fromDate()))</span>
+<span class="fc bfc" id="L70" title="All 4 branches covered.">                .filter(r -&gt; f.toDate() == null || !r.getReviewDate().isAfter(f.toDate()))</span>
+<span class="fc" id="L71">                .sorted(Comparator.comparing(Review::getReviewDate).reversed())</span>
+<span class="fc" id="L72">                .toList());</span>
+    }
+
+    /**
+     * Hides a review (Task 3.8, 6.6.4): sets it hidden, records an Audit Log entry with the
+     * reason and the admin's username, and notifies the buyer who wrote it and the seller it
+     * is about, each with its own wording. The seller's average rating is recalculated
+     * automatically, because hidden reviews are not counted.
+     *
+     * @throws ServiceException if the reason is blank (A1), the review does not exist,
+     *         or it is already hidden
+     */
+    public void hideReview(String reviewId, String reason) {
+<span class="fc" id="L85">        Admin admin = AccessControl.requireAdmin();</span>
+<span class="fc" id="L86">        String cleanReason = requireReason(reason, &quot;A reason is required to hide a review.&quot;);</span>
+
+<span class="fc" id="L88">        store.transaction(() -&gt; {</span>
+<span class="fc" id="L89">            Review review = store.getAllReviews().stream()</span>
+<span class="fc" id="L90">                    .filter(r -&gt; r.getId().equals(reviewId))</span>
+<span class="fc" id="L91">                    .findFirst()</span>
+<span class="fc" id="L92">                    .orElseThrow(() -&gt; new ServiceException(&quot;This review no longer exists.&quot;));</span>
+
+<span class="fc bfc" id="L94" title="All 2 branches covered.">            if (review.isHidden()) {</span>
+<span class="fc" id="L95">                throw new ServiceException(&quot;This review is already hidden.&quot;);</span>
+            }
+
+<span class="fc" id="L98">            review.setHidden(true);</span>
+
+<span class="fc" id="L100">            String buyerUsername = store.getBuyerUsername(review);</span>
+<span class="fc" id="L101">            String sellerUsername = store.getSellerUsername(review);</span>
+<span class="fc" id="L102">            String reviewer = store.getReviewerName(review); // &quot;Deleted User&quot; if the buyer's account was deleted</span>
+<span class="fc" id="L103">            String itemTitle = store.getListingOf(store.findOffer(review.getOfferId())).getTitle();</span>
+
+<span class="fc" id="L105">            store.addAuditLogEntry(new AuditLogEntry(</span>
+<span class="fc" id="L106">                    admin.getUsername(), sellerUsername, &quot;Hide review&quot;, cleanReason, null));</span>
+
+            // NotificationService.send skips a deleted account, so no existence check is needed
+<span class="fc" id="L109">            notifications.send(buyerUsername, NotificationCategory.ANNOUNCEMENT,</span>
+<span class="fc" id="L110">                    &quot;Your review of &quot; + store.getFullName(sellerUsername) + &quot; for '&quot; + itemTitle</span>
+                            + &quot;' was hidden by an administrator. Reason: &quot; + cleanReason);
+            // The seller's notice names the reviewer
+<span class="fc" id="L113">            notifications.send(sellerUsername, NotificationCategory.ANNOUNCEMENT,</span>
+                    &quot;A review of you by &quot; + reviewer + &quot; for '&quot; + itemTitle
+                            + &quot;' was hidden by an administrator. Reason: &quot; + cleanReason);
+<span class="fc" id="L116">        });</span>
+<span class="fc" id="L117">    }</span>
+    /** Returns all reviews (including hidden) written about exactly {@code sellerUsername}. */
+    public List&lt;Review&gt; findReviewsForSeller(String sellerUsername, ReviewFilter filter) {
+<span class="fc" id="L120">        AccessControl.requireAdmin();</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">        ReviewFilter f = filter == null ? ReviewFilter.none() : filter;</span>
+<span class="fc" id="L122">        checkRating(f);</span>
+
+<span class="fc" id="L124">        return store.read(() -&gt; store.getAllReviews().stream()</span>
+<span class="fc" id="L125">                .filter(r -&gt; store.getSellerUsername(r).equalsIgnoreCase(sellerUsername))</span>
+<span class="fc bfc" id="L126" title="All 4 branches covered.">                .filter(r -&gt; f.rating() == null || r.getRating() == f.rating())</span>
+<span class="pc bpc" id="L127" title="1 of 4 branches missed.">                .filter(r -&gt; f.fromDate() == null || !r.getReviewDate().isBefore(f.fromDate()))</span>
+<span class="pc bpc" id="L128" title="1 of 4 branches missed.">                .filter(r -&gt; f.toDate() == null || !r.getReviewDate().isAfter(f.toDate()))</span>
+<span class="fc" id="L129">                .sorted(Comparator.comparing(Review::getReviewDate).reversed())</span>
+<span class="fc" id="L130">                .toList());</span>
+    }
+    // ---------- helpers ----------
+
+    private static String normalise(String text) {
+<span class="fc bfc" id="L135" title="All 2 branches covered.">        return text == null ? &quot;&quot; : text.strip().toLowerCase(Locale.ROOT);</span>
+    }
+
+    /** The reason without surrounding spaces; refuses a missing or blank reason. */
+    private static String requireReason(String reason, String message) {
+<span class="fc bfc" id="L140" title="All 4 branches covered.">        if (reason == null || reason.isBlank()) {</span>
+<span class="fc" id="L141">            throw new ServiceException(message);</span>
+        }
+<span class="fc" id="L143">        return reason.strip();</span>
+    }
+
+    private static void checkRating(ReviewFilter f) {
+<span class="fc bfc" id="L147" title="All 6 branches covered.">        if (f.rating() != null &amp;&amp; (f.rating() &lt; Review.MIN_RATING || f.rating() &gt; Review.MAX_RATING)) {</span>
+<span class="fc" id="L148">            throw new ServiceException(&quot;The rating filter must be between 1 and 5.&quot;);</span>
+        }
+<span class="fc" id="L150">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

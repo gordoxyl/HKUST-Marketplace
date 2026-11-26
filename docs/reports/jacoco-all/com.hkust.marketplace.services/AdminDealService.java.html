@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AdminDealService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">AdminDealService.java</span></div><h1>AdminDealService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.*;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * Control class for Task 3.5 All Deals Record: the list with filters, VIEW DETAILS and CSV
+ * export. A deal is an accepted offer, in progress or completed; pending, countered and
+ * declined offers are not deals. Every method starts with the admin role check. This class
+ * does not use the ui layer.
+ */
+public class AdminDealService {
+
+<span class="fc" id="L20">    private static final DateTimeFormatter CSV_DATE_TIME =</span>
+<span class="fc" id="L21">            DateTimeFormatter.ofPattern(&quot;dd MMM yyyy HH:mm:ss&quot;, Locale.ENGLISH);</span>
+
+    private static final String CSV_HEADER =
+            &quot;Item Title,Buyer,Seller,Deal Type,Start Date,Return/Complete Date,Status&quot;;
+
+    private final DataStore store;
+
+    public AdminDealService() {
+<span class="fc" id="L29">        this(DataStore.getInstance());</span>
+<span class="fc" id="L30">    }</span>
+
+<span class="fc" id="L32">    public AdminDealService(DataStore store) {</span>
+<span class="fc" id="L33">        this.store = store;</span>
+<span class="fc" id="L34">    }</span>
+
+    /**
+     * Lists the deals for the admin (Task 3.5 steps 2-3), newest start date first. Every chosen
+     * filter must match; a null filter field means &quot;no filter&quot;.
+     *
+     * @param filter the filter options, or null for no filter
+     * @return the matching deals; empty if none match (A1), never null
+     */
+    public List&lt;DealRecord&gt; findDeals(DealFilter filter) {
+<span class="fc" id="L44">        AccessControl.requireAdmin();</span>
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        DealFilter f = filter == null ? DealFilter.none() : filter;</span>
+<span class="fc" id="L46">        String sellerText = normalise(f.seller());</span>
+<span class="fc" id="L47">        String buyerText = normalise(f.buyer());</span>
+
+<span class="fc" id="L49">        return store.read(() -&gt; store.getAllOffers().stream()</span>
+<span class="fc bfc" id="L50" title="All 2 branches covered.">                .filter(o -&gt; o.getStatus() == OfferStatus.ACCEPTED)      // deals only</span>
+<span class="fc" id="L51">                .map(this::recordOf)</span>
+<span class="fc bfc" id="L52" title="All 4 branches covered.">                .filter(r -&gt; f.status() == null || r.state() == f.status())</span>
+<span class="fc bfc" id="L53" title="All 4 branches covered.">                .filter(r -&gt; f.type() == null || r.dealType() == f.type())</span>
+<span class="fc bfc" id="L54" title="All 2 branches covered.">                .filter(r -&gt; sellerText.isEmpty()</span>
+<span class="fc bfc" id="L55" title="All 2 branches covered.">                        || r.sellerUsername().toLowerCase(Locale.ROOT).contains(sellerText))</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">                .filter(r -&gt; buyerText.isEmpty()</span>
+<span class="fc bfc" id="L57" title="All 2 branches covered.">                        || r.buyerUsername().toLowerCase(Locale.ROOT).contains(buyerText))</span>
+<span class="fc bfc" id="L58" title="All 4 branches covered.">                .filter(r -&gt; f.fromDate() == null || !r.startDate().isBefore(f.fromDate()))</span>
+<span class="fc bfc" id="L59" title="All 4 branches covered.">                .filter(r -&gt; f.toDate() == null || !r.startDate().isAfter(f.toDate()))</span>
+<span class="fc" id="L60">                .sorted(Comparator.comparing(DealRecord::startDate).reversed())</span>
+<span class="fc" id="L61">                .toList());</span>
+    }
+
+    /**
+     * The details of one deal for VIEW DETAILS (Task 3.5 step 4.1).
+     *
+     * @throws ServiceException if the offer does not exist or is not a deal (not accepted)
+     */
+    public DealDetails getDealDetails(String offerId) {
+<span class="fc" id="L70">        AccessControl.requireAdmin();</span>
+<span class="fc" id="L71">        return store.read(() -&gt; {</span>
+<span class="fc" id="L72">            Offer offer = store.findOffer(offerId);</span>
+<span class="fc bfc" id="L73" title="All 4 branches covered.">            if (offer == null || offer.getStatus() != OfferStatus.ACCEPTED) {</span>
+<span class="fc" id="L74">                throw new ServiceException(&quot;This deal no longer exists.&quot;);</span>
+            }
+<span class="fc" id="L76">            DealRecord record = recordOf(offer);</span>
+<span class="fc" id="L77">            Listing listing = record.listing();</span>
+<span class="fc" id="L78">            User buyer = store.findUser(offer.getBuyerUsername());   // null if the account was deleted</span>
+<span class="fc" id="L79">            User seller = store.findUser(listing.getSellerUsername());</span>
+<span class="fc" id="L80">            Review review = store.findReviewForOffer(offer.getId());</span>
+
+<span class="fc bfc" id="L82" title="All 2 branches covered.">            Double amount = offer instanceof PriceOffer p ? p.getOfferedPrice() : null;</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">            LocalDateTime borrowStart = offer instanceof BorrowRequest b ? b.getProposedStartDate() : null;</span>
+<span class="fc bfc" id="L84" title="All 2 branches covered.">            LocalDateTime borrowEnd = offer instanceof BorrowRequest b ? b.getProposedEndDate() : null;</span>
+
+<span class="fc" id="L86">            return new DealDetails(offer, listing,</span>
+<span class="fc" id="L87">                    offer.getBuyerUsername(), store.getFullName(offer.getBuyerUsername()),</span>
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">                    buyer instanceof Buyer bu ? bu.getResidenceHall() : null,</span>
+<span class="fc" id="L89">                    listing.getSellerUsername(), store.getFullName(listing.getSellerUsername()),</span>
+<span class="pc bpc" id="L90" title="1 of 2 branches missed.">                    seller instanceof Seller s ? s.getBio() : null,</span>
+<span class="fc" id="L91">                    listing.getType(), amount, borrowStart, borrowEnd,</span>
+<span class="fc bfc" id="L92" title="All 4 branches covered.">                    record.startDate(), record.completedDate(), record.state(),</span>
+<span class="fc bfc" id="L93" title="All 2 branches covered.">                    review != null, review != null &amp;&amp; review.isHidden());</span>
+        });
+    }
+
+    /**
+     * Exports deals as CSV text (Task 3.5 step 4.2), normally the currently filtered list. Every
+     * text field is escaped. No file is written; the screen saves the returned string.
+     */
+    public String exportCsv(List&lt;DealRecord&gt; deals) {
+<span class="fc" id="L102">        AccessControl.requireAdmin();</span>
+<span class="fc" id="L103">        StringBuilder csv = new StringBuilder(CSV_HEADER);</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">        for (DealRecord d : deals) {</span>
+<span class="fc" id="L105">            csv.append('\n')</span>
+<span class="fc" id="L106">                    .append(escapeCsv(d.listing().getTitle())).append(',')</span>
+<span class="fc" id="L107">                    .append(escapeCsv(d.buyerUsername())).append(',')</span>
+<span class="fc" id="L108">                    .append(escapeCsv(d.sellerUsername())).append(',')</span>
+<span class="fc" id="L109">                    .append(escapeCsv(typeName(d))).append(',')</span>
+<span class="fc" id="L110">                    .append(escapeCsv(formatDate(d.startDate()))).append(',')</span>
+<span class="fc" id="L111">                    .append(escapeCsv(formatDate(d.completedDate()))).append(',')</span>
+<span class="fc" id="L112">                    .append(escapeCsv(d.state().getDisplayName()));</span>
+<span class="fc" id="L113">        }</span>
+<span class="fc" id="L114">        return csv.toString();</span>
+    }
+
+    // ---------- helpers ----------
+
+    private DealRecord recordOf(Offer offer) {
+<span class="fc" id="L120">        Listing listing = store.getListingOf(offer);</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">        LocalDateTime start = offer instanceof BorrowRequest r</span>
+<span class="fc" id="L122">                ? r.getProposedStartDate()      // the accepted request holds the agreed start</span>
+<span class="fc" id="L123">                : offer.getAcceptedDate();</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">        DealState state = !offer.isCompleted() ? DealState.IN_PROGRESS</span>
+<span class="fc bfc" id="L125" title="All 2 branches covered.">                : offer instanceof BorrowRequest ? DealState.RETURNED</span>
+<span class="fc" id="L126">                : DealState.COMPLETED;</span>
+<span class="fc" id="L127">        return new DealRecord(offer, listing, offer.getBuyerUsername(), listing.getSellerUsername(),</span>
+<span class="fc" id="L128">                listing.getType(), start, offer.getCompletedDate(), state);</span>
+    }
+
+    private static String normalise(String text) {
+<span class="fc bfc" id="L132" title="All 2 branches covered.">        return text == null ? &quot;&quot; : text.strip().toLowerCase(Locale.ROOT);</span>
+    }
+
+    private static String typeName(DealRecord d) {
+<span class="pc bpc" id="L136" title="1 of 3 branches missed.">        return switch (d.dealType()) {</span>
+<span class="fc" id="L137">            case SELL -&gt; &quot;Sale&quot;;</span>
+<span class="fc" id="L138">            case LEND -&gt; &quot;Loan&quot;;</span>
+<span class="nc" id="L139">            case GIVEAWAY -&gt; &quot;Giveaway&quot;;</span>
+        };
+    }
+
+    private static String formatDate(LocalDateTime time) {
+<span class="fc bfc" id="L144" title="All 2 branches covered.">        return time == null ? &quot;&quot; : time.format(CSV_DATE_TIME);</span>
+    }
+
+    /** Quotes the field if it holds a comma, a double quote or a line break; doubles any quote. */
+    private static String escapeCsv(String value) {
+<span class="pc bpc" id="L149" title="1 of 2 branches missed.">        if (value == null) {</span>
+<span class="nc" id="L150">            return &quot;&quot;;</span>
+        }
+<span class="pc bpc" id="L152" title="2 of 8 branches missed.">        if (value.contains(&quot;,&quot;) || value.contains(&quot;\&quot;&quot;) || value.contains(&quot;\n&quot;) || value.contains(&quot;\r&quot;)) {</span>
+<span class="fc" id="L153">            return &quot;\&quot;&quot; + value.replace(&quot;\&quot;&quot;, &quot;\&quot;\&quot;&quot;) + &quot;\&quot;&quot;;</span>
+        }
+<span class="fc" id="L155">        return value;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

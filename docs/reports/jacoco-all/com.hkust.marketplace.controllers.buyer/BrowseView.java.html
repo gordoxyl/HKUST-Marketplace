@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BrowseView.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.controllers.buyer</a> &gt; <span class="el_source">BrowseView.java</span></div><h1>BrowseView.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.controllers.buyer;
+
+import com.hkust.marketplace.models.Category;
+import com.hkust.marketplace.models.ItemCondition;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.ListingType;
+import com.hkust.marketplace.models.UserRole;
+import com.hkust.marketplace.services.BrowseQuery;
+import com.hkust.marketplace.services.BrowseService;
+import com.hkust.marketplace.services.ListingSort;
+import com.hkust.marketplace.services.ServiceException;
+import com.hkust.marketplace.ui.BrowseText;
+import com.hkust.marketplace.ui.Choices;
+import com.hkust.marketplace.ui.Dialogs;
+import com.hkust.marketplace.ui.ListingCard;
+import com.hkust.marketplace.ui.Refreshable;
+import javafx.collections.FXCollections;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+
+import java.util.List;
+import java.util.function.Consumer;
+
+/**
+ * The Browse Marketplace screen (UC8 steps 1-5; Task 1.3): the live listings as cards, with a
+ * keyword search, filters for category, listing type, condition and price range, and a sort
+ * order. Choosing a listing opens it.
+ *
+ * &lt;p&gt;The screen keeps what the buyer typed and chose, so coming back from a listing shows the
+ * same keyword, filters and sort order (UC8 step 8); {@link #refresh()} then reloads the
+ * results. Which listings match is decided by the tested {@link BrowseService}.
+ */
+public class BrowseView extends VBox implements Refreshable {
+
+    private final BrowseService service;
+    private final Consumer&lt;Listing&gt; onOpen;
+
+<span class="fc" id="L49">    private final TextField keyword = new TextField();</span>
+<span class="fc" id="L50">    private final ComboBox&lt;String&gt; category = Choices.withAll(&quot;All categories&quot;, Category.values());</span>
+<span class="fc" id="L51">    private final ComboBox&lt;String&gt; type = Choices.withAll(&quot;All types&quot;, ListingType.values());</span>
+<span class="fc" id="L52">    private final ComboBox&lt;String&gt; condition = Choices.withAll(&quot;All conditions&quot;, ItemCondition.values());</span>
+<span class="fc" id="L53">    private final TextField minPrice = new TextField();</span>
+<span class="fc" id="L54">    private final TextField maxPrice = new TextField();</span>
+<span class="fc" id="L55">    private final ComboBox&lt;ListingSort&gt; sort = new ComboBox&lt;&gt;(FXCollections.observableArrayList(ListingSort.values()));</span>
+
+<span class="fc" id="L57">    private final Label summary = new Label();</span>
+<span class="fc" id="L58">    private final FlowPane grid = ListingCard.grid();</span>
+    /** The last query that was accepted; {@link #refresh()} runs it again. */
+<span class="fc" id="L60">    private BrowseQuery shown = BrowseQuery.ALL;</span>
+    /** True while the controls are being reset, so each change does not start a search of its own. */
+    private boolean resetting;
+
+    /** @param onOpen opens the chosen listing's detail screen (UC8 step 5) */
+    public BrowseView(BrowseService service, Consumer&lt;Listing&gt; onOpen) {
+<span class="fc" id="L66">        super(14);</span>
+<span class="fc" id="L67">        this.service = service;</span>
+<span class="fc" id="L68">        this.onOpen = onOpen;</span>
+<span class="fc" id="L69">        setPadding(new Insets(4));</span>
+
+<span class="fc" id="L71">        summary.getStyleClass().add(&quot;listing-card-line&quot;);</span>
+<span class="fc" id="L72">        ScrollPane results = new ScrollPane(new VBox(12, summary, grid));</span>
+<span class="fc" id="L73">        results.setFitToWidth(true);</span>
+<span class="fc" id="L74">        VBox.setVgrow(results, Priority.ALWAYS);</span>
+
+<span class="fc" id="L76">        getChildren().addAll(searchBar(), results);</span>
+<span class="fc" id="L77">        refresh();</span>
+<span class="fc" id="L78">    }</span>
+
+    /** Runs the last accepted search again, for example after the buyer comes back from a listing. */
+    @Override
+    public final void refresh() {
+<span class="fc" id="L83">        show(shown);</span>
+<span class="fc" id="L84">    }</span>
+
+    // ---------- Refine (UC8 step 3) ----------
+
+    private VBox searchBar() {
+<span class="fc" id="L89">        keyword.setPromptText(&quot;Search by title or keyword&quot;);</span>
+<span class="fc" id="L90">        HBox.setHgrow(keyword, Priority.ALWAYS);</span>
+<span class="fc" id="L91">        Button search = new Button(&quot;Search&quot;);</span>
+<span class="fc" id="L92">        search.getStyleClass().add(&quot;btn-primary&quot;);</span>
+<span class="fc" id="L93">        search.setOnAction(e -&gt; search());</span>
+<span class="fc" id="L94">        Button reset = new Button(&quot;Reset&quot;);</span>
+<span class="fc" id="L95">        reset.getStyleClass().add(&quot;btn-outline&quot;);</span>
+<span class="fc" id="L96">        reset.setOnAction(e -&gt; reset());</span>
+<span class="fc" id="L97">        HBox top = new HBox(10, keyword, search, reset);</span>
+<span class="fc" id="L98">        top.setAlignment(Pos.CENTER_LEFT);</span>
+
+<span class="fc" id="L100">        minPrice.setPromptText(&quot;Min&quot;);</span>
+<span class="fc" id="L101">        minPrice.setPrefWidth(90);</span>
+<span class="fc" id="L102">        maxPrice.setPromptText(&quot;Max&quot;);</span>
+<span class="fc" id="L103">        maxPrice.setPrefWidth(90);</span>
+<span class="fc" id="L104">        sort.getSelectionModel().select(ListingSort.NEWEST);</span>
+        // The filters wrap onto a second line in a narrow window, so no choice is ever cut short
+<span class="fc" id="L106">        FlowPane filters = new FlowPane(10, 8, category, type, condition,</span>
+<span class="fc" id="L107">                group(new Label(&quot;Price (HK$):&quot;), minPrice, new Label(&quot;to&quot;), maxPrice),</span>
+<span class="fc" id="L108">                group(new Label(&quot;Sort by:&quot;), sort));</span>
+<span class="fc" id="L109">        filters.setAlignment(Pos.CENTER_LEFT);</span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">        for (ComboBox&lt;?&gt; box : List.of(category, type, condition, sort)) {</span>
+<span class="fc" id="L111">            box.setMinWidth(Region.USE_PREF_SIZE);</span>
+<span class="fc" id="L112">        }</span>
+
+        // Enter in a text box and every choice start the search
+<span class="fc" id="L115">        keyword.setOnAction(e -&gt; search());</span>
+<span class="pc" id="L116">        minPrice.setOnAction(e -&gt; search());</span>
+<span class="pc" id="L117">        maxPrice.setOnAction(e -&gt; search());</span>
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        for (ComboBox&lt;?&gt; box : List.of(category, type, condition, sort)) {</span>
+<span class="fc" id="L119">            box.setOnAction(e -&gt; search());</span>
+<span class="fc" id="L120">        }</span>
+
+<span class="fc" id="L122">        VBox bar = new VBox(10, top, filters);</span>
+<span class="fc" id="L123">        bar.getStyleClass().add(&quot;card&quot;);</span>
+<span class="fc" id="L124">        bar.setPadding(new Insets(14, 16, 14, 16));</span>
+<span class="fc" id="L125">        return bar;</span>
+    }
+
+    private void search() {
+<span class="fc bfc" id="L129" title="All 2 branches covered.">        if (resetting) {</span>
+<span class="fc" id="L130">            return;</span>
+        }
+<span class="fc" id="L132">        show(new BrowseQuery(keyword.getText(),</span>
+<span class="fc" id="L133">                Choices.chosen(category, Category.values()), Choices.chosen(type, ListingType.values()),</span>
+<span class="fc" id="L134">                Choices.chosen(condition, ItemCondition.values()),</span>
+<span class="fc" id="L135">                minPrice.getText(), maxPrice.getText(), sort.getValue()));</span>
+<span class="fc" id="L136">    }</span>
+
+    private void reset() {
+<span class="fc" id="L139">        resetting = true;</span>
+<span class="fc" id="L140">        keyword.clear();</span>
+<span class="fc" id="L141">        minPrice.clear();</span>
+<span class="fc" id="L142">        maxPrice.clear();</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">        for (ComboBox&lt;?&gt; box : List.of(category, type, condition)) {</span>
+<span class="fc" id="L144">            box.getSelectionModel().selectFirst();</span>
+<span class="fc" id="L145">        }</span>
+<span class="fc" id="L146">        sort.getSelectionModel().select(ListingSort.NEWEST);</span>
+<span class="fc" id="L147">        resetting = false;</span>
+<span class="fc" id="L148">        show(BrowseQuery.ALL);</span>
+<span class="fc" id="L149">    }</span>
+
+    // ---------- Show Results (UC8 steps 2 and 4) ----------
+
+    private void show(BrowseQuery query) {
+        List&lt;Listing&gt; listings;
+        try {
+<span class="fc" id="L156">            listings = service.search(query);</span>
+<span class="fc" id="L157">        } catch (ServiceException e) {</span>
+<span class="fc" id="L158">            Dialogs.problem(e); // A2: the earlier results stay, and the buyer can correct the range</span>
+<span class="fc" id="L159">            return;</span>
+<span class="fc" id="L160">        }</span>
+<span class="fc" id="L161">        shown = query;</span>
+<span class="fc" id="L162">        summary.setText(BrowseText.resultSummary(listings.size())); // A1 when there are none</span>
+<span class="fc" id="L163">        grid.getChildren().clear();</span>
+<span class="fc bfc" id="L164" title="All 2 branches covered.">        for (Listing listing : listings) {</span>
+<span class="fc" id="L165">            ListingCard card = new ListingCard(listing, UserRole.BUYER);</span>
+<span class="fc" id="L166">            Button view = new Button(&quot;View Details&quot;);</span>
+<span class="fc" id="L167">            view.getStyleClass().addAll(&quot;btn-primary&quot;, &quot;btn-sm&quot;);</span>
+<span class="fc" id="L168">            view.setOnAction(e -&gt; onOpen.accept(listing));</span>
+<span class="fc" id="L169">            grid.getChildren().add(card.addActions(view).setOnOpen(() -&gt; onOpen.accept(listing)));</span>
+<span class="fc" id="L170">        }</span>
+<span class="fc" id="L171">    }</span>
+
+    // ---------- Layout ----------
+
+    /** Controls that belong together, such as a label and its box: they wrap as one. */
+    private static HBox group(Node... controls) {
+<span class="fc" id="L177">        HBox group = new HBox(8, controls);</span>
+<span class="fc" id="L178">        group.setAlignment(Pos.CENTER_LEFT);</span>
+<span class="fc bfc" id="L179" title="All 2 branches covered.">        for (Node control : controls) {</span>
+<span class="fc bfc" id="L180" title="All 2 branches covered.">            if (control instanceof Label label) {</span>
+<span class="fc" id="L181">                label.setMinWidth(Region.USE_PREF_SIZE);</span>
+            }
+        }
+<span class="fc" id="L184">        return group;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

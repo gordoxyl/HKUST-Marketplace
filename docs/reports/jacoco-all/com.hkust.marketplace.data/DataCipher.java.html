@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataCipher.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.data</a> &gt; <span class="el_source">DataCipher.java</span></div><h1>DataCipher.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.data;
+
+import javax.crypto.AEADBadTagException;
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.util.Arrays;
+
+/**
+ * Encrypts saved files so they are never stored as readable plain text (the data and every
+ * listing's information must be &quot;securely stored&quot;).
+ *
+ * &lt;p&gt;Uses AES-GCM from the JDK, which also detects any change to an encrypted file: a file
+ * that was edited, damaged or encrypted with another key fails to decrypt instead of giving
+ * wrong data. A file is: &quot;HKMP1&quot; (format marker) + 12-byte random nonce + ciphertext and tag.
+ *
+ * &lt;p&gt;&lt;b&gt;Key.&lt;/b&gt; The key is built into the code (team decision, see the assumptions register):
+ * it is derived from {@link #DEFAULT_PASSPHRASE}, so every copy of the app can read files saved
+ * by any other copy, and anyone with the source code could decrypt them. Changing the
+ * passphrase makes old files unreadable.
+ */
+public final class DataCipher {
+
+    /** The passphrase the built-in key is derived from. */
+    private static final String DEFAULT_PASSPHRASE = &quot;HKUST Marketplace / COMP 3111 Group 44 / save-file key, version 1&quot;;
+
+<span class="fc" id="L32">    private static final byte[] FORMAT_MARKER = &quot;HKMP1&quot;.getBytes(StandardCharsets.US_ASCII);</span>
+    private static final String TRANSFORMATION = &quot;AES/GCM/NoPadding&quot;;
+    private static final int NONCE_BYTES = 12;
+    private static final int TAG_BITS = 128;
+<span class="fc" id="L36">    private static final SecureRandom RANDOM = new SecureRandom();</span>
+
+<span class="fc" id="L38">    private static final DataCipher DEFAULT = new DataCipher(DEFAULT_PASSPHRASE);</span>
+
+    private final SecretKey key;
+
+    /** A cipher with a key derived from the passphrase. The app uses {@link #defaultCipher()}; tests try other keys. */
+<span class="fc" id="L43">    public DataCipher(String passphrase) {</span>
+        try {
+<span class="fc" id="L45">            byte[] keyBytes = MessageDigest.getInstance(&quot;SHA-256&quot;).digest(passphrase.getBytes(StandardCharsets.UTF_8));</span>
+<span class="fc" id="L46">            this.key = new SecretKeySpec(keyBytes, &quot;AES&quot;); // 256-bit AES key</span>
+<span class="nc" id="L47">        } catch (GeneralSecurityException e) {</span>
+<span class="nc" id="L48">            throw new IllegalStateException(&quot;SHA-256 is built into every Java runtime.&quot;, e);</span>
+<span class="fc" id="L49">        }</span>
+<span class="fc" id="L50">    }</span>
+
+    /** The cipher with the built-in key. */
+    public static DataCipher defaultCipher() {
+<span class="fc" id="L54">        return DEFAULT;</span>
+    }
+
+    /** Encrypts the bytes. Encrypting the same bytes twice gives different results (new random nonce). */
+    public byte[] encrypt(byte[] plain) {
+        try {
+<span class="fc" id="L60">            byte[] nonce = new byte[NONCE_BYTES];</span>
+<span class="fc" id="L61">            RANDOM.nextBytes(nonce);</span>
+<span class="fc" id="L62">            Cipher cipher = Cipher.getInstance(TRANSFORMATION);</span>
+<span class="fc" id="L63">            cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, nonce));</span>
+<span class="fc" id="L64">            cipher.updateAAD(FORMAT_MARKER);</span>
+<span class="fc" id="L65">            byte[] sealed = cipher.doFinal(plain);</span>
+
+<span class="fc" id="L67">            byte[] out = new byte[FORMAT_MARKER.length + NONCE_BYTES + sealed.length];</span>
+<span class="fc" id="L68">            System.arraycopy(FORMAT_MARKER, 0, out, 0, FORMAT_MARKER.length);</span>
+<span class="fc" id="L69">            System.arraycopy(nonce, 0, out, FORMAT_MARKER.length, NONCE_BYTES);</span>
+<span class="fc" id="L70">            System.arraycopy(sealed, 0, out, FORMAT_MARKER.length + NONCE_BYTES, sealed.length);</span>
+<span class="fc" id="L71">            return out;</span>
+<span class="nc" id="L72">        } catch (GeneralSecurityException e) {</span>
+<span class="nc" id="L73">            throw new IllegalStateException(&quot;AES-GCM is built into every Java runtime.&quot;, e);</span>
+        }
+    }
+
+    /**
+     * Decrypts bytes made by {@link #encrypt}.
+     * @throws StorageException if they are not such a file, or were changed, damaged or encrypted with another key
+     */
+    public byte[] decrypt(byte[] data) {
+<span class="fc" id="L82">        int headerLength = FORMAT_MARKER.length + NONCE_BYTES;</span>
+<span class="fc bfc" id="L83" title="All 4 branches covered.">        if (data.length &lt;= headerLength || !Arrays.equals(Arrays.copyOf(data, FORMAT_MARKER.length), FORMAT_MARKER)) {</span>
+<span class="fc" id="L84">            throw new StorageException(&quot;The file is not a HKUST Marketplace save file.&quot;);</span>
+        }
+        try {
+<span class="fc" id="L87">            Cipher cipher = Cipher.getInstance(TRANSFORMATION);</span>
+<span class="fc" id="L88">            cipher.init(Cipher.DECRYPT_MODE, key,</span>
+                    new GCMParameterSpec(TAG_BITS, data, FORMAT_MARKER.length, NONCE_BYTES));
+<span class="fc" id="L90">            cipher.updateAAD(FORMAT_MARKER);</span>
+<span class="fc" id="L91">            return cipher.doFinal(data, headerLength, data.length - headerLength);</span>
+<span class="fc" id="L92">        } catch (AEADBadTagException e) {</span>
+<span class="fc" id="L93">            throw new StorageException(&quot;The file was changed or damaged, or it was saved with a different key.&quot;, e);</span>
+<span class="nc" id="L94">        } catch (GeneralSecurityException e) {</span>
+<span class="nc" id="L95">            throw new IllegalStateException(&quot;AES-GCM is built into every Java runtime.&quot;, e);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

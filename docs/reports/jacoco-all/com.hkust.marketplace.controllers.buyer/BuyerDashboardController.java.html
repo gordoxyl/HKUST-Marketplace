@@ -1,0 +1,361 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BuyerDashboardController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.controllers.buyer</a> &gt; <span class="el_source">BuyerDashboardController.java</span></div><h1>BuyerDashboardController.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.controllers.buyer;
+
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.User;
+import com.hkust.marketplace.services.BrowseService;
+import com.hkust.marketplace.services.ChatService;
+import com.hkust.marketplace.services.Conversation;
+import com.hkust.marketplace.services.Deal;
+import com.hkust.marketplace.services.DealHistoryService;
+import com.hkust.marketplace.services.ListingDetail;
+import com.hkust.marketplace.services.MyDealsService;
+import com.hkust.marketplace.services.NotificationService;
+import com.hkust.marketplace.services.OfferService;
+import com.hkust.marketplace.services.ProfileService;
+import com.hkust.marketplace.services.ReportService;
+import com.hkust.marketplace.services.ReviewService;
+import com.hkust.marketplace.services.SellerProfile;
+import com.hkust.marketplace.services.ServiceException;
+import com.hkust.marketplace.ui.ChatList;
+import com.hkust.marketplace.ui.ChatView;
+import com.hkust.marketplace.ui.ContentHost;
+import com.hkust.marketplace.ui.DealText;
+import com.hkust.marketplace.ui.Dialogs;
+import com.hkust.marketplace.ui.LiveUpdates;
+import com.hkust.marketplace.ui.NotificationBoard;
+import com.hkust.marketplace.ui.NotificationDot;
+import com.hkust.marketplace.ui.ProfileView;
+import com.hkust.marketplace.ui.Refreshable;
+import com.hkust.marketplace.ui.SubScreen;
+import com.hkust.marketplace.utils.SceneManager;
+import com.hkust.marketplace.utils.SessionManager;
+import javafx.application.Platform;
+import javafx.fxml.FXML;
+import javafx.scene.Node;
+import javafx.scene.control.*;
+import javafx.scene.layout.*;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+
+/**
+ * The buyer's dashboard: the sidebar, and the main area that shows one screen at a time.
+ * It only moves between screens and connects their buttons to the use cases; the rules are in
+ * the services, and each screen is a class of its own ({@link BrowseView},
+ * {@link ListingDetailView}, {@link SellerProfileView}, {@link MakeOfferFlow},
+ * {@link ReportListingFlow}, {@link MyDealsView}, {@link DealHistoryView} and the shared ones
+ * in {@code ui}).
+ *
+ * &lt;p&gt;The screens never call each other. Each one reports what the buyer asked for (for
+ * example through {@code MyDealsView.Actions}), and the dashboard decides what opens next:
+ * the Mediator pattern (Lecture 18). As the lecture warns, a mediator can grow into a God
+ * Class, so every new screen gets a class of its own and this class only connects them.
+ */
+<span class="fc" id="L56">public class BuyerDashboardController implements ContentHost {</span>
+
+    @FXML private StackPane contentPane;
+    @FXML private Label pageTitle;
+    @FXML private Label welcomeLabel;
+    @FXML private Button btnBrowse, btnDeals, btnHistory, btnChats, btnNotifications, btnProfile;
+
+    private Button currentActiveBtn;
+
+<span class="fc" id="L65">    private final BrowseService browseService = new BrowseService();</span>
+<span class="fc" id="L66">    private final ChatService chatService = new ChatService();</span>
+<span class="fc" id="L67">    private final MakeOfferFlow makeOffer = new MakeOfferFlow(new OfferService());</span>
+<span class="fc" id="L68">    private final MyDealsService myDealsService = new MyDealsService();</span>
+<span class="fc" id="L69">    private final ReviewSellerFlow reviewFlow = new ReviewSellerFlow(new ReviewService());</span>
+<span class="fc" id="L70">    private final ReportListingFlow reportFlow = new ReportListingFlow(new ReportService());</span>
+<span class="fc" id="L71">    private final DealHistoryService dealHistoryService = new DealHistoryService();</span>
+    /** The automatic returns the buyer was asked about, or that happened before this dashboard opened (client answer #3). */
+<span class="fc" id="L73">    private final Set&lt;String&gt; autoReturnsSeen = new HashSet&lt;&gt;();</span>
+    /** The My Deals screen now open. It is kept while a deal's listing or chat is open, so Back returns to it. */
+    private MyDealsView myDealsView;
+    /** The Browse screen now open. It is kept while a listing is open, so Back returns to it as it was. */
+    private BrowseView browseView;
+
+    @FXML
+    public void initialize() {
+<span class="fc" id="L81">        showGreeting();</span>
+<span class="fc" id="L82">        currentActiveBtn = btnBrowse;</span>
+        // Returned before the buyer logged in: their notification already invites the rating
+<span class="fc" id="L84">        autoReturnsToReview().forEach(deal -&gt; autoReturnsSeen.add(deal.offer().getId()));</span>
+        // UC12 step 4: when the timer returns an item or sends a reminder, the open screen shows it
+<span class="fc bfc" id="L86" title="All 2 branches covered.">        LiveUpdates.setOnDataChanged(() -&gt; contentPane.getScene() != null, this::onDataChanged);</span>
+<span class="fc" id="L87">        NotificationDot.attach(btnNotifications, new NotificationService()); // the unread count on the sidebar</span>
+<span class="fc" id="L88">        showBrowse();</span>
+<span class="fc" id="L89">    }</span>
+
+    /**
+     * When the timer has changed the data (UC12 step 4): the open screen reloads, and the buyer
+     * is asked to rate the seller of each item the timer has just returned (client answer #3).
+     */
+    private void onDataChanged() {
+<span class="fc" id="L96">        refreshCurrentScreen();</span>
+<span class="fc" id="L97">        Platform.runLater(this::promptAfterAutoReturns); // once the screen has reloaded</span>
+<span class="fc" id="L98">    }</span>
+
+    /** Reloads the screen now shown, if it can reload. */
+    private void refreshCurrentScreen() {
+<span class="pc bpc" id="L102" title="1 of 4 branches missed.">        if (!contentPane.getChildren().isEmpty() &amp;&amp; contentPane.getChildren().get(0) instanceof Refreshable screen) {</span>
+<span class="fc" id="L103">            screen.refresh();</span>
+        }
+<span class="fc" id="L105">    }</span>
+
+    /** Greets the logged-in user by name. Runs again after a profile change, so a new name shows at once. */
+    private void showGreeting() {
+<span class="fc" id="L109">        User user = SessionManager.getCurrentUser();</span>
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">        if (user != null) {</span>
+<span class="fc" id="L111">            welcomeLabel.setText(&quot;Hello, &quot; + user.getFullName());</span>
+        }
+<span class="fc" id="L113">    }</span>
+
+    private void setActive(Button btn, String title) {
+<span class="pc bpc" id="L116" title="1 of 2 branches missed.">        if (currentActiveBtn != null) {</span>
+<span class="fc" id="L117">            currentActiveBtn.getStyleClass().remove(&quot;sidebar-btn-active&quot;);</span>
+        }
+<span class="fc" id="L119">        btn.getStyleClass().add(&quot;sidebar-btn-active&quot;);</span>
+<span class="fc" id="L120">        currentActiveBtn = btn;</span>
+<span class="fc" id="L121">        pageTitle.setText(title);</span>
+<span class="fc" id="L122">    }</span>
+
+    /**
+     * Lets shared components open a screen here, such as a listing or a chat thread. Every screen
+     * change also updates the notification dot, since the buyer's last action may have changed it.
+     */
+    @Override
+    public void show(String title, Node content) {
+<span class="fc" id="L130">        pageTitle.setText(title);</span>
+<span class="fc" id="L131">        contentPane.getChildren().setAll(content);</span>
+<span class="fc" id="L132">        NotificationDot.update();</span>
+<span class="fc" id="L133">    }</span>
+
+    // ========== UC8 Browse Marketplace ==========
+
+    @FXML
+    private void showBrowse() {
+<span class="fc" id="L139">        setActive(btnBrowse, &quot;Browse Marketplace&quot;);</span>
+<span class="fc" id="L140">        browseView = new BrowseView(browseService,</span>
+<span class="fc" id="L141">                listing -&gt; openListing(listing.getId(), &quot;Back to listings&quot;, this::returnToBrowse));</span>
+<span class="fc" id="L142">        show(&quot;Browse Marketplace&quot;, browseView);</span>
+<span class="fc" id="L143">    }</span>
+
+    /** UC8 step 8: back to the listings, with the keyword, filters and sort order as they were. */
+    private void returnToBrowse() {
+<span class="fc" id="L147">        browseView.refresh();</span>
+<span class="fc" id="L148">        show(&quot;Browse Marketplace&quot;, browseView);</span>
+<span class="fc" id="L149">    }</span>
+
+    /**
+     * Opens a listing's detail screen, which adds one view (UC8 steps 5-7).
+     * @param backLabel where Back leads, such as &quot;Back to listings&quot;
+     * @param back      shows the screen the listing was opened from
+     */
+    private void openListing(String listingId, String backLabel, Runnable back) {
+        try {
+<span class="fc" id="L158">            showListing(browseService.openListing(listingId), backLabel, back);</span>
+<span class="fc" id="L159">        } catch (ServiceException e) {</span>
+<span class="fc" id="L160">            Dialogs.problem(e);</span>
+<span class="fc" id="L161">        }</span>
+<span class="fc" id="L162">    }</span>
+
+    /**
+     * Shows an open listing again with its current data: after the buyer acted on it, or came
+     * back to it from the chat or the seller's profile. This is not a new opening, so no view
+     * is counted. If the listing can no longer be shown, the buyer is taken back.
+     */
+    private void reloadListing(String listingId, String backLabel, Runnable back) {
+        try {
+<span class="fc" id="L171">            showListing(browseService.reloadListing(listingId), backLabel, back);</span>
+<span class="fc" id="L172">        } catch (ServiceException e) {</span>
+<span class="fc" id="L173">            Dialogs.problem(e);</span>
+<span class="fc" id="L174">            back.run();</span>
+<span class="fc" id="L175">        }</span>
+<span class="fc" id="L176">    }</span>
+
+    /** The detail screen, with its buttons connected to the other use cases (UC8 Special Requirement 3). */
+    private void showListing(ListingDetail detail, String backLabel, Runnable back) {
+<span class="fc" id="L180">        Listing listing = detail.listing();</span>
+<span class="fc" id="L181">        Runnable backToListing = () -&gt; reloadListing(listing.getId(), backLabel, back);</span>
+<span class="fc" id="L182">        ListingDetailView view = new ListingDetailView(detail);</span>
+
+<span class="fc" id="L184">        view.setOnAction(() -&gt; {</span>
+<span class="fc" id="L185">            makeOffer.start(listing.getId()); // UC5</span>
+<span class="fc" id="L186">            backToListing.run();              // the listing may be unavailable now, for example after a claim</span>
+<span class="fc" id="L187">        });</span>
+<span class="fc" id="L188">        view.setOnChat(() -&gt; openChat(listing, backToListing));</span>
+<span class="fc" id="L189">        view.setOnReport(() -&gt; reportListing(listing));</span>
+<span class="fc" id="L190">        view.setOnSellerProfile(() -&gt; showSellerProfile(listing.getSellerUsername(), backToListing));</span>
+<span class="fc" id="L191">        view.setOnRefresh(backToListing); // a reload, not a new opening: no view is counted</span>
+<span class="fc" id="L192">        show(listing.getTitle(), new SubScreen(backLabel, back, view));</span>
+<span class="fc" id="L193">    }</span>
+
+    /** UC8 A3: the seller's profile, from the seller's name on the detail screen. */
+    private void showSellerProfile(String sellerUsername, Runnable backToListing) {
+        try {
+<span class="fc" id="L198">            SellerProfile seller = browseService.getSellerProfile(sellerUsername);</span>
+<span class="fc" id="L199">            show(&quot;Seller: &quot; + seller.fullName(),</span>
+                    new SubScreen(&quot;Back to listing&quot;, backToListing, new SellerProfileView(seller)));
+<span class="fc" id="L201">        } catch (ServiceException e) {</span>
+<span class="fc" id="L202">            Dialogs.problem(e);</span>
+<span class="fc" id="L203">        }</span>
+<span class="fc" id="L204">    }</span>
+
+    /** UC6: the buyer's chat with the seller about this listing, from the detail screen. */
+    private void openChat(Listing listing, Runnable backToListing) {
+        try {
+<span class="fc" id="L209">            Conversation chat = chatService.openForListing(listing.getId());</span>
+<span class="fc" id="L210">            chatScreen().openFrom(chat, &quot;Back to listing&quot;, backToListing);</span>
+<span class="fc" id="L211">        } catch (ServiceException e) {</span>
+<span class="fc" id="L212">            Dialogs.problem(e);</span>
+<span class="fc" id="L213">        }</span>
+<span class="fc" id="L214">    }</span>
+
+    /**
+     * The chat screen, with the buyer's chats beside the open one (UC6; assumptions register 90).
+     * The Chats page and every chat the buyer opens elsewhere use it, each chat with the buyer's
+     * offer options.
+     */
+    private ChatList chatScreen() {
+<span class="fc" id="L222">        return new ChatList(chatService, this, this::addOfferOptions);</span>
+    }
+
+    /**
+     * The two ways into Make Offer that start in a chat (UC5 step 1): the Make Offer option,
+     * and agreeing to a seller's counter. Every chat the buyer opens gets them.
+     */
+    private void addOfferOptions(ChatView chat) {
+<span class="fc" id="L230">        chat.setOnMakeOffer(() -&gt; makeOffer.start(chat.conversation().listing().getId()));</span>
+<span class="fc" id="L231">        chat.setOnAgreeToCounter(offer -&gt; makeOffer.startFromCounter(offer.getId()));</span>
+<span class="fc" id="L232">    }</span>
+
+    /** UC9 Report Listing, from the detail screen's button (step 1). The detail screen stays as it is. */
+    private void reportListing(Listing listing) {
+<span class="fc" id="L236">        reportFlow.start(listing.getId());</span>
+<span class="fc" id="L237">    }</span>
+
+    // ========== UC7 Manage My Deals ==========
+
+    @FXML
+    private void showMyDeals() {
+<span class="fc" id="L243">        setActive(btnDeals, &quot;My Deals&quot;);</span>
+<span class="fc" id="L244">        myDealsView = new MyDealsView(myDealsService, new MyDealsView.Actions() {</span>
+            @Override
+            public void viewListing(Deal deal) { // A4; opening it adds one view (UC8 Special Requirement 2)
+<span class="fc" id="L247">                openListing(deal.listing().getId(), &quot;Back to My Deals&quot;, BuyerDashboardController.this::returnToMyDeals);</span>
+<span class="fc" id="L248">            }</span>
+
+            @Override
+            public void openChat(Deal deal) { // A4
+<span class="fc" id="L252">                openChatOfDeal(deal);</span>
+<span class="fc" id="L253">            }</span>
+
+            @Override
+            public void agreeToCounter(Deal deal) { // Special Requirement 4: through Make Offer (UC5)
+<span class="fc" id="L257">                makeOffer.startFromCounter(deal.offer().getId());</span>
+<span class="fc" id="L258">                myDealsView.refresh();</span>
+<span class="fc" id="L259">            }</span>
+
+            @Override
+            public void rateSeller(Deal deal) { // step 9 and Special Requirement 6: through Review Seller (UC10)
+<span class="fc" id="L263">                reviewSeller(deal);</span>
+<span class="fc" id="L264">            }</span>
+        });
+<span class="fc" id="L266">        show(&quot;My Deals&quot;, myDealsView);</span>
+<span class="fc" id="L267">    }</span>
+
+    /** Back to My Deals from a deal's listing or chat, with the deals as they are now. */
+    private void returnToMyDeals() {
+<span class="fc" id="L271">        myDealsView.refresh();</span>
+<span class="fc" id="L272">        show(&quot;My Deals&quot;, myDealsView);</span>
+<span class="fc" id="L273">    }</span>
+
+    /** UC7 A4: the chat thread of a deal. */
+    private void openChatOfDeal(Deal deal) {
+        try {
+<span class="fc" id="L278">            Conversation chat = chatService.openForOffer(deal.offer().getId());</span>
+<span class="fc" id="L279">            chatScreen().openFrom(chat, &quot;Back to My Deals&quot;, this::returnToMyDeals);</span>
+<span class="fc" id="L280">        } catch (ServiceException e) {</span>
+<span class="fc" id="L281">            Dialogs.problem(e);</span>
+<span class="fc" id="L282">        }</span>
+<span class="fc" id="L283">    }</span>
+
+    // ========== UC10 Review Seller ==========
+
+    /**
+     * UC10 from any of its starting points (step 1): the prompt after a deal is completed or an
+     * item returned, or the Rate Seller button of a completed deal. The open screen then shows
+     * the deal as it is now: a reviewed deal has no Rate Seller button.
+     */
+    private void reviewSeller(Deal deal) {
+<span class="fc" id="L293">        reviewFlow.start(deal.offer().getId());</span>
+<span class="fc" id="L294">        refreshCurrentScreen();</span>
+<span class="fc" id="L295">    }</span>
+
+    /**
+     * Client answer #3: the rate-seller prompt also follows an automatic return. The buyer is
+     * asked once about each item the timer returns while this dashboard is open.
+     */
+    private void promptAfterAutoReturns() {
+<span class="fc bfc" id="L302" title="All 2 branches covered.">        if (contentPane.getScene() == null) {</span>
+<span class="fc" id="L303">            return; // the buyer logged out meanwhile</span>
+        }
+<span class="fc bfc" id="L305" title="All 2 branches covered.">        for (Deal deal : autoReturnsToReview()) {</span>
+<span class="fc bfc" id="L306" title="All 2 branches covered.">            if (autoReturnsSeen.add(deal.offer().getId())</span>
+<span class="fc bfc" id="L307" title="All 2 branches covered.">                    &amp;&amp; Dialogs.confirm(&quot;Item returned automatically&quot;, DealText.autoReturnRatePrompt(deal))) {</span>
+<span class="fc" id="L308">                reviewSeller(deal);</span>
+            }
+<span class="fc" id="L310">        }</span>
+<span class="fc" id="L311">    }</span>
+
+    /** The buyer's automatic returns not reviewed yet; none if the account can no longer act, which its next action reports. */
+    private List&lt;Deal&gt; autoReturnsToReview() {
+        try {
+<span class="fc" id="L316">            return myDealsService.getAutoReturnedDealsToReview();</span>
+<span class="fc" id="L317">        } catch (ServiceException e) {</span>
+<span class="fc" id="L318">            return List.of();</span>
+        }
+    }
+
+    // ========== UC11 View Deal History ==========
+
+    /**
+     * UC11 step 1. The screen is shown directly, not inside a {@link SubScreen}, so that
+     * {@link #refreshCurrentScreen()} reaches it when the timer returns an item (Special
+     * Requirement 1).
+     */
+    @FXML
+    private void showHistory() {
+<span class="fc" id="L331">        setActive(btnHistory, &quot;Deal History&quot;);</span>
+<span class="fc" id="L332">        show(&quot;Deal History&quot;, new DealHistoryView(dealHistoryService));</span>
+<span class="fc" id="L333">    }</span>
+
+    // ========== Shared screens: chats (UC6), notifications (UC4), profile (UC3) ==========
+
+    @FXML
+    private void showChats() {
+<span class="fc" id="L339">        setActive(btnChats, &quot;Chats&quot;);</span>
+<span class="fc" id="L340">        show(&quot;Chats&quot;, chatScreen()); // UC6, the shared chat screen</span>
+<span class="fc" id="L341">    }</span>
+
+    @FXML
+    private void showNotifications() {
+<span class="fc" id="L345">        setActive(btnNotifications, &quot;Notification Board&quot;);</span>
+<span class="fc" id="L346">        show(&quot;Notification Board&quot;, new NotificationBoard(new NotificationService())); // UC4, shared board</span>
+<span class="fc" id="L347">    }</span>
+
+    @FXML
+    private void showProfile() {
+<span class="fc" id="L351">        setActive(btnProfile, &quot;Manage Profile&quot;);</span>
+<span class="fc" id="L352">        show(&quot;Manage Profile&quot;, new ProfileView(new ProfileService(), this::showGreeting)); // UC3, shared profile screen</span>
+<span class="fc" id="L353">    }</span>
+
+    @FXML
+    private void logout() {
+<span class="fc" id="L357">        SessionManager.logout();</span>
+<span class="fc" id="L358">        SceneManager.showWelcome();</span>
+<span class="fc" id="L359">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

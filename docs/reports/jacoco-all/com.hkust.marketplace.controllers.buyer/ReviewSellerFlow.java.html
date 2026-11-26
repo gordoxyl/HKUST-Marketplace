@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReviewSellerFlow.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.controllers.buyer</a> &gt; <span class="el_source">ReviewSellerFlow.java</span></div><h1>ReviewSellerFlow.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.controllers.buyer;
+
+import com.hkust.marketplace.services.DealNotReviewableException;
+import com.hkust.marketplace.services.ReviewForm;
+import com.hkust.marketplace.services.ReviewService;
+import com.hkust.marketplace.services.ServiceException;
+import com.hkust.marketplace.ui.Dialogs;
+import com.hkust.marketplace.ui.ReviewText;
+
+import java.util.Optional;
+
+/**
+ * Walks the buyer through UC10 Review Seller, from any of its starting points (step 1): the
+ * prompt after a deal is marked complete (UC7 step 9), the prompt after a borrowed item is
+ * returned by the buyer or automatically (client answer #3), and the Rate Seller button of a
+ * completed deal on My Deals.
+ *
+ * &lt;p&gt;This is the use case's boundary (Lecture 15): it shows the form and the messages in the
+ * order of the flow of events and passes what the buyer entered to {@link ReviewService},
+ * which makes every decision. The alternative flows end here as the use case says:
+ * &lt;ul&gt;
+ *   &lt;li&gt;A1, the deal cannot be reviewed: a message, and the use case ends.&lt;/li&gt;
+ *   &lt;li&gt;A2, no rating, and an empty written review (client answer #8): a message, and the form
+ *       comes back with what the buyer entered, to be corrected ({Enter Review}).&lt;/li&gt;
+ *   &lt;li&gt;A3, skip: nothing is recorded and nothing is said; the deal keeps its Rate Seller
+ *       button on My Deals.&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+final class ReviewSellerFlow {
+
+    private final ReviewService reviews;
+
+<span class="fc" id="L33">    ReviewSellerFlow(ReviewService reviews) {</span>
+<span class="fc" id="L34">        this.reviews = reviews;</span>
+<span class="fc" id="L35">    }</span>
+
+    /** Review Seller for one of the buyer's deals. */
+    void start(String offerId) {
+        ReviewForm form;
+        try {
+<span class="fc" id="L41">            form = reviews.start(offerId); // {Check Deal}</span>
+<span class="fc" id="L42">        } catch (ServiceException e) {</span>
+<span class="fc" id="L43">            Dialogs.problem(e); // A1</span>
+<span class="fc" id="L44">            return;</span>
+<span class="fc" id="L45">        }</span>
+<span class="fc" id="L46">        ReviewDialog.Entry entry = ReviewDialog.Entry.EMPTY;</span>
+        while (true) {
+<span class="fc" id="L48">            Optional&lt;ReviewDialog.Entry&gt; entered = ReviewDialog.ask(form, entry); // {Enter Review}</span>
+<span class="fc bfc" id="L49" title="All 2 branches covered.">            if (entered.isEmpty()) {</span>
+<span class="fc" id="L50">                return; // A3</span>
+            }
+<span class="fc" id="L52">            entry = entered.get();</span>
+            try {
+<span class="fc" id="L54">                reviews.submit(form.offerId(), entry.rating(), entry.comment()); // {Check Rating}, steps 7-9</span>
+<span class="fc" id="L55">                Dialogs.info(&quot;Review submitted&quot;, ReviewText.submitted(form)); // step 10</span>
+<span class="fc" id="L56">                return;</span>
+<span class="nc" id="L57">            } catch (DealNotReviewableException e) {</span>
+<span class="nc" id="L58">                Dialogs.problem(e); // A1: nothing was recorded, and the use case ends</span>
+<span class="nc" id="L59">                return;</span>
+<span class="fc" id="L60">            } catch (ServiceException e) {</span>
+<span class="fc" id="L61">                Dialogs.problem(e); // A2, or no written review: back to {Enter Review}</span>
+            }
+<span class="fc" id="L63">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

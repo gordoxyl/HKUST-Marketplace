@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SellerListingService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">SellerListingService.java</span></div><h1>SellerListingService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.Category;
+import com.hkust.marketplace.models.ItemCondition;
+import com.hkust.marketplace.models.LendListing;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.ListingStatus;
+import com.hkust.marketplace.models.ListingType;
+import com.hkust.marketplace.models.MeetupLocation;
+import com.hkust.marketplace.models.NotificationCategory;
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.models.SaleListing;
+import com.hkust.marketplace.models.Seller;
+
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+/**
+ * Task 2.4 My Listings: the seller's own listings and the two things the seller can do with
+ * them, edit (Manage Listings 3.1) and delete (3.2). The screen only shows the cards and the
+ * form; every rule below is checked here and covered by {@code SellerListingServiceTest}.
+ *
+ * &lt;ul&gt;
+ *   &lt;li&gt;&lt;b&gt;A1&lt;/b&gt; - the form's required fields are checked before anything changes, with the
+ *       same messages as Create Listings ({@link ListingFormRules}).&lt;/li&gt;
+ *   &lt;li&gt;&lt;b&gt;A2&lt;/b&gt; - a Reserved, Sold, Lent, Given or Removed listing is locked: it cannot be
+ *       edited or deleted ({@link Listing#isLocked()}).&lt;/li&gt;
+ *   &lt;li&gt;&lt;b&gt;A3&lt;/b&gt; - saving an edit or deleting a listing declines its open offers and tells each
+ *       buyer why ({@link DealRules#declineOpenOffers}).&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;Saving an edit normally sends the listing back to Pending Review ({@link
+ * Listing#resubmit()}) and tells the admin, exactly like a newly posted listing. The exception
+ * is the client's answer #5 of 16 Nov: an edit of a &lt;b&gt;Live&lt;/b&gt; listing with &lt;b&gt;no open
+ * offers&lt;/b&gt; keeps it Live, so the seller's small corrections do not wait for review again. A
+ * Live listing whose edit declines open offers is resubmitted, as are Rejected and Pending
+ * Review listings. Deleting keeps the record with status Removed ({@link Listing#withdraw()}),
+ * as Manage Listings 3.2.4 requires. The type of a listing never changes after it is posted,
+ * so each update method only accepts its own type.
+ */
+public class SellerListingService {
+
+    private final DataStore store;
+    private final DealRules rules;
+    private final PhotoService photos;
+    private final NotificationService notifications;
+
+    public SellerListingService() {
+<span class="fc" id="L53">        this(DataStore.getInstance());</span>
+<span class="fc" id="L54">    }</span>
+
+<span class="fc" id="L56">    public SellerListingService(DataStore store) {</span>
+<span class="fc" id="L57">        this.store = store;</span>
+<span class="fc" id="L58">        this.rules = new DealRules(store);</span>
+<span class="fc" id="L59">        this.photos = new PhotoService(store);</span>
+<span class="fc" id="L60">        this.notifications = new NotificationService(store);</span>
+<span class="fc" id="L61">    }</span>
+
+    /**
+     * My Listings step 1: every listing the logged-in seller has posted, in any status, so the
+     * screen can show the sold and removed ones too.
+     * @throws AccessDeniedException if the logged-in user is not a seller
+     */
+    public List&lt;Listing&gt; myListings() {
+<span class="fc" id="L69">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L70">        return store.getListingsBySeller(seller.getUsername());</span>
+    }
+
+    /**
+     * Manage Listings 3.1: saves the seller's changes to a Sell listing and sends it back for
+     * review (3.1.6). Photos are optional; new ones replace the current photos, and passing
+     * none keeps them.
+     * @throws AccessDeniedException if the logged-in user is not a seller
+     * @throws ServiceException      if the fields are invalid, the listing is not the seller's,
+     *                               or it is locked; nothing changes then
+     */
+    public Listing updateSale(String listingId, String title, Category category,
+                              ItemCondition condition, String description,
+                              MeetupLocation meetupLocation, String typedPrice,
+                              List&lt;Path&gt; newPhotoFiles) {
+<span class="fc" id="L85">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L86">        ListingFormRules.requireCommonFields(title, category, condition, description, meetupLocation);</span>
+<span class="fc" id="L87">        double price = ListingFormRules.requirePriceText(typedPrice);</span>
+<span class="fc" id="L88">        return saveEdit(listingId, seller, ListingType.SELL, newPhotoFiles, listing -&gt; {</span>
+<span class="fc" id="L89">            applyCommonFields(listing, title, category, condition, description, meetupLocation);</span>
+<span class="fc" id="L90">            ((SaleListing) listing).setPrice(price);</span>
+<span class="fc" id="L91">        });</span>
+    }
+
+    /**
+     * Manage Listings 3.1: saves the seller's changes to a Lend listing and sends it back for
+     * review (3.1.6).
+     * @param lendingDuration how long the item may be borrowed; at least the minimum borrow time
+     * @throws AccessDeniedException if the logged-in user is not a seller
+     * @throws ServiceException      if the fields are invalid, the listing is not the seller's,
+     *                               or it is locked; nothing changes then
+     */
+    public Listing updateLend(String listingId, String title, Category category,
+                              ItemCondition condition, String description,
+                              MeetupLocation meetupLocation, Duration lendingDuration,
+                              List&lt;Path&gt; newPhotoFiles) {
+<span class="fc" id="L106">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L107">        ListingFormRules.requireCommonFields(title, category, condition, description, meetupLocation);</span>
+<span class="fc" id="L108">        ListingFormRules.requireLendingDuration(lendingDuration);</span>
+<span class="fc" id="L109">        return saveEdit(listingId, seller, ListingType.LEND, newPhotoFiles, listing -&gt; {</span>
+<span class="fc" id="L110">            applyCommonFields(listing, title, category, condition, description, meetupLocation);</span>
+<span class="fc" id="L111">            ((LendListing) listing).setLendingDuration(lendingDuration);</span>
+<span class="fc" id="L112">        });</span>
+    }
+
+    /**
+     * Manage Listings 3.1: saves the seller's changes to a Giveaway listing and sends it back
+     * for review (3.1.6). It has no price or duration to update.
+     * @throws AccessDeniedException if the logged-in user is not a seller
+     * @throws ServiceException      if the fields are invalid, the listing is not the seller's,
+     *                               or it is locked; nothing changes then
+     */
+    public Listing updateGiveaway(String listingId, String title, Category category,
+                                  ItemCondition condition, String description,
+                                  MeetupLocation meetupLocation, List&lt;Path&gt; newPhotoFiles) {
+<span class="fc" id="L125">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L126">        ListingFormRules.requireCommonFields(title, category, condition, description, meetupLocation);</span>
+<span class="fc" id="L127">        return saveEdit(listingId, seller, ListingType.GIVEAWAY, newPhotoFiles,</span>
+<span class="fc" id="L128">                listing -&gt; applyCommonFields(listing, title, category, condition, description, meetupLocation));</span>
+    }
+
+    /**
+     * Manage Listings 3.2: deletes the seller's own listing. The record stays with status
+     * Removed (3.2.4), and the open offers on it are declined (A3).
+     * @throws AccessDeniedException if the logged-in user is not a seller
+     * @throws ServiceException      if the listing is not the seller's or it is locked
+     */
+    public void deleteListing(String listingId) {
+<span class="fc" id="L138">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L139">        store.transaction(() -&gt; {</span>
+<span class="fc" id="L140">            Listing listing = requireEditable(listingId, seller, null);</span>
+<span class="fc" id="L141">            rules.declineOpenOffers(listing, NotificationCategory.OFFER_UPDATE,</span>
+                    &quot;the seller deleted the listing&quot;);
+<span class="fc" id="L143">            listing.withdraw();</span>
+<span class="fc" id="L144">            notifications.send(seller.getUsername(), NotificationCategory.LISTING_REMOVED,</span>
+<span class="fc" id="L145">                    &quot;Your listing '&quot; + listing.getTitle() + &quot;' was deleted.&quot;);</span>
+<span class="fc" id="L146">        });</span>
+<span class="fc" id="L147">    }</span>
+
+    /**
+     * How many offers on the listing are still waiting for an answer. The screen warns with
+     * this before an edit or delete (A3), because saving declines them.
+     * @throws ServiceException if the listing is not the seller's
+     */
+    public int openOfferCount(String listingId) {
+<span class="fc" id="L155">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L156">        Listing listing = store.findListing(listingId);</span>
+<span class="pc bpc" id="L157" title="2 of 4 branches missed.">        if (listing == null || !listing.getSellerUsername().equals(seller.getUsername())) {</span>
+<span class="nc" id="L158">            throw new ServiceException(&quot;This listing is not yours.&quot;);</span>
+        }
+<span class="fc" id="L160">        return (int) store.getOffersForListing(listingId).stream().filter(Offer::isOpen).count();</span>
+    }
+
+    // ---------- Steps shared by the three update methods ----------
+
+    private Listing saveEdit(String listingId, Seller seller, ListingType type,
+                             List&lt;Path&gt; newPhotoFiles, Consumer&lt;Listing&gt; change) {
+<span class="fc" id="L167">        requireEditable(listingId, seller, type); // refuse before importing photos</span>
+<span class="fc" id="L168">        List&lt;String&gt; photoIds = importPhotos(newPhotoFiles);</span>
+<span class="fc" id="L169">        return store.transaction(() -&gt; {</span>
+<span class="fc" id="L170">            Listing listing = requireEditable(listingId, seller, type);</span>
+<span class="fc bfc" id="L171" title="All 2 branches covered.">            boolean wasLive = listing.getStatus() == ListingStatus.LIVE;</span>
+<span class="fc" id="L172">            boolean hadOpenOffers = store.getOffersForListing(listingId).stream().anyMatch(Offer::isOpen);</span>
+<span class="fc" id="L173">            change.accept(listing);</span>
+<span class="fc bfc" id="L174" title="All 2 branches covered.">            if (!photoIds.isEmpty()) {</span>
+<span class="fc" id="L175">                listing.setPhotos(photoIds);</span>
+            }
+<span class="fc bfc" id="L177" title="All 2 branches covered.">            if (hadOpenOffers) { // A3: the buyers whose offers the edit declines are told</span>
+<span class="fc" id="L178">                rules.declineOpenOffers(listing, NotificationCategory.OFFER_UPDATE,</span>
+                        &quot;the seller changed the listing&quot;);
+            }
+            // Client answer #5: a Live listing with no open offers stays Live; anything else waits for review.
+<span class="fc bfc" id="L182" title="All 4 branches covered.">            if (!wasLive || hadOpenOffers) {</span>
+<span class="fc" id="L183">                listing.resubmit();</span>
+<span class="fc" id="L184">                notifications.sendToAdmins(NotificationCategory.LISTING_SUBMITTED,</span>
+<span class="fc" id="L185">                        seller.getFullName() + &quot; updated '&quot; + listing.getTitle()</span>
+                                + &quot;' and submitted it for review.&quot;);
+<span class="fc" id="L187">                notifications.send(seller.getUsername(), NotificationCategory.LISTING_SUBMITTED,</span>
+<span class="fc" id="L188">                        &quot;Your changes to '&quot; + listing.getTitle() + &quot;' are pending review.&quot;);</span>
+            }
+<span class="fc" id="L190">            return listing;</span>
+        });
+    }
+
+    /**
+     * The listing must exist, belong to the seller, be of the expected type, and not be locked.
+     * @param expected the type the form updates, or null when the type does not matter
+     */
+    private Listing requireEditable(String listingId, Seller seller, ListingType expected) {
+<span class="fc" id="L199">        Listing listing = store.findListing(listingId);</span>
+<span class="fc bfc" id="L200" title="All 4 branches covered.">        if (listing == null || !listing.getSellerUsername().equals(seller.getUsername())) {</span>
+<span class="fc" id="L201">            throw new ServiceException(&quot;This listing is not yours.&quot;);</span>
+        }
+<span class="fc bfc" id="L203" title="All 4 branches covered.">        if (expected != null &amp;&amp; listing.getType() != expected) {</span>
+<span class="fc" id="L204">            throw new IllegalArgumentException(&quot;A &quot; + expected + &quot; listing was expected.&quot;);</span>
+        }
+<span class="fc bfc" id="L206" title="All 2 branches covered.">        if (listing.isLocked()) { // Manage Listings A2</span>
+<span class="fc" id="L207">            throw new ServiceException(&quot;This listing can no longer be edited or deleted.&quot;);</span>
+        }
+<span class="fc" id="L209">        return listing;</span>
+    }
+
+    private static void applyCommonFields(Listing listing, String title, Category category,
+                                          ItemCondition condition, String description,
+                                          MeetupLocation meetupLocation) {
+<span class="fc" id="L215">        listing.setTitle(title.trim());</span>
+<span class="fc" id="L216">        listing.setCategory(category);</span>
+<span class="fc" id="L217">        listing.setCondition(condition);</span>
+<span class="fc" id="L218">        listing.setDescription(description.trim());</span>
+<span class="fc" id="L219">        listing.setMeetupLocation(meetupLocation);</span>
+<span class="fc" id="L220">    }</span>
+
+    /** Imports the chosen photos; an empty list means the listing keeps its current photos. */
+    private List&lt;String&gt; importPhotos(List&lt;Path&gt; newPhotoFiles) {
+<span class="fc bfc" id="L224" title="All 2 branches covered.">        List&lt;Path&gt; files = newPhotoFiles == null ? List.of() : newPhotoFiles;</span>
+<span class="fc" id="L225">        ListingFormRules.requirePhotoCount(files.size());</span>
+<span class="fc" id="L226">        List&lt;String&gt; photoIds = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L227" title="All 2 branches covered.">        for (Path file : files) {</span>
+<span class="fc" id="L228">            photoIds.add(photos.importPhoto(file));</span>
+<span class="fc" id="L229">        }</span>
+<span class="fc" id="L230">        return photoIds;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

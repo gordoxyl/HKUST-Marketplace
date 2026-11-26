@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BorrowingDeadlineTimer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">BorrowingDeadlineTimer.java</span></div><h1>BorrowingDeadlineTimer.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import java.time.Duration;
+import java.util.Objects;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+
+/**
+ * The Timer actor of UC12 Process Borrowing Deadlines: it signals, again and again, that it
+ * is time to check the borrowing deadlines (UC12 step 1).
+ *
+ * &lt;p&gt;This is an &lt;b&gt;active class&lt;/b&gt; (Lecture 15): it has its own thread of control, apart
+ * from the thread that draws the screens, so deadlines are met whatever the user is doing,
+ * and on every screen, the welcome screen included. The thread is a daemon, so it never
+ * keeps the app from closing. The app starts one timer when it opens and stops it when it
+ * closes:
+ * &lt;pre&gt;{@code
+ * timer = new BorrowingDeadlineTimer(new BorrowingDeadlineService(),
+ *         BorrowingDeadlineTimer.CHECK_EVERY, report -&gt; Platform.runLater(LiveUpdates::dataChanged));
+ * timer.start();
+ * ...
+ * timer.stop();
+ * }&lt;/pre&gt;
+ */
+public class BorrowingDeadlineTimer {
+
+    /**
+     * How often the app checks. Special Requirement 1 asks for at least once a second, so
+     * that even a 5-second borrow is returned on time; twice a second leaves a margin.
+     */
+<span class="fc" id="L33">    public static final Duration CHECK_EVERY = Duration.ofMillis(500);</span>
+
+    /** How long {@link #stop()} waits for a running check to finish before it interrupts it. */
+<span class="fc" id="L36">    static final Duration STOP_WAIT = Duration.ofSeconds(5);</span>
+
+    /** Logged when a check fails, followed by the problem; the next check tries again. */
+    static final String CHECK_FAILED = &quot;[BorrowingDeadlineTimer] A deadline check failed and will be tried again: &quot;;
+    /** Logged when {@link #stop()} had to interrupt a check that took too long. */
+    static final String CHECK_INTERRUPTED = &quot;[BorrowingDeadlineTimer] A deadline check did not finish in time and was interrupted.&quot;;
+
+    private final BorrowingDeadlineService service;
+    private final Duration interval;
+    private final Consumer&lt;DeadlineReport&gt; onChange;
+    private final Duration stopWait;
+    private final Consumer&lt;String&gt; problemLog;
+    private ScheduledExecutorService thread;
+    private String lastProblem;
+
+    /**
+     * A timer that logs its problems to the console's error stream.
+     * @param interval the pause between two checks
+     * @param onChange told, on the timer's thread, about every check that sent a reminder or
+     *                 returned an item, so the open screen can show the new data (step 4);
+     *                 a screen must move to its own thread before it touches anything
+     */
+    public BorrowingDeadlineTimer(BorrowingDeadlineService service, Duration interval, Consumer&lt;DeadlineReport&gt; onChange) {
+<span class="fc" id="L59">        this(service, interval, onChange, STOP_WAIT, System.err::println);</span>
+<span class="fc" id="L60">    }</span>
+
+    /**
+     * @param stopWait   how long {@link #stop()} waits for a running check; tests make it short
+     * @param problemLog where problems are written, on the thread that meets them; tests collect
+     *                   them to check what is logged (program to an interface, Lecture 17)
+     */
+    BorrowingDeadlineTimer(BorrowingDeadlineService service, Duration interval, Consumer&lt;DeadlineReport&gt; onChange,
+<span class="fc" id="L68">                           Duration stopWait, Consumer&lt;String&gt; problemLog) {</span>
+<span class="fc" id="L69">        this.service = Objects.requireNonNull(service, &quot;service&quot;);</span>
+<span class="fc" id="L70">        this.interval = Objects.requireNonNull(interval, &quot;interval&quot;);</span>
+<span class="fc" id="L71">        this.onChange = Objects.requireNonNull(onChange, &quot;onChange&quot;);</span>
+<span class="fc" id="L72">        this.stopWait = Objects.requireNonNull(stopWait, &quot;stopWait&quot;);</span>
+<span class="fc" id="L73">        this.problemLog = Objects.requireNonNull(problemLog, &quot;problemLog&quot;);</span>
+<span class="fc bfc" id="L74" title="All 4 branches covered.">        if (interval.isZero() || interval.isNegative()) {</span>
+<span class="fc" id="L75">            throw new IllegalArgumentException(&quot;The timer needs a pause between checks.&quot;);</span>
+        }
+<span class="fc" id="L77">    }</span>
+
+    /** Starts checking, beginning at once. Starting a running timer changes nothing. */
+    public synchronized void start() {
+<span class="fc bfc" id="L81" title="All 2 branches covered.">        if (thread != null) {</span>
+<span class="fc" id="L82">            return;</span>
+        }
+<span class="fc" id="L84">        thread = Executors.newSingleThreadScheduledExecutor(task -&gt; {</span>
+<span class="fc" id="L85">            Thread timerThread = new Thread(task, &quot;borrowing-deadline-timer&quot;);</span>
+<span class="fc" id="L86">            timerThread.setDaemon(true);</span>
+<span class="fc" id="L87">            return timerThread;</span>
+        });
+<span class="fc" id="L89">        thread.scheduleWithFixedDelay(this::check, 0, interval.toMillis(), TimeUnit.MILLISECONDS);</span>
+<span class="fc" id="L90">    }</span>
+
+    /**
+     * Stops checking. A check that is running may finish first, for up to {@link #STOP_WAIT}; one
+     * that takes longer, for example because the save file is locked, is interrupted, so closing
+     * the app never hangs. Nothing is lost then: the save file is replaced only by a complete new
+     * one, and the next start of the app runs the check again. Stopping a stopped timer changes
+     * nothing.
+     */
+    public synchronized void stop() {
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        if (thread == null) {</span>
+<span class="fc" id="L101">            return;</span>
+        }
+<span class="fc" id="L103">        thread.shutdown();</span>
+        try {
+<span class="fc bfc" id="L105" title="All 2 branches covered.">            if (!thread.awaitTermination(stopWait.toMillis(), TimeUnit.MILLISECONDS)) {</span>
+<span class="fc" id="L106">                thread.shutdownNow();</span>
+<span class="fc" id="L107">                problemLog.accept(CHECK_INTERRUPTED);</span>
+            }
+<span class="fc" id="L109">        } catch (InterruptedException e) {</span>
+<span class="fc" id="L110">            thread.shutdownNow();</span>
+<span class="fc" id="L111">            Thread.currentThread().interrupt();</span>
+<span class="fc" id="L112">        }</span>
+<span class="fc" id="L113">        thread = null;</span>
+<span class="fc" id="L114">    }</span>
+
+    public synchronized boolean isRunning() {
+<span class="fc bfc" id="L117" title="All 2 branches covered.">        return thread != null;</span>
+    }
+
+    /**
+     * One signal of the Timer. A check that fails, for example because the data could not be
+     * saved, must not end the timer: the problem is logged once, and the next check tries again.
+     */
+    private void check() {
+        try {
+<span class="fc" id="L126">            DeadlineReport report = service.process();</span>
+<span class="fc" id="L127">            lastProblem = null;</span>
+<span class="fc bfc" id="L128" title="All 2 branches covered.">            if (report.hasChanges()) {</span>
+<span class="fc" id="L129">                onChange.accept(report);</span>
+            }
+<span class="fc" id="L131">        } catch (RuntimeException e) {</span>
+<span class="fc" id="L132">            String problem = String.valueOf(e.getMessage());</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">            if (!problem.equals(lastProblem)) {</span>
+<span class="fc" id="L134">                problemLog.accept(CHECK_FAILED + problem);</span>
+<span class="fc" id="L135">                lastProblem = problem;</span>
+            }
+<span class="fc" id="L137">        }</span>
+<span class="fc" id="L138">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

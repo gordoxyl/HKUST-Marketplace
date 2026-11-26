@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NotificationDot.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.ui</a> &gt; <span class="el_source">NotificationDot.java</span></div><h1>NotificationDot.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.ui;
+
+import com.hkust.marketplace.services.NotificationService;
+import com.hkust.marketplace.services.ServiceException;
+import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.Label;
+import javafx.scene.control.Tooltip;
+
+/**
+ * The red dot on a portal's Notifications button, with the number of unread notifications,
+ * the same in all three portals (assumptions register 92). It shows UC4 step 2's &quot;unread&quot; mark
+ * before the board is opened. The number is {@link NotificationService#getUnreadCount()}; at
+ * zero the dot is hidden. Opening the board changes nothing: only marking notifications as
+ * read lowers the number (UC4 Special Requirement 3).
+ * &lt;pre&gt;{@code
+ * NotificationDot.attach(btnNotifications, new NotificationService()); // in the dashboard's initialize()
+ * NotificationDot.update();                                           // in its show(title, content)
+ * }&lt;/pre&gt;
+ * The dot also updates when its dashboard appears in the window, the {@link NotificationBoard}
+ * updates it after marking, and {@link LiveUpdates} after the borrowing-deadline timer has sent
+ * a reminder or returned an item (UC12). A change caused by the user's own action, such as an
+ * admin's account change that every admin is told about, shows at the dashboard's next screen.
+ *
+ * &lt;p&gt;Like {@link LiveUpdates}, this is the Observer pattern in its simplest form (Lecture 17):
+ * the dot of the dashboard on show is the one observer, and attaching a dot replaces the one
+ * before it. When its dashboard leaves the window (logout), it is forgotten. Use it on the
+ * JavaFX thread.
+ */
+public final class NotificationDot {
+
+    /** The dot's id, for tests that read the number. */
+    public static final String ID = &quot;unreadDot&quot;;
+
+    private static Button button;
+    private static NotificationService unread;
+    private static Label dot;
+
+    private NotificationDot() {
+        // Utility class
+    }
+
+    /**
+     * Shows the dot on this dashboard's Notifications button, in place of any earlier dashboard's.
+     * @param notificationsButton the sidebar button that opens the notification board
+     * @param service             counts the logged-in user's unread notifications
+     */
+    public static void attach(Button notificationsButton, NotificationService service) {
+<span class="fc" id="L49">        Label newDot = new Label();</span>
+<span class="fc" id="L50">        newDot.setId(ID);</span>
+<span class="fc" id="L51">        newDot.getStyleClass().add(&quot;notif-dot&quot;);</span>
+<span class="fc" id="L52">        newDot.setTooltip(new Tooltip());</span>
+<span class="fc" id="L53">        notificationsButton.setGraphic(newDot);</span>
+<span class="fc" id="L54">        notificationsButton.setContentDisplay(ContentDisplay.RIGHT);</span>
+<span class="fc" id="L55">        notificationsButton.sceneProperty().addListener((observed, before, now) -&gt; {</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">            if (now != null) {</span>
+<span class="fc" id="L57">                update(); // the dashboard is now in the window</span>
+<span class="pc bpc" id="L58" title="1 of 2 branches missed.">            } else if (button == notificationsButton) {</span>
+<span class="fc" id="L59">                button = null; // logged out: forget the old dashboard, so it can be freed</span>
+            }
+<span class="fc" id="L61">        });</span>
+<span class="fc" id="L62">        button = notificationsButton;</span>
+<span class="fc" id="L63">        unread = service;</span>
+<span class="fc" id="L64">        dot = newDot;</span>
+<span class="fc" id="L65">        update();</span>
+<span class="fc" id="L66">    }</span>
+
+    /** Shows the number of unread notifications as it is now, and hides the dot when there are none. */
+    public static void update() {
+<span class="fc bfc" id="L70" title="All 2 branches covered.">        if (button == null) {</span>
+<span class="fc" id="L71">            return; // no dashboard with a dot is open</span>
+        }
+<span class="fc" id="L73">        int count = count();</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">        dot.setText(count &gt; 0 ? Formats.unreadCount(count) : &quot;&quot;);</span>
+<span class="fc" id="L75">        dot.getTooltip().setText(Formats.unreadSummary(count));</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        dot.setVisible(count &gt; 0);</span>
+<span class="fc" id="L77">    }</span>
+
+    /**
+     * The logged-in user's unread notifications. If the account can no longer act, the dot shows
+     * none, and the user's next action reports why, as the buyer's prompt after an automatic
+     * return does.
+     */
+    private static int count() {
+        try {
+<span class="fc" id="L86">            return unread.getUnreadCount();</span>
+<span class="fc" id="L87">        } catch (ServiceException e) {</span>
+<span class="fc" id="L88">            return 0;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

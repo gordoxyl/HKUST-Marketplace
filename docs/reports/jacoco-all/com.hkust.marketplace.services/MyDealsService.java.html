@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MyDealsService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">MyDealsService.java</span></div><h1>MyDealsService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.BorrowRequest;
+import com.hkust.marketplace.models.Buyer;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.models.OfferStatus;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+/**
+ * UC7 Manage My Deals, for the Buyer (Task 1.6): the buyer's current and completed deals,
+ * marking a purchase or claim complete, and returning a borrowed item before its due date. It
+ * also finds the automatic returns whose seller the buyer has not reviewed yet (client answer #3).
+ *
+ * &lt;p&gt;&lt;b&gt;Design (Lecture 15).&lt;/b&gt; This is the use case's control class. The boundary is the
+ * buyer's My Deals screen ({@code controllers.buyer.MyDealsView}), which also asks the buyer
+ * to confirm (steps 4-5; A3) before calling {@link #markComplete} or {@link #returnItem}. The
+ * entities are {@link Offer}, {@link Listing} and the store. What a completed or returned deal
+ * does to the listing and whom it notifies is shared with the borrowing-deadline timer, so it
+ * lives in {@link DealRules}; this class adds the buyer's own rules in front of it.
+ *
+ * &lt;p&gt;&lt;b&gt;Defensive programming (Lecture 10).&lt;/b&gt; A deal is named by its id, which is untrusted:
+ * each method checks that the deal exists and is the logged-in buyer's, has the right type,
+ * and is in the one state that allows the action (Special Requirement 1). The buttons on the
+ * screen follow {@link Deal#canBeMarkedComplete()} and {@link Deal#canBeReturned()}, but the
+ * same rules are checked again here, for a screen that is out of date or bypassed.
+ */
+public class MyDealsService {
+
+    /** UC7 Special Requirement 3: after the due date the item is returned by UC12, not by the buyer. */
+    static final String PERIOD_ENDED = &quot;The borrowing period has ended. The item is returned automatically.&quot;;
+
+    private final DataStore store;
+    private final DealRules rules;
+
+    public MyDealsService() {
+<span class="fc" id="L41">        this(DataStore.getInstance());</span>
+<span class="fc" id="L42">    }</span>
+
+<span class="fc" id="L44">    public MyDealsService(DataStore store) {</span>
+<span class="fc" id="L45">        this.store = store;</span>
+<span class="fc" id="L46">        this.rules = new DealRules(store);</span>
+<span class="fc" id="L47">    }</span>
+
+    // ========== Show Deals (UC7 steps 1-2) ==========
+
+    /**
+     * The logged-in buyer's deals: the current ones (pending, countered, or accepted and not
+     * yet completed), the most recently made first, followed by the completed ones, the most
+     * recently completed first. Declined deals are neither, so they are not listed; they stay
+     * in the chat history.
+     * @return the deals; empty if the buyer has none (A1)
+     */
+    public List&lt;Deal&gt; getMyDeals() {
+<span class="fc" id="L59">        Buyer buyer = AccessControl.requireBuyer();</span>
+<span class="fc" id="L60">        return store.read(() -&gt; {</span>
+<span class="fc" id="L61">            List&lt;Offer&gt; mine = store.getOffersByBuyer(buyer.getUsername());</span>
+<span class="fc" id="L62">            List&lt;Deal&gt; deals = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L63">            mine.stream().filter(Offer::isCurrent)</span>
+<span class="fc" id="L64">                    .sorted(Comparator.comparing(Offer::getOfferDate, Comparator.reverseOrder()))</span>
+<span class="fc" id="L65">                    .forEach(offer -&gt; deals.add(dealOf(offer)));</span>
+<span class="fc" id="L66">            mine.stream().filter(Offer::isCompleted)</span>
+<span class="fc" id="L67">                    .sorted(Comparator.comparing(Offer::getCompletedDate, Comparator.reverseOrder()))</span>
+<span class="fc" id="L68">                    .forEach(offer -&gt; deals.add(dealOf(offer)));</span>
+<span class="fc" id="L69">            return List.copyOf(deals);</span>
+        });
+    }
+
+    // ========== Mark a purchase or claim complete (UC7 steps 3-8) ==========
+
+    /**
+     * Marks the buyer's accepted price offer or claim complete, after the buyer confirmed: the
+     * deal gets today as its completion date, the listing becomes Sold or Given, and the
+     * seller is notified. The screen then prompts the buyer to rate the seller (step 9).
+     * @return the deal as it is now, completed
+     * @throws ServiceException if the deal is not the buyer's, is a borrow request (which is
+     *         completed by returning the item), is not accepted, or is already completed
+     */
+    public Deal markComplete(String offerId) {
+<span class="fc" id="L84">        Buyer buyer = AccessControl.requireBuyer();</span>
+<span class="fc" id="L85">        return store.transaction(() -&gt; {</span>
+<span class="fc" id="L86">            Offer deal = requireOwnDeal(buyer, offerId);</span>
+<span class="fc bfc" id="L87" title="All 2 branches covered.">            if (deal instanceof BorrowRequest) {</span>
+<span class="fc" id="L88">                throw new ServiceException(&quot;A borrowed item is completed by returning it, not by marking it complete.&quot;);</span>
+            }
+<span class="fc" id="L90">            rules.complete(deal); // refuses a deal that is not accepted, or is already completed</span>
+<span class="fc" id="L91">            return dealOf(deal);</span>
+        });
+    }
+
+    // ========== Return a borrowed item (UC7 A2) ==========
+
+    /**
+     * Returns the item of the buyer's accepted borrow request before its due date, after the
+     * buyer confirmed: the deal gets today as its completion date, the listing becomes Live
+     * again unless the admin removed it meanwhile, and the seller is notified.
+     * @return the deal as it is now, completed
+     * @throws ServiceException if the deal is not the buyer's, is not a borrow request, is not
+     *         accepted, was already returned, or its due date has come (Special Requirement 3)
+     */
+    public Deal returnItem(String offerId) {
+<span class="fc" id="L106">        Buyer buyer = AccessControl.requireBuyer();</span>
+<span class="fc" id="L107">        return store.transaction(() -&gt; {</span>
+<span class="fc" id="L108">            Offer deal = requireOwnDeal(buyer, offerId);</span>
+<span class="fc bfc" id="L109" title="All 2 branches covered.">            if (!(deal instanceof BorrowRequest request)) {</span>
+<span class="fc" id="L110">                throw new ServiceException(&quot;Only a borrowed item can be returned. Mark this deal complete instead.&quot;);</span>
+            }
+<span class="fc bfc" id="L112" title="All 4 branches covered.">            if (isBorrowed(request) &amp;&amp; !isBeforeDueDate(request)) {</span>
+<span class="fc" id="L113">                throw new ServiceException(PERIOD_ENDED);</span>
+            }
+<span class="fc" id="L115">            rules.returnItem(request, false); // refuses a request that is not accepted, or was already returned</span>
+<span class="fc" id="L116">            return dealOf(deal);</span>
+        });
+    }
+
+    // ========== After an automatic return (UC12; client answer #3) ==========
+
+    /**
+     * The logged-in buyer's borrowed items that were returned automatically (UC12) and whose
+     * seller the buyer has not reviewed yet, the most recently returned first. The buyer's
+     * dashboard asks the buyer to rate the seller of each one the timer returns while the buyer
+     * is using the app (client answer #3, UC10 step 1); for one returned while the buyer was
+     * away, the auto-return notification says so instead.
+     */
+    public List&lt;Deal&gt; getAutoReturnedDealsToReview() {
+<span class="fc" id="L130">        Buyer buyer = AccessControl.requireBuyer();</span>
+<span class="fc" id="L131">        return store.read(() -&gt; store.getOffersByBuyer(buyer.getUsername()).stream()</span>
+<span class="fc bfc" id="L132" title="All 4 branches covered.">                .filter(offer -&gt; offer instanceof BorrowRequest request &amp;&amp; request.isAutoReturned())</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">                .filter(offer -&gt; store.findReviewForOffer(offer.getId()) == null)</span>
+<span class="fc" id="L134">                .sorted(Comparator.comparing(Offer::getCompletedDate, Comparator.reverseOrder()))</span>
+<span class="fc" id="L135">                .map(this::dealOf)</span>
+<span class="fc" id="L136">                .toList());</span>
+    }
+
+    // ========== Rules ==========
+
+    private Offer requireOwnDeal(Buyer buyer, String offerId) {
+<span class="fc" id="L142">        Offer deal = store.findOffer(offerId);</span>
+<span class="fc bfc" id="L143" title="All 4 branches covered.">        if (deal == null || !deal.getBuyerUsername().equalsIgnoreCase(buyer.getUsername())) {</span>
+<span class="fc" id="L144">            throw new ServiceException(&quot;This is not one of your deals.&quot;);</span>
+        }
+<span class="fc" id="L146">        return deal;</span>
+    }
+
+    /** Accepted and not completed: the only state in which a deal can be completed or returned (Special Requirement 1). */
+    private static boolean isInProgress(Offer deal) {
+<span class="fc bfc" id="L151" title="All 4 branches covered.">        return deal.getStatus() == OfferStatus.ACCEPTED &amp;&amp; !deal.isCompleted();</span>
+    }
+
+    private static boolean isBorrowed(Offer deal) {
+<span class="fc bfc" id="L155" title="All 4 branches covered.">        return deal instanceof BorrowRequest &amp;&amp; isInProgress(deal);</span>
+    }
+
+    /** Self-return is offered only before the due date; at the due date itself it is over (Special Requirement 3). */
+    private boolean isBeforeDueDate(BorrowRequest request) {
+<span class="fc" id="L160">        return store.now().isBefore(request.getDueDate());</span>
+    }
+
+    private Deal dealOf(Offer offer) {
+<span class="fc" id="L164">        Listing listing = store.getListingOf(offer);</span>
+<span class="fc" id="L165">        boolean borrowed = isBorrowed(offer);</span>
+<span class="fc" id="L166">        return new Deal(offer, listing, store.getFullName(listing.getSellerUsername()),</span>
+<span class="fc bfc" id="L167" title="All 6 branches covered.">                isInProgress(offer) &amp;&amp; !borrowed,</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">                borrowed &amp;&amp; isBeforeDueDate((BorrowRequest) offer),</span>
+<span class="fc bfc" id="L169" title="All 4 branches covered.">                offer.isCompleted() &amp;&amp; store.findReviewForOffer(offer.getId()) == null);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

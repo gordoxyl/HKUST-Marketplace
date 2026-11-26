@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SellerStats.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">SellerStats.java</span></div><h1>SellerStats.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.models.ListingType;
+import com.hkust.marketplace.models.RatingSummary;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Task 2.8 View Seller Stats: the numbers and the chart data the seller's stats screen shows
+ * (View Seller Stats steps 2-5). Built by {@link SellerStatsService}; this record only carries
+ * them, so the screen has no rule or counting of its own.
+ *
+ * @param views             the views of all the seller's listings together
+ * @param offersReceived    every price offer, borrow request and claim ever made on them
+ * @param completedDeals    the deals completed among those offers (sold, given or returned)
+ * @param rating            the seller's rating; hidden reviews are already left out (SR1)
+ * @param perListing        one row per listing, for the bar chart
+ * @param completedByType   completed deals per listing type, for the pie chart
+ */
+public record SellerStats(
+        int views,
+        int offersReceived,
+        int completedDeals,
+        RatingSummary rating,
+        List&lt;ListingStats&gt; perListing,
+        Map&lt;ListingType, Integer&gt; completedByType) {
+
+<span class="fc" id="L29">    public SellerStats {</span>
+<span class="fc" id="L30">        perListing = List.copyOf(perListing);</span>
+<span class="fc" id="L31">        completedByType = Map.copyOf(completedByType);</span>
+<span class="fc" id="L32">    }</span>
+
+    /** How many listings the seller has posted, in any status. */
+    public int listings() {
+<span class="fc" id="L36">        return perListing.size();</span>
+    }
+
+    /** One listing's bars: its views and how many offers it received. */
+<span class="fc" id="L40">    public record ListingStats(String listingId, String title, int views, int offers) {</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

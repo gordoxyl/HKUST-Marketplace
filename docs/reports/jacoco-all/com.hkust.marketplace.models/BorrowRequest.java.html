@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BorrowRequest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.models</a> &gt; <span class="el_source">BorrowRequest.java</span></div><h1>BorrowRequest.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.models;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+import java.util.Objects;
+
+/** A request to borrow a lend listing for a period (BorrowRequest in the domain class diagram). */
+public class BorrowRequest extends Offer {
+
+    /** Shortest allowed borrow period: 5 seconds, so auto-return can be tested (Task 1.5). */
+<span class="fc" id="L13">    public static final Duration MIN_BORROW_TIME = Duration.ofSeconds(5);</span>
+
+    /** How long before the due date the buyer is reminded (UC12 Special Requirement 2). */
+<span class="fc" id="L16">    public static final Duration REMINDER_LEAD_TIME = Duration.ofHours(24);</span>
+
+<span class="fc" id="L18">    private static final DateTimeFormatter BORROW_TIME = DateTimeFormatter.ofPattern(&quot;dd MMM yyyy HH:mm:ss&quot;, Locale.ENGLISH);</span>
+
+    private final LocalDateTime proposedStartDate;
+    private final LocalDateTime proposedEndDate;
+    private LocalDateTime counterStartDate;
+    private LocalDateTime counterEndDate;
+    private boolean autoReturned;
+    private boolean reminderSent;
+
+    /** @throws IllegalArgumentException if the period is shorter than {@link #MIN_BORROW_TIME} */
+    public BorrowRequest(String listingId, String buyerUsername,
+                         LocalDateTime proposedStartDate, LocalDateTime proposedEndDate) {
+<span class="fc" id="L30">        super(listingId, buyerUsername);</span>
+<span class="fc" id="L31">        requireValidPeriod(proposedStartDate, proposedEndDate);</span>
+<span class="fc" id="L32">        this.proposedStartDate = proposedStartDate;</span>
+<span class="fc" id="L33">        this.proposedEndDate = proposedEndDate;</span>
+<span class="fc" id="L34">    }</span>
+
+    @Override
+    public boolean canBeMadeOn(Listing listing) {
+<span class="fc" id="L38">        return listing instanceof LendListing;</span>
+    }
+
+    @Override
+    public String getKindName() {
+<span class="fc" id="L43">        return &quot;borrow request&quot;;</span>
+    }
+
+<span class="fc" id="L46">    public LocalDateTime getProposedStartDate() { return proposedStartDate; }</span>
+<span class="fc" id="L47">    public LocalDateTime getProposedEndDate() { return proposedEndDate; }</span>
+
+    /** Null unless the seller countered. */
+<span class="fc" id="L50">    public LocalDateTime getCounterStartDate() { return counterStartDate; }</span>
+<span class="fc" id="L51">    public LocalDateTime getCounterEndDate() { return counterEndDate; }</span>
+
+    /** The end of the requested period (UC7 Special Requirement 2). */
+<span class="fc" id="L54">    public LocalDateTime getDueDate() { return proposedEndDate; }</span>
+
+    /**
+     * When the buyer is reminded that the item is nearly due (UC12 Special Requirement 2):
+     * {@link #REMINDER_LEAD_TIME 24 hours} before the due date, or halfway through the period
+     * if the period is shorter than 48 hours.
+     */
+    public LocalDateTime getReminderTime() {
+<span class="fc" id="L62">        Duration period = Duration.between(proposedStartDate, proposedEndDate);</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">        if (period.compareTo(REMINDER_LEAD_TIME.multipliedBy(2)) &lt; 0) {</span>
+<span class="fc" id="L64">            return proposedStartDate.plus(period.dividedBy(2));</span>
+        }
+<span class="fc" id="L66">        return proposedEndDate.minus(REMINDER_LEAD_TIME);</span>
+    }
+
+    /**
+     * A borrow time to the second, as screens and notifications show it: &quot;14 Nov 2026 14:06:44&quot;.
+     * Borrowing works to the second (the shortest loan is {@link #MIN_BORROW_TIME}), so a time
+     * shown to the minute would make an item that is returned on time look late (regression log R9).
+     */
+    public static String formatBorrowTime(LocalDateTime time) {
+<span class="fc" id="L75">        return time.format(BORROW_TIME);</span>
+    }
+
+    /** True if the item was returned automatically when the period ended (UC12). */
+<span class="fc" id="L79">    public boolean isAutoReturned() { return autoReturned; }</span>
+
+    /** True once the due-date reminder was sent; each request gets one (UC12 Special Requirement 3). */
+<span class="fc" id="L82">    public boolean isReminderSent() { return reminderSent; }</span>
+<span class="fc" id="L83">    public void markReminderSent() { reminderSent = true; }</span>
+
+    /** The seller counters with other dates (Manage Offers &amp;amp; Requests step 3.5). */
+    public void counter(LocalDateTime start, LocalDateTime end) {
+<span class="fc" id="L87">        requireValidPeriod(start, end);</span>
+<span class="fc" id="L88">        markCountered();</span>
+<span class="fc" id="L89">        counterStartDate = start;</span>
+<span class="fc" id="L90">        counterEndDate = end;</span>
+<span class="fc" id="L91">    }</span>
+
+    /** Returns the item automatically, with the due date as the completion date (UC12 step 3). */
+    public void autoReturn() {
+<span class="fc" id="L95">        complete(getDueDate());</span>
+<span class="fc" id="L96">        autoReturned = true;</span>
+<span class="fc" id="L97">    }</span>
+
+    /** @throws IllegalArgumentException if a date is missing or the period is too short */
+    private static void requireValidPeriod(LocalDateTime start, LocalDateTime end) {
+<span class="fc" id="L101">        Objects.requireNonNull(start, &quot;start&quot;);</span>
+<span class="fc" id="L102">        Objects.requireNonNull(end, &quot;end&quot;);</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        if (Duration.between(start, end).compareTo(MIN_BORROW_TIME) &lt; 0) {</span>
+<span class="fc" id="L104">            throw new IllegalArgumentException(&quot;The borrow period must end at least &quot;</span>
+<span class="fc" id="L105">                    + LendListing.formatDuration(MIN_BORROW_TIME) + &quot; after it starts.&quot;);</span>
+        }
+<span class="fc" id="L107">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

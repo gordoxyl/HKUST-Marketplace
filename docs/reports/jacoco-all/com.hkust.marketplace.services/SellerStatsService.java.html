@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SellerStatsService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">SellerStatsService.java</span></div><h1>SellerStatsService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.ListingType;
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.models.RatingSummary;
+import com.hkust.marketplace.models.Seller;
+
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Task 2.8 View Seller Stats: the numbers the seller's stats screen shows, counted from the
+ * store in one consistent step (View Seller Stats steps 2-5).
+ *
+ * &lt;ul&gt;
+ *   &lt;li&gt;&lt;b&gt;Views&lt;/b&gt; - all the seller's listings together; a sold or removed listing keeps its
+ *       views.&lt;/li&gt;
+ *   &lt;li&gt;&lt;b&gt;Offers received&lt;/b&gt; - every price offer, borrow request and claim ever made on the
+ *       seller's listings, whatever its status (the team decision recorded in the tests).&lt;/li&gt;
+ *   &lt;li&gt;&lt;b&gt;Completed deals&lt;/b&gt; - the deals among them that are completed (sold, given, or a
+ *       borrowed item returned), and the same split by listing type for the pie chart.&lt;/li&gt;
+ *   &lt;li&gt;&lt;b&gt;Rating&lt;/b&gt; - one {@link RatingSummary}: the count and the average over the shown
+ *       reviews only (hidden ones are excluded, SR1).&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;Each listing also gets a row with its own views and offers for the bar chart. The screen
+ * only draws these numbers; every count is here and covered by {@code SellerStatsServiceTest}.
+ */
+public class SellerStatsService {
+
+    private final DataStore store;
+
+    public SellerStatsService() {
+<span class="fc" id="L38">        this(DataStore.getInstance());</span>
+<span class="fc" id="L39">    }</span>
+
+<span class="fc" id="L41">    public SellerStatsService(DataStore store) {</span>
+<span class="fc" id="L42">        this.store = store;</span>
+<span class="fc" id="L43">    }</span>
+
+    /**
+     * The statistics of the logged-in seller.
+     * @throws AccessDeniedException if the logged-in user is not a seller
+     */
+    public SellerStats getMyStats() {
+<span class="fc" id="L50">        Seller seller = AccessControl.requireSeller();</span>
+<span class="fc" id="L51">        return store.read(() -&gt; {</span>
+<span class="fc" id="L52">            String username = seller.getUsername();</span>
+<span class="fc" id="L53">            List&lt;Listing&gt; listings = store.getListingsBySeller(username);</span>
+
+<span class="fc" id="L55">            List&lt;SellerStats.ListingStats&gt; perListing = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">            for (Listing listing : listings) {</span>
+<span class="fc" id="L57">                perListing.add(new SellerStats.ListingStats(listing.getId(), listing.getTitle(),</span>
+<span class="fc" id="L58">                        listing.getViewCount(), store.getOffersForListing(listing.getId()).size()));</span>
+<span class="fc" id="L59">            }</span>
+
+<span class="fc" id="L61">            Map&lt;ListingType, Integer&gt; completedByType = new EnumMap&lt;&gt;(ListingType.class);</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">            for (ListingType type : ListingType.values()) {</span>
+<span class="fc" id="L63">                completedByType.put(type, 0);</span>
+            }
+<span class="fc bfc" id="L65" title="All 2 branches covered.">            for (Offer offer : store.getOffersForSeller(username)) {</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">                if (offer.isCompleted()) {</span>
+<span class="fc" id="L67">                    Listing listing = store.getListingOf(offer);</span>
+<span class="fc" id="L68">                    completedByType.merge(listing.getType(), 1, Integer::sum);</span>
+                }
+<span class="fc" id="L70">            }</span>
+
+<span class="fc" id="L72">            return new SellerStats(store.getTotalViews(username),</span>
+<span class="fc" id="L73">                    store.getOffersReceivedCount(username), store.getCompletedDealCount(username),</span>
+<span class="fc" id="L74">                    store.getRating(username), perListing, completedByType);</span>
+        });
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

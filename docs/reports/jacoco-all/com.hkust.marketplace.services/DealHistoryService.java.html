@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DealHistoryService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">DealHistoryService.java</span></div><h1>DealHistoryService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.Buyer;
+import com.hkust.marketplace.models.Category;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.Offer;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+
+/**
+ * UC11 View Deal History, for the Buyer (Task 1.9): every completed deal of the buyer, newest
+ * deal date first, narrowed down by a date range, a category and part of the seller's name.
+ *
+ * &lt;p&gt;&lt;b&gt;Design (Lecture 15).&lt;/b&gt; This is the use case's control class. Its boundary is the
+ * buyer's Deal History screen ({@code controllers.buyer.DealHistoryView}); the entities are
+ * {@link Offer}, {@link Listing} and the store. The history is not stored anywhere: it is worked
+ * out from the deals' completion dates each time it is shown, so a deal enters it the moment it
+ * is completed, by the buyer or by the borrowing timer (Special Requirement 1). The query is
+ * here and not in {@code DataStore}, which would otherwise keep growing (God Class,
+ * Lecture 18). It reads the store through {@link DataStore#read}, so it sees the data whole
+ * even while the timer completes deals on its own thread (active class, Lecture 15).
+ *
+ * &lt;p&gt;&lt;b&gt;Defensive programming (Lecture 10).&lt;/b&gt; What the screen sends is checked here, not in the
+ * screen: the order of the date range (step 4, A2). The dates and the category cannot be
+ * unreadable, because the screen offers them as a calendar and a list (Lecture 11: make the
+ * error impossible). The use case changes nothing (its postcondition), and this class only reads.
+ */
+public class DealHistoryService {
+
+    /** UC11 A2. */
+    static final String INVALID_DATE_RANGE =
+            &quot;The date range is invalid. Choose a start date on or before the end date.&quot;;
+
+    /**
+     * UC11 step 2: newest deal date first. Deals with the same deal date are shown newest offer
+     * first, so the order never depends on how the store happens to keep them.
+     */
+<span class="fc" id="L44">    static final Comparator&lt;HistoryEntry&gt; NEWEST_FIRST = Comparator</span>
+<span class="fc" id="L45">            .comparing((HistoryEntry entry) -&gt; entry.deal().getCompletedDate())</span>
+<span class="fc" id="L46">            .thenComparing(entry -&gt; entry.deal().getOfferDate())</span>
+<span class="fc" id="L47">            .reversed();</span>
+
+    private final DataStore store;
+
+    public DealHistoryService() {
+<span class="fc" id="L52">        this(DataStore.getInstance());</span>
+<span class="fc" id="L53">    }</span>
+
+<span class="fc" id="L55">    public DealHistoryService(DataStore store) {</span>
+<span class="fc" id="L56">        this.store = store;</span>
+<span class="fc" id="L57">    }</span>
+
+    // ========== Show History, Refine and Show Results (UC11 steps 2-4) ==========
+
+    /**
+     * The logged-in buyer's completed deals that match the query, newest deal date first. A
+     * deal matches when its deal date falls within the date range (both ends included; either
+     * end may be missing), its listing is in the chosen category, and its seller's name contains
+     * the search text, whatever the case (step 4). {@link HistoryQuery#ALL} gives every
+     * completed deal (step 2).
+     * @return the matching deals; empty if there are none (A1)
+     * @throws InvalidDateRangeException if the date range starts after it ends (A2); nothing is
+     *         read then
+     */
+    public List&lt;HistoryEntry&gt; find(HistoryQuery query) {
+<span class="fc" id="L72">        Objects.requireNonNull(query, &quot;query&quot;);</span>
+<span class="fc" id="L73">        Buyer buyer = AccessControl.requireBuyer();</span>
+<span class="fc bfc" id="L74" title="All 6 branches covered.">        if (query.from() != null &amp;&amp; query.to() != null &amp;&amp; query.from().isAfter(query.to())) {</span>
+<span class="fc" id="L75">            throw new InvalidDateRangeException(INVALID_DATE_RANGE);</span>
+        }
+<span class="fc" id="L77">        return store.read(() -&gt; store.getOffersByBuyer(buyer.getUsername()).stream()</span>
+<span class="fc" id="L78">                .filter(Offer::isCompleted) // Special Requirement 1; the glossary's &quot;Completed deal&quot;</span>
+<span class="fc" id="L79">                .map(this::entryOf)</span>
+<span class="fc" id="L80">                .filter(entry -&gt; inRange(entry.dealDate(), query.from(), query.to()))</span>
+<span class="fc" id="L81">                .filter(entry -&gt; inCategory(entry.listing(), query.category()))</span>
+<span class="fc" id="L82">                .filter(entry -&gt; sellerMatches(entry.sellerName(), query.seller()))</span>
+<span class="fc" id="L83">                .sorted(NEWEST_FIRST)</span>
+<span class="fc" id="L84">                .toList());</span>
+    }
+
+    // ========== The filters (step 4) ==========
+
+    /** The day of the deal date is within the range: on or after its first day, and on or before its last. */
+    static boolean inRange(LocalDateTime dealDate, LocalDate from, LocalDate to) {
+<span class="fc" id="L91">        LocalDate day = dealDate.toLocalDate();</span>
+<span class="fc bfc" id="L92" title="All 8 branches covered.">        return (from == null || !day.isBefore(from)) &amp;&amp; (to == null || !day.isAfter(to));</span>
+    }
+
+    /** No category is chosen, or the deal's listing is in it. */
+    static boolean inCategory(Listing listing, Category category) {
+<span class="fc bfc" id="L97" title="All 4 branches covered.">        return category == null || listing.getCategory() == category;</span>
+    }
+
+    /** No search text was typed, or the seller's name as shown contains it; upper and lower case are the same. */
+    static boolean sellerMatches(String sellerName, String search) {
+<span class="fc bfc" id="L102" title="All 2 branches covered.">        return search.isEmpty()</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">                || sellerName.toLowerCase(Locale.ROOT).contains(search.toLowerCase(Locale.ROOT));</span>
+    }
+
+    private HistoryEntry entryOf(Offer deal) {
+<span class="fc" id="L107">        Listing listing = store.getListingOf(deal);</span>
+<span class="fc" id="L108">        return new HistoryEntry(deal, listing, store.getFullName(listing.getSellerUsername()));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

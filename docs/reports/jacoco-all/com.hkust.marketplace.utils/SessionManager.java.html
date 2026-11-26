@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SessionManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.utils</a> &gt; <span class="el_source">SessionManager.java</span></div><h1>SessionManager.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.utils;
+
+import com.hkust.marketplace.models.User;
+
+/**
+ * Holds the user who is logged in to this copy of the app (a desktop app with no server, so
+ * there is no session token). The services check this user's role and account status through
+ * {@code AccessControl}.
+ */
+<span class="nc" id="L10">public class SessionManager {</span>
+    private static User currentUser;
+
+    public static void login(User user) {
+<span class="fc" id="L14">        currentUser = user;</span>
+<span class="fc" id="L15">    }</span>
+
+    public static void logout() {
+<span class="fc" id="L18">        currentUser = null;</span>
+<span class="fc" id="L19">    }</span>
+
+    public static User getCurrentUser() {
+<span class="fc" id="L22">        return currentUser;</span>
+    }
+
+    public static boolean isLoggedIn() {
+<span class="fc bfc" id="L26" title="All 2 branches covered.">        return currentUser != null;</span>
+    }
+
+    public static boolean isBuyer() {
+<span class="fc bfc" id="L30" title="All 4 branches covered.">        return currentUser != null &amp;&amp; currentUser.getRole() == com.hkust.marketplace.models.UserRole.BUYER;</span>
+    }
+
+    public static boolean isSeller() {
+<span class="fc bfc" id="L34" title="All 4 branches covered.">        return currentUser != null &amp;&amp; currentUser.getRole() == com.hkust.marketplace.models.UserRole.SELLER;</span>
+    }
+
+    public static boolean isAdmin() {
+<span class="fc bfc" id="L38" title="All 4 branches covered.">        return currentUser != null &amp;&amp; currentUser.getRole() == com.hkust.marketplace.models.UserRole.ADMIN;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

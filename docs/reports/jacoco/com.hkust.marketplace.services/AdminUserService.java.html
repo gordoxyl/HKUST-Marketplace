@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AdminUserService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">AdminUserService.java</span></div><h1>AdminUserService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.*;
+
+import java.util.ArrayList;
+import java.util.List;
+import com.hkust.marketplace.data.DeletedAccount;
+
+import java.util.Objects;
+import java.util.Locale;
+/**
+ * Control class for Manage All User Accounts (Task 3.3): view the user list, view one user,
+ * edit, deactivate and activate. Every method starts with the admin role check, and every
+ * data change runs in one transaction. This class does not use the ui layer.
+ */
+public class AdminUserService {
+
+    private final DataStore store;
+    private final NotificationService notifications;
+    private final DealRules dealRules;
+
+    public AdminUserService() {
+<span class="fc" id="L24">        this(DataStore.getInstance());</span>
+<span class="fc" id="L25">    }</span>
+
+<span class="fc" id="L27">    public AdminUserService(DataStore store) {</span>
+<span class="fc" id="L28">        this.store = store;</span>
+<span class="fc" id="L29">        this.notifications = new NotificationService(store);</span>
+<span class="fc" id="L30">        this.dealRules = new DealRules(store);</span>
+<span class="fc" id="L31">    }</span>
+
+    // ==========================================
+    // Task 3.3: user list and filters
+    // ==========================================
+
+    /**
+     * Lists the buyer and seller accounts for the admin. Admin accounts are never listed, and
+     * deactivated accounts stay in the list so the admin can activate them again. Every chosen
+     * filter must match; a null filter field means &quot;no filter&quot;. The registration range is
+     * inclusive on both ends.
+     *
+     * @param filter the filter options, or null for no filter
+     * @return the matching users, never null; empty if none match or if the start of the
+     *         registration range is after its end
+     */
+    public List&lt;User&gt; findUsers(UserFilter filter) {
+<span class="fc" id="L48">        AccessControl.requireAdmin();</span>
+<span class="fc bfc" id="L49" title="All 2 branches covered.">        UserFilter f = filter == null ? UserFilter.none() : filter;</span>
+
+<span class="fc bfc" id="L51" title="All 6 branches covered.">        if (f.fromDate() != null &amp;&amp; f.toDate() != null &amp;&amp; f.fromDate().isAfter(f.toDate())) {</span>
+<span class="fc" id="L52">            return List.of();</span>
+        }
+
+
+<span class="fc bfc" id="L56" title="All 2 branches covered.">        String query = f.text() == null ? &quot;&quot; : f.text().strip().toLowerCase(Locale.ROOT);</span>
+
+<span class="fc" id="L58">        return store.read(() -&gt; store.getAllUsers().stream()</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">                .filter(u -&gt; !(u instanceof Admin))</span>
+<span class="fc bfc" id="L60" title="All 4 branches covered.">                .filter(u -&gt; f.role() == null || u.getRole() == f.role())</span>
+<span class="fc bfc" id="L61" title="All 4 branches covered.">                .filter(u -&gt; f.active() == null || u.isActive() == f.active())</span>
+
+
+<span class="fc bfc" id="L64" title="All 2 branches covered.">                .filter(u -&gt; query.isEmpty()</span>
+<span class="fc bfc" id="L65" title="All 2 branches covered.">                        || u.getUsername().toLowerCase(Locale.ROOT).contains(query)</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">                        || u.getFullName().toLowerCase(Locale.ROOT).contains(query))</span>
+
+<span class="fc bfc" id="L68" title="All 4 branches covered.">                .filter(u -&gt; f.fromDate() == null || !u.getCreatedAt().isBefore(f.fromDate()))</span>
+<span class="fc bfc" id="L69" title="All 4 branches covered.">                .filter(u -&gt; f.toDate() == null || !u.getCreatedAt().isAfter(f.toDate()))</span>
+<span class="fc" id="L70">                .toList());</span>
+    }
+
+    // ==========================================
+    // Task 3.3: view user
+    // ==========================================
+
+    /**
+     * The details of one buyer or seller account for VIEW USER (step 6.1): personal info,
+     * active listings, completed deals, pending offers and rating. The password hash is
+     * never part of the result.
+     *
+     * @throws ServiceException if the account does not exist or is an admin account
+     */
+    public UserDetails getUserDetails(String username) {
+<span class="fc" id="L85">        AccessControl.requireAdmin();</span>
+<span class="fc" id="L86">        return store.read(() -&gt; {</span>
+<span class="fc" id="L87">            User user = store.findUser(username);</span>
+<span class="fc bfc" id="L88" title="All 4 branches covered.">            if (user == null || user instanceof Admin) {</span>
+<span class="fc" id="L89">                throw new ServiceException(&quot;This account no longer exists.&quot;);</span>
+            }
+
+<span class="fc" id="L92">            List&lt;Offer&gt; related = new ArrayList&lt;&gt;(store.getOffersByBuyer(user.getUsername()));</span>
+<span class="fc" id="L93">            List&lt;Listing&gt; active = List.of();</span>
+<span class="fc" id="L94">            RatingSummary rating = RatingSummary.NONE;</span>
+<span class="fc" id="L95">            String residenceHall = null;</span>
+<span class="fc" id="L96">            String bio = null;</span>
+<span class="fc" id="L97">            List&lt;MeetupLocation&gt; locations = List.of();</span>
+
+<span class="fc bfc" id="L99" title="All 2 branches covered.">            if (user instanceof Buyer buyer) {</span>
+<span class="fc" id="L100">                residenceHall = buyer.getResidenceHall();</span>
+            }
+<span class="fc bfc" id="L102" title="All 2 branches covered.">            if (user instanceof Seller seller) {</span>
+<span class="fc" id="L103">                bio = seller.getBio();</span>
+<span class="fc" id="L104">                locations = seller.getPreferredMeetupLocations();</span>
+<span class="fc" id="L105">                active = store.getListingsBySeller(user.getUsername()).stream()</span>
+<span class="fc bfc" id="L106" title="All 2 branches covered.">                        .filter(l -&gt; l.getStatus() == ListingStatus.LIVE</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">                                || l.getStatus() == ListingStatus.RESERVED</span>
+<span class="fc bfc" id="L108" title="All 2 branches covered.">                                || l.getStatus() == ListingStatus.LENT)</span>
+<span class="fc" id="L109">                        .toList();</span>
+<span class="fc" id="L110">                related.addAll(store.getOffersForSeller(user.getUsername()));</span>
+<span class="fc" id="L111">                rating = store.getRating(user.getUsername());</span>
+            }
+
+<span class="fc" id="L114">            List&lt;Offer&gt; completed = related.stream().filter(Offer::isCompleted).toList();</span>
+<span class="fc" id="L115">            List&lt;Offer&gt; pending = related.stream().filter(Offer::isOpen).toList();</span>
+<span class="fc" id="L116">            return new UserDetails(user, residenceHall, bio, locations, active,</span>
+                    completed, pending, rating);
+        });
+    }
+
+    // ==========================================
+    // Task 3.3: edit user
+    // ==========================================
+
+    /**
+     * Edits a buyer or seller account with the same rules as the user's own Manage Profile,
+     * except the password. The username and the role cannot be changed. A seller's bio (a
+     * blank bio is stored as none) and preferred meet-up locations (order kept, duplicates
+     * dropped) can be changed too. The action is recorded in the Audit Log and the user is
+     * notified.
+     *
+     * @param bio       the seller's new bio, or null; must be null or blank for a buyer
+     * @param locations the seller's new meet-up locations, or null; must be null or empty for a buyer
+     * @throws ServiceException if the full name is blank, the account does not exist or is an
+     *         admin account, or a bio or locations are given for a buyer
+     */
+    public void editUser(String username, String fullName, String bio, List&lt;MeetupLocation&gt; locations) {
+<span class="fc" id="L138">        Admin admin = AccessControl.requireAdmin();</span>
+<span class="fc" id="L139">        String nameError = AccountValidator.validateFullName(fullName);</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">        if (nameError != null) {</span>
+<span class="fc" id="L141">            throw new ServiceException(nameError);</span>
+        }
+<span class="fc bfc" id="L143" title="All 4 branches covered.">        if (locations != null &amp;&amp; locations.stream().anyMatch(Objects::isNull)) {</span>
+<span class="fc" id="L144">            throw new ServiceException(&quot;A meet-up location is not valid.&quot;);</span>
+        }
+
+<span class="fc" id="L147">        store.transaction(() -&gt; {</span>
+<span class="fc" id="L148">            User user = store.findUser(username);</span>
+<span class="fc bfc" id="L149" title="All 2 branches covered.">            if (user == null) {</span>
+<span class="fc" id="L150">                throw new ServiceException(&quot;This account no longer exists.&quot;);</span>
+            }
+<span class="fc bfc" id="L152" title="All 2 branches covered.">            if (user instanceof Admin) {</span>
+<span class="fc" id="L153">                throw new ServiceException(&quot;An admin account cannot be edited here.&quot;);</span>
+            }
+<span class="fc bfc" id="L155" title="All 4 branches covered.">            boolean hasBio = bio != null &amp;&amp; !bio.isBlank();</span>
+<span class="fc bfc" id="L156" title="All 4 branches covered.">            boolean hasLocations = locations != null &amp;&amp; !locations.isEmpty();</span>
+<span class="fc bfc" id="L157" title="All 6 branches covered.">            if (!(user instanceof Seller) &amp;&amp; (hasBio || hasLocations)) {</span>
+<span class="fc" id="L158">                throw new ServiceException(&quot;Only a seller has a bio and meet-up locations.&quot;);</span>
+            }
+
+<span class="fc" id="L161">            user.setFullName(fullName.strip());</span>
+<span class="fc bfc" id="L162" title="All 2 branches covered.">            if (user instanceof Seller seller) {</span>
+<span class="fc" id="L163">                seller.setBio(bio);</span>
+<span class="fc" id="L164">                seller.setPreferredMeetupLocations(locations);</span>
+            }
+
+<span class="fc" id="L167">            store.addAuditLogEntry(new AuditLogEntry(</span>
+<span class="fc" id="L168">                    admin.getUsername(), user.getUsername(), &quot;Edit account&quot;, null, null));</span>
+<span class="fc" id="L169">            notifications.send(user.getUsername(), NotificationCategory.ACCOUNT_CHANGE,</span>
+                    &quot;An administrator updated your account details.&quot;);
+
+<span class="fc" id="L172">            notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,</span>
+<span class="fc" id="L173">                    AccountNotices.edited(user, admin));</span>
+<span class="fc" id="L174">        });</span>
+<span class="fc" id="L175">    }</span>
+
+    // ==========================================
+    // Task 3.3: deactivate and activate
+    // ==========================================
+
+    /**
+     * Deactivates a user account (step 6.2.4): sets the account inactive, declines the open
+     * offers on a seller's listings, declines a buyer's own open offers and notifies the
+     * affected sellers, records an audit log entry and notifies the user.
+     *
+     * &lt;p&gt;Listings of a deactivated seller disappear from Browse automatically because the
+     * store checks seller.isActive(); their status is never changed.
+     *
+     * @throws ServiceException if the reason is blank (A1), the account does not exist, is
+     *         already deactivated, or is an admin account
+     */
+    public void deactivateUser(String username, String reason) {
+<span class="fc" id="L193">        Admin admin = AccessControl.requireAdmin();</span>
+<span class="fc" id="L194">        String cleanReason = requireReason(reason, &quot;A reason is required to deactivate an account.&quot;);</span>
+
+<span class="fc" id="L196">        store.transaction(() -&gt; {</span>
+<span class="fc" id="L197">            User user = store.findUser(username);</span>
+<span class="fc bfc" id="L198" title="All 2 branches covered.">            if (user == null) {</span>
+<span class="fc" id="L199">                throw new ServiceException(&quot;This account no longer exists.&quot;);</span>
+            }
+<span class="fc bfc" id="L201" title="All 2 branches covered.">            if (user instanceof Admin) {</span>
+<span class="fc" id="L202">                throw new ServiceException(&quot;An admin account cannot be deactivated.&quot;);</span>
+            }
+<span class="fc bfc" id="L204" title="All 2 branches covered.">            if (!user.isActive()) {</span>
+<span class="fc" id="L205">                throw new ServiceException(&quot;User is already deactivated.&quot;);</span>
+            }
+
+<span class="fc" id="L208">            user.setActive(false);</span>
+
+<span class="fc bfc" id="L210" title="All 2 branches covered.">            if (user instanceof Seller) {</span>
+<span class="fc bfc" id="L211" title="All 2 branches covered.">                for (Listing listing : store.getListingsBySeller(username)) {</span>
+<span class="fc" id="L212">                    dealRules.declineOpenOffers(listing, NotificationCategory.OFFER_UPDATE,</span>
+                            &quot;the seller's account was deactivated&quot;);
+<span class="fc" id="L214">                }</span>
+            }
+
+<span class="fc bfc" id="L217" title="All 2 branches covered.">            for (Offer offer : store.getOffersByBuyer(username)) {</span>
+<span class="fc bfc" id="L218" title="All 2 branches covered.">                if (offer.isOpen()) {</span>
+<span class="fc" id="L219">                    offer.decline();</span>
+<span class="fc" id="L220">                    Listing listing = store.getListingOf(offer);</span>
+<span class="fc" id="L221">                    notifications.send(listing.getSellerUsername(), NotificationCategory.OFFER_UPDATE,</span>
+<span class="fc" id="L222">                            &quot;An offer on your listing '&quot; + listing.getTitle()</span>
+                                    + &quot;' was declined because the buyer's account was deactivated.&quot;);
+                }
+<span class="fc" id="L225">            }</span>
+
+<span class="fc" id="L227">            store.addAuditLogEntry(new AuditLogEntry(</span>
+<span class="fc" id="L228">                    admin.getUsername(), username, &quot;Deactivate account&quot;, cleanReason, null));</span>
+<span class="fc" id="L229">            notifications.send(username, NotificationCategory.ACCOUNT_CHANGE,</span>
+                    &quot;Your account has been deactivated. Reason: &quot; + cleanReason);
+<span class="fc" id="L231">            notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,</span>
+<span class="fc" id="L232">                    AccountNotices.deactivated(user, admin, cleanReason));</span>
+<span class="fc" id="L233">        });</span>
+<span class="fc" id="L234">    }</span>
+
+    /**
+     * Activates a deactivated user account (step 6.3.1): sets the account active, records an
+     * audit log entry and notifies the user. A seller's listings become visible again
+     * automatically; declined offers are not restored.
+     *
+     * @throws ServiceException if the account does not exist or is already active (A2)
+     */
+    public void activateUser(String username) {
+<span class="fc" id="L244">        Admin admin = AccessControl.requireAdmin();</span>
+
+<span class="fc" id="L246">        store.transaction(() -&gt; {</span>
+<span class="fc" id="L247">            User user = store.findUser(username);</span>
+<span class="fc bfc" id="L248" title="All 2 branches covered.">            if (user == null) {</span>
+<span class="fc" id="L249">                throw new ServiceException(&quot;This account no longer exists.&quot;);</span>
+            }
+<span class="fc bfc" id="L251" title="All 2 branches covered.">            if (user.isActive()) {</span>
+<span class="fc" id="L252">                throw new ServiceException(&quot;User is already active.&quot;);</span>
+            }
+
+<span class="fc" id="L255">            user.setActive(true);</span>
+
+<span class="fc" id="L257">            store.addAuditLogEntry(new AuditLogEntry(</span>
+<span class="fc" id="L258">                    admin.getUsername(), username, &quot;Activate account&quot;, null, null));</span>
+<span class="fc" id="L259">            notifications.send(username, NotificationCategory.ACCOUNT_CHANGE,</span>
+                    &quot;Your account has been activated.&quot;);
+<span class="fc" id="L261">            notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,</span>
+<span class="fc" id="L262">                    AccountNotices.activated(user, admin));</span>
+<span class="fc" id="L263">        });</span>
+<span class="fc" id="L264">    }</span>
+
+    // ==========================================
+    // Task 3.3: delete user (6.4)
+    // ==========================================
+
+    public void deleteUser(String username, String reason) {
+<span class="fc" id="L271">        Admin admin = AccessControl.requireAdmin();</span>
+<span class="fc" id="L272">        String cleanReason = requireReason(reason, &quot;A reason is required to delete an account.&quot;);</span>
+
+<span class="fc" id="L274">        store.transaction(() -&gt; {</span>
+<span class="fc" id="L275">            User user = store.findUser(username);</span>
+<span class="fc bfc" id="L276" title="All 2 branches covered.">            if (user == null) {</span>
+<span class="fc" id="L277">                throw new ServiceException(&quot;This account no longer exists.&quot;);</span>
+            }
+<span class="fc bfc" id="L279" title="All 2 branches covered.">            if (user instanceof Admin) {</span>
+<span class="fc" id="L280">                throw new ServiceException(&quot;An admin account cannot be deleted.&quot;);</span>
+            }
+
+<span class="fc" id="L283">            DeletedAccount deleted = store.deleteAccount(username);</span>
+
+<span class="fc" id="L285">            store.addAuditLogEntry(new AuditLogEntry(admin.getUsername(), username,</span>
+<span class="fc" id="L286">                    &quot;Delete account&quot;, cleanReason, deleted.snapshot()));</span>
+
+<span class="fc" id="L288">            notifications.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE,</span>
+<span class="fc" id="L289">                    AccountNotices.deleted(user, admin, cleanReason));</span>
+
+<span class="fc bfc" id="L291" title="All 2 branches covered.">            for (Offer offer : deleted.declinedOffers()) {</span>
+<span class="fc" id="L292">                Listing listing = store.getListingOf(offer);</span>
+<span class="fc bfc" id="L293" title="All 2 branches covered.">                String otherUser = user instanceof Buyer ? listing.getSellerUsername() : offer.getBuyerUsername();</span>
+
+<span class="fc" id="L295">                notifications.send(otherUser, NotificationCategory.OFFER_UPDATE,</span>
+<span class="fc" id="L296">                        &quot;An offer on '&quot; + listing.getTitle() + &quot;' was cancelled because an account was deleted.&quot;);</span>
+<span class="fc" id="L297">            }</span>
+<span class="fc" id="L298">        });</span>
+<span class="fc" id="L299">    }</span>
+    // ==========================================
+    // helpers
+    // ==========================================
+
+    /** The reason without surrounding spaces; refuses a missing or blank reason. */
+    private static String requireReason(String reason, String message) {
+<span class="fc bfc" id="L306" title="All 4 branches covered.">        if (reason == null || reason.isBlank()) {</span>
+<span class="fc" id="L307">            throw new ServiceException(message);</span>
+        }
+<span class="fc" id="L309">        return reason.strip();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

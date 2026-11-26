@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SellerProfile.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">SellerProfile.java</span></div><h1>SellerProfile.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.models.RatingSummary;
+import com.hkust.marketplace.models.Review;
+
+import java.util.List;
+import java.util.Objects;
+
+/**
+ * A seller as buyers see them (UC8 A3; Task 1.10: &quot;display the seller's average rating and
+ * reviews on their profile and on each of their listing detail pages&quot;). Reviews the admin
+ * hid are neither listed nor counted (UC8 Special Requirement 5).
+ *
+ * @param username      the seller's username
+ * @param fullName      the seller's full name, or the username if the account was deleted
+ * @param bio           the seller's bio, or null if there is none
+ * @param rating        the count and the average of the shown ratings
+ * @param reviews       the shown reviews, newest first, each with the seller's reply, if any
+ */
+public record SellerProfile(String username, String fullName, String bio, RatingSummary rating,
+                            List&lt;Review&gt; reviews) {
+
+    /** @throws IllegalArgumentException if the rating does not count exactly the reviews shown */
+<span class="fc" id="L24">    public SellerProfile {</span>
+<span class="fc" id="L25">        Objects.requireNonNull(username, &quot;username&quot;);</span>
+<span class="fc" id="L26">        Objects.requireNonNull(fullName, &quot;fullName&quot;);</span>
+<span class="fc" id="L27">        Objects.requireNonNull(rating, &quot;rating&quot;);</span>
+<span class="fc" id="L28">        reviews = List.copyOf(reviews);</span>
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        if (rating.count() != reviews.size()) {</span>
+<span class="fc" id="L30">            throw new IllegalArgumentException(&quot;The rating must count exactly the reviews shown.&quot;);</span>
+        }
+<span class="fc" id="L32">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

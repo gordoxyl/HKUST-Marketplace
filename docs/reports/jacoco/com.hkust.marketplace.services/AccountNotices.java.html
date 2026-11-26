@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AccountNotices.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">AccountNotices.java</span></div><h1>AccountNotices.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.models.Admin;
+import com.hkust.marketplace.models.User;
+
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * The wording of the notices about user accounts on the admins' Notification Board (Task 3.6, &quot;user account
+ * changes / updates&quot;; our spec UC4 Special Requirement 2, &quot;user account change&quot;; client question F4, decided by
+ * the team on 24 Nov 2026). Every change to a buyer's or seller's account is sent to every admin with
+ * {@code NotificationService.sendToAdmins(NotificationCategory.ACCOUNT_CHANGE, ...)}, so the board reads as the
+ * accounts' history:
+ * &lt;ul&gt;
+ *   &lt;li&gt;a new account (UC1 Register as Buyer, Register as Seller): {@link #created};&lt;/li&gt;
+ *   &lt;li&gt;a change a buyer or seller made to their own profile (UC3): {@link #profileChanged}, which names the
+ *       fields and never their values, so no password or bio text reaches the board;&lt;/li&gt;
+ *   &lt;li&gt;an admin's edit, deactivation, reactivation or deletion of an account (Manage All User Accounts
+ *       6.2-6.4): {@link #edited}, {@link #deactivated}, {@link #activated}, {@link #deleted}, with the admin
+ *       and, where one is required, the reason. The Audit Log keeps the full record and the snapshots.&lt;/li&gt;
+ * &lt;/ul&gt;
+ * An admin's own profile is not a user account change. The wording is kept in this one class, so the shared core
+ * and the admin portal word the history the same way.
+ */
+final class AccountNotices {
+
+    /** The profile fields {@link #profileChanged} can name, in the order of the profile form (UC3). */
+    static final String FULL_NAME = &quot;full name&quot;;
+    static final String PASSWORD = &quot;password&quot;;
+    static final String BIO = &quot;bio&quot;;
+    static final String MEETUP_LOCATIONS = &quot;meet-up locations&quot;;
+
+    private AccountNotices() {
+        // Utility class
+    }
+
+    /** &quot;New buyer account: Bea Chan (@bea).&quot; */
+    static String created(User user) {
+<span class="fc" id="L40">        return &quot;New &quot; + role(user) + &quot; account: &quot; + name(user) + &quot;.&quot;;</span>
+    }
+
+    /**
+     * &quot;Bea Chan (@bea) changed their profile: full name, password.&quot;
+     * @param fields the fields that changed, named with the constants above, in the order of the form; at least one
+     */
+    static String profileChanged(User user, List&lt;String&gt; fields) {
+<span class="fc" id="L48">        return name(user) + &quot; changed their profile: &quot; + String.join(&quot;, &quot;, fields) + &quot;.&quot;;</span>
+    }
+
+    /** &quot;@ada edited the buyer account of Bea Chan (@bea).&quot; */
+    static String edited(User user, Admin admin) {
+<span class="fc" id="L53">        return &quot;@&quot; + admin.getUsername() + &quot; edited &quot; + account(user) + &quot;.&quot;;</span>
+    }
+
+    /** &quot;@ada deactivated the buyer account of Bea Chan (@bea). Reason: Spam&quot; (the reason as the admin typed it). */
+    static String deactivated(User user, Admin admin, String reason) {
+<span class="fc" id="L58">        return &quot;@&quot; + admin.getUsername() + &quot; deactivated &quot; + account(user) + &quot;. Reason: &quot; + reason;</span>
+    }
+
+    /** &quot;@ada reactivated the buyer account of Bea Chan (@bea).&quot; */
+    static String activated(User user, Admin admin) {
+<span class="fc" id="L63">        return &quot;@&quot; + admin.getUsername() + &quot; reactivated &quot; + account(user) + &quot;.&quot;;</span>
+    }
+
+    /**
+     * &quot;@ada deleted the buyer account of Bea Chan (@bea). Reason: Spam&quot; (the reason as the admin typed it).
+     * @param user the account as it was before the deletion, for its name and role
+     */
+    static String deleted(User user, Admin admin, String reason) {
+<span class="fc" id="L71">        return &quot;@&quot; + admin.getUsername() + &quot; deleted &quot; + account(user) + &quot;. Reason: &quot; + reason;</span>
+    }
+
+    private static String account(User user) {
+<span class="fc" id="L75">        return &quot;the &quot; + role(user) + &quot; account of &quot; + name(user);</span>
+    }
+
+    private static String name(User user) {
+<span class="fc" id="L79">        return user.getFullName() + &quot; (@&quot; + user.getUsername() + &quot;)&quot;;</span>
+    }
+
+    private static String role(User user) {
+<span class="fc" id="L83">        return user.getRole().name().toLowerCase(Locale.ROOT);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

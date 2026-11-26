@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OfferService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">HKUST Marketplace</a> &gt; <a href="index.source.html" class="el_package">com.hkust.marketplace.services</a> &gt; <span class="el_source">OfferService.java</span></div><h1>OfferService.java</h1><pre class="source lang-java linenums">package com.hkust.marketplace.services;
+
+import com.hkust.marketplace.data.DataStore;
+import com.hkust.marketplace.models.BorrowRequest;
+import com.hkust.marketplace.models.Buyer;
+import com.hkust.marketplace.models.Claim;
+import com.hkust.marketplace.models.LendListing;
+import com.hkust.marketplace.models.Listing;
+import com.hkust.marketplace.models.NotificationCategory;
+import com.hkust.marketplace.models.Offer;
+import com.hkust.marketplace.models.OfferStatus;
+import com.hkust.marketplace.models.PriceOffer;
+import com.hkust.marketplace.models.SaleListing;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.OptionalDouble;
+import java.util.function.Supplier;
+
+/**
+ * UC5 Make Offer, for the Buyer (Task 1.5): a price offer on a sale listing, a borrow request
+ * on a lend listing, or a claim on a giveaway.
+ *
+ * &lt;p&gt;&lt;b&gt;Design (Lecture 15).&lt;/b&gt; This is the use case's control class. Its boundary classes
+ * are the buyer's screens ({@code controllers.buyer.MakeOfferFlow} and its dialogs); its
+ * entity classes are {@link Offer} and its subclasses, {@link Listing}, the chat thread and
+ * {@link DataStore}. The screens hold no rule: they pass on what the buyer typed and show
+ * what comes back.
+ *
+ * &lt;p&gt;&lt;b&gt;How a screen uses it&lt;/b&gt;, in the order of the use case:
+ * &lt;pre&gt;{@code
+ * OfferForm form = offers.start(listingId);                 // steps 1-4: available? what to suggest?
+ * Offer sent = offers.submitPriceOffer(listingId, typed);   // steps 5-9, for a sale listing
+ * Offer sent = offers.submitBorrowRequest(listingId, start, end);   // for a lend listing
+ * Offer sent = offers.submitClaim(listingId);               // for a giveaway: no form (step 3)
+ * OfferForm form = offers.startFromCounter(offerId);        // step 1, agreeing to a seller's counter
+ * }&lt;/pre&gt;
+ *
+ * &lt;p&gt;&lt;b&gt;Defensive programming (Lecture 10).&lt;/b&gt; Everything that arrives here is untrusted: the
+ * price is still the text the buyer typed, a date may be missing, and the listing may have
+ * changed since the screen was drawn. The {@code submit} methods are the barricade: they
+ * check the terms (A2, A3) and the availability (A1) and refuse with a
+ * {@link ServiceException} written for the buyer. Behind the barricade the model classes take
+ * clean values, and their own checks ({@code IllegalArgumentException}) only guard against
+ * programming errors.
+ *
+ * &lt;p&gt;&lt;b&gt;Atomic step (Special Requirement 2).&lt;/b&gt; The last availability check and the recording
+ * of the offer are one {@link DataStore#transaction}, so of two buyers who claim the same
+ * giveaway at the same moment only the first succeeds.
+ */
+public class OfferService {
+
+    /** UC5 A2: the price is empty, not a number, or not positive. */
+    static final String INVALID_PRICE = &quot;The price must be a positive amount, such as 150 or 99.50.&quot;;
+    /** UC5 A3: a date is missing. */
+    static final String PERIOD_INCOMPLETE = &quot;Please enter both the start and the end of the borrow period, &quot;
+            + &quot;each with a date and a time.&quot;;
+    /** UC5 A3: the start is in the past. */
+    static final String PERIOD_STARTS_IN_PAST = &quot;The borrow period cannot start in the past.&quot;;
+    /** UC5 A3: the period is shorter than the minimum borrow time (Special Requirement 3). */
+<span class="fc" id="L62">    static final String PERIOD_TOO_SHORT = &quot;The borrow period must end at least &quot;</span>
+<span class="fc" id="L63">            + LendListing.formatDuration(BorrowRequest.MIN_BORROW_TIME) + &quot; after it starts.&quot;;</span>
+
+    /** The suggested borrow period starts this far ahead, so it has not already begun when the buyer submits. */
+<span class="fc" id="L66">    static final Duration SUGGESTED_START_DELAY = Duration.ofMinutes(1);</span>
+
+    private final DataStore store;
+    private final NotificationService notifications;
+
+    public OfferService() {
+<span class="fc" id="L72">        this(DataStore.getInstance());</span>
+<span class="fc" id="L73">    }</span>
+
+<span class="fc" id="L75">    public OfferService(DataStore store) {</span>
+<span class="fc" id="L76">        this.store = store;</span>
+<span class="fc" id="L77">        this.notifications = new NotificationService(store);</span>
+<span class="fc" id="L78">    }</span>
+
+    // ========== Check Availability and Enter Terms (UC5 steps 1-4) ==========
+
+    /**
+     * Begins Make Offer on a listing, from the action button on its detail screen or the Make
+     * Offer option in its chat: checks that the listing is available and returns what the form
+     * starts with. For a sale that is the listing's price, for a lend listing a period that
+     * starts in a minute and lasts the listing's lending duration; the buyer corrects them.
+     * @throws ListingUnavailableException if the listing is not available (A1)
+     */
+    public OfferForm start(String listingId) {
+<span class="fc" id="L90">        AccessControl.requireBuyer();</span>
+<span class="fc" id="L91">        return store.read(() -&gt; form(requireAvailable(listingId), null));</span>
+    }
+
+    /**
+     * Begins Make Offer by agreeing to a seller's counter on one of the buyer's earlier offers
+     * (step 1): the form starts with the counter's price or dates (step 4). Submitting it makes
+     * a new offer for the seller to accept or decline; the countered offer itself stays as it
+     * is (Special Requirements 4 and 5).
+     * @throws ServiceException            if there is no such offer of this buyer, or the seller has not countered it
+     * @throws ListingUnavailableException if the listing is not available (A1)
+     */
+    public OfferForm startFromCounter(String offerId) {
+<span class="fc" id="L103">        Buyer buyer = AccessControl.requireBuyer();</span>
+<span class="fc" id="L104">        return store.read(() -&gt; {</span>
+<span class="fc" id="L105">            Offer countered = store.findOffer(offerId);</span>
+<span class="fc bfc" id="L106" title="All 4 branches covered.">            if (countered == null || !countered.getBuyerUsername().equalsIgnoreCase(buyer.getUsername())) {</span>
+<span class="fc" id="L107">                throw new ServiceException(&quot;This is not one of your offers.&quot;);</span>
+            }
+<span class="fc bfc" id="L109" title="All 2 branches covered.">            if (countered.getStatus() != OfferStatus.COUNTERED) {</span>
+<span class="fc" id="L110">                throw new ServiceException(&quot;The seller has not countered this &quot; + countered.getKindName() + &quot;.&quot;);</span>
+            }
+<span class="fc" id="L112">            return form(requireAvailable(countered.getListingId()), countered);</span>
+        });
+    }
+
+    /** @param countered the offer whose counter the buyer agrees to, or null for a fresh offer */
+    private OfferForm form(Listing listing, Offer countered) {
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        if (listing instanceof SaleListing sale) {</span>
+<span class="fc bfc" id="L119" title="All 2 branches covered.">            double price = countered instanceof PriceOffer offer ? offer.getCounterPrice() : sale.getPrice();</span>
+<span class="fc" id="L120">            return new OfferForm(listing, Amounts.plain(price), null, null);</span>
+        }
+<span class="fc bfc" id="L122" title="All 2 branches covered.">        if (listing instanceof LendListing lend) {</span>
+<span class="fc bfc" id="L123" title="All 2 branches covered.">            if (countered instanceof BorrowRequest request) {</span>
+<span class="fc" id="L124">                return new OfferForm(listing, &quot;&quot;, request.getCounterStartDate(), request.getCounterEndDate());</span>
+            }
+<span class="fc" id="L126">            LocalDateTime start = store.now().plus(SUGGESTED_START_DELAY).truncatedTo(ChronoUnit.SECONDS);</span>
+<span class="fc" id="L127">            return new OfferForm(listing, &quot;&quot;, start, start.plus(lend.getLendingDuration()));</span>
+        }
+<span class="fc" id="L129">        return new OfferForm(listing, &quot;&quot;, null, null); // a giveaway: a claim needs no input (step 3)</span>
+    }
+
+    // ========== Check Terms and Record Offer (UC5 steps 5-9) ==========
+
+    /**
+     * Submits a price offer on a sale listing.
+     * @param price the price as the buyer typed it, in HK$
+     * @return the new offer, Pending
+     * @throws ServiceException            if the price is empty, not a number or not positive (A2); nothing is recorded
+     * @throws ListingUnavailableException if the listing is no longer available (A1); nothing is recorded
+     */
+    public Offer submitPriceOffer(String listingId, String price) {
+<span class="fc" id="L142">        Buyer buyer = AccessControl.requireBuyer();</span>
+<span class="fc" id="L143">        OptionalDouble amount = Amounts.parse(price);</span>
+<span class="fc bfc" id="L144" title="All 4 branches covered.">        if (amount.isEmpty() || amount.getAsDouble() &lt;= 0) {</span>
+<span class="fc" id="L145">            throw new ServiceException(INVALID_PRICE);</span>
+        }
+<span class="fc" id="L147">        return record(buyer, listingId, () -&gt; new PriceOffer(listingId, buyer.getUsername(), amount.getAsDouble()));</span>
+    }
+
+    /**
+     * Submits a borrow request on a lend listing, for the period from start to end.
+     * @param start null if the buyer gave no complete start date and time
+     * @param end   null if the buyer gave no complete end date and time
+     * @return the new borrow request, Pending
+     * @throws ServiceException            if a date is missing, the start is in the past, or the period is
+     *                                     shorter than the minimum borrow time (A3); the message says which
+     * @throws ListingUnavailableException if the listing is no longer available (A1)
+     */
+    public Offer submitBorrowRequest(String listingId, LocalDateTime start, LocalDateTime end) {
+<span class="fc" id="L160">        Buyer buyer = AccessControl.requireBuyer();</span>
+<span class="fc" id="L161">        checkPeriod(start, end);</span>
+<span class="fc" id="L162">        return record(buyer, listingId, () -&gt; new BorrowRequest(listingId, buyer.getUsername(), start, end));</span>
+    }
+
+    /**
+     * Claims a giveaway with one action (Task 1.5); a claim has no terms to check.
+     * @return the new claim, Pending
+     * @throws ListingUnavailableException if the giveaway is no longer available, for example
+     *                                     because another buyer's claim is pending (A1)
+     */
+    public Offer submitClaim(String listingId) {
+<span class="fc" id="L172">        Buyer buyer = AccessControl.requireBuyer();</span>
+<span class="fc" id="L173">        return record(buyer, listingId, () -&gt; new Claim(listingId, buyer.getUsername()));</span>
+    }
+
+    /**
+     * UC5 A3, in the order the use case names the problems. Three decisions, one of them with
+     * two conditions, give a cyclomatic complexity of 5; OfferServiceTest has a test for each
+     * of the five independent paths (Lecture 12, basis path testing).
+     */
+    private void checkPeriod(LocalDateTime start, LocalDateTime end) {
+<span class="fc bfc" id="L182" title="All 4 branches covered.">        if (start == null || end == null) {</span>
+<span class="fc" id="L183">            throw new ServiceException(PERIOD_INCOMPLETE);</span>
+        }
+<span class="fc bfc" id="L185" title="All 2 branches covered.">        if (start.isBefore(store.now())) {</span>
+<span class="fc" id="L186">            throw new ServiceException(PERIOD_STARTS_IN_PAST);</span>
+        }
+<span class="fc bfc" id="L188" title="All 2 branches covered.">        if (Duration.between(start, end).compareTo(BorrowRequest.MIN_BORROW_TIME) &lt; 0) {</span>
+<span class="fc" id="L189">            throw new ServiceException(PERIOD_TOO_SHORT);</span>
+        }
+<span class="fc" id="L191">    }</span>
+
+    /**
+     * UC5 steps 7 and 8 as one atomic step (Special Requirement 2): checks again that the
+     * listing is available, records the offer as Pending in the chat thread between the buyer
+     * and the listing (the store creates the thread if needed), and notifies the seller.
+     * @param newOffer makes the offer from terms that were already checked
+     */
+    private Offer record(Buyer buyer, String listingId, Supplier&lt;Offer&gt; newOffer) {
+<span class="fc" id="L200">        return store.transaction(() -&gt; {</span>
+<span class="fc" id="L201">            Listing listing = requireAvailable(listingId);</span>
+<span class="fc" id="L202">            Offer offer = newOffer.get();</span>
+<span class="fc bfc" id="L203" title="All 2 branches covered.">            if (!offer.canBeMadeOn(listing)) {</span>
+<span class="fc" id="L204">                throw new ServiceException(&quot;A &quot; + offer.getKindName() + &quot; cannot be made on a &quot;</span>
+<span class="fc" id="L205">                        + listing.getType().getDisplayName().toLowerCase() + &quot; listing.&quot;);</span>
+            }
+<span class="fc" id="L207">            store.addOffer(offer);</span>
+<span class="fc" id="L208">            notifications.send(listing.getSellerUsername(), NotificationCategory.OFFER_RECEIVED,</span>
+<span class="fc" id="L209">                    news(buyer.getFullName(), offer, listing));</span>
+
+            // Postconditions of the use case. Assertions document and verify what must hold
+            // here; they are not input checks (Lecture 10).
+<span class="pc bpc" id="L213" title="1 of 2 branches missed.">            assert offer.getStatus() == OfferStatus.PENDING : &quot;a new offer is Pending&quot;;</span>
+<span class="pc bpc" id="L214" title="1 of 2 branches missed.">            assert store.findThread(buyer.getUsername(), listingId) != null : &quot;the offer is in the buyer's chat thread&quot;;</span>
+<span class="fc" id="L215">            return offer;</span>
+        });
+    }
+
+    /** UC5 A1, used at {Check Availability} and again at {Record Offer}. */
+    private Listing requireAvailable(String listingId) {
+<span class="fc" id="L221">        Listing listing = store.findListing(listingId);</span>
+<span class="fc bfc" id="L222" title="All 4 branches covered.">        if (listing == null || !store.isAvailable(listing)) {</span>
+<span class="fc" id="L223">            throw new ListingUnavailableException();</span>
+        }
+<span class="fc" id="L225">        return listing;</span>
+    }
+
+    /** What the seller's notification says (step 8). */
+    private static String news(String buyerName, Offer offer, Listing listing) {
+<span class="fc" id="L230">        String title = &quot;'&quot; + listing.getTitle() + &quot;'&quot;;</span>
+<span class="fc bfc" id="L231" title="All 2 branches covered.">        if (offer instanceof PriceOffer price) {</span>
+<span class="fc" id="L232">            return buyerName + &quot; made a price offer of &quot; + SaleListing.formatPrice(price.getOfferedPrice())</span>
+                    + &quot; for &quot; + title + &quot;.&quot;;
+        }
+<span class="fc bfc" id="L235" title="All 2 branches covered.">        if (offer instanceof BorrowRequest) {</span>
+<span class="fc" id="L236">            return buyerName + &quot; sent a borrow request for &quot; + title + &quot;.&quot;;</span>
+        }
+<span class="fc" id="L238">        return buyerName + &quot; claimed &quot; + title + &quot;.&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

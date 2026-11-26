@@ -182,9 +182,9 @@ class PersistenceTest {
         DataStore store = new DataStore(clock, storage);
 
         AuditLogEntry deletion = store.addAuditLogEntry(
-                new AuditLogEntry("com/hkust/marketplace/controllers/admin", "bob", "Deleted account", "Spam", "@bob: 2 listings, 1 review"));
+                new AuditLogEntry("admin", "bob", "Deleted account", "Spam", "@bob: 2 listings, 1 review"));
         AuditLogEntry hiding = store.addAuditLogEntry(
-                new AuditLogEntry("com/hkust/marketplace/controllers/admin", "carol", "Hid a review", "Offensive", null));
+                new AuditLogEntry("admin", "carol", "Hid a review", "Offensive", null));
 
         assertEquals(Optional.of("@bob: 2 listings, 1 review"), store.readAuditSnapshotFile(deletion.getLogReference()));
         assertTrue(Files.exists(storage.getAuditFolder().resolve(deletion.getLogReference() + ".txt")));

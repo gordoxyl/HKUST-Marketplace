@@ -19,6 +19,7 @@ import javafx.scene.control.DatePicker;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Labeled;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
@@ -211,13 +212,15 @@ public final class OffScreenApp {
 
     /**
      * Opens every page of the sidebar in turn, except Logout, and looks for text cut short for
-     * lack of room ({@link #cutTexts()}) at the app's window size.
+     * lack of room at the app's window size: on labels and buttons ({@link #cutTexts()}), and the
+     * hints of empty text fields ({@link #cutPrompts()}).
      * @return the pages that cut some text, each with those texts; empty when no page does
      */
     public Map<String, List<String>> cutTextsOnEveryPage() {
         Map<String, List<String>> cut = new LinkedHashMap<>();
         forEveryPage(page -> {
-            List<String> texts = cutTexts();
+            List<String> texts = new ArrayList<>(cutTexts());
+            texts.addAll(cutPrompts());
             if (!texts.isEmpty()) {
                 cut.put(page, texts);
             }
@@ -289,6 +292,18 @@ public final class OffScreenApp {
         return read(() -> field(root(), field, 0).getText());
     }
 
+    /**
+     * True if the user can type into the field with this id or prompt text, or the first field
+     * after the label with this text: false while it, or the form around it, is disabled, and
+     * for a read-only field.
+     */
+    public boolean canType(String field) {
+        return read(() -> {
+            TextInputControl input = field(root(), field, 0);
+            return !input.isDisabled() && input.isEditable();
+        });
+    }
+
     /** The titles of the cards shown (listings, deals, chats), in the order the window shows them. */
     public List<String> cardTitles() {
         return read(() -> all(root()).stream()
@@ -346,6 +361,33 @@ public final class OffScreenApp {
         String text = labeled.getText();
         return text != null && !text.isBlank() && labeled.getChildrenUnmodifiable().stream()
                 .anyMatch(drawn -> drawn instanceof Text shown && !text.equals(shown.getText()));
+    }
+
+    /**
+     * The hints (prompt texts) of the empty text fields shown that are wider than their field, such
+     * as a hint that shows only "Leave empty to keep 1 da". A field cuts its hint off at its edge,
+     * without "…", so {@link #cutTexts()} cannot see it.
+     */
+    public List<String> cutPrompts() {
+        return read(() -> all(root()).stream()
+                .filter(node -> node instanceof TextField && isShown(node))
+                .map(node -> (TextField) node)
+                .filter(OffScreenApp::isPromptCut)
+                .map(TextField::getPromptText)
+                .toList());
+    }
+
+    /** True if the field is empty and its hint, in the field's font, is wider than the room inside the field. */
+    private static boolean isPromptCut(TextField field) {
+        String prompt = field.getPromptText();
+        String text = field.getText(); // null shows the hint too
+        if (prompt == null || prompt.isBlank() || (text != null && !text.isEmpty())) {
+            return false;
+        }
+        Text hint = new Text(prompt);
+        hint.setFont(field.getFont());
+        double room = field.getWidth() - field.getInsets().getLeft() - field.getInsets().getRight();
+        return hint.getLayoutBounds().getWidth() > room;
     }
 
     /** How many photo frames on the window show their photo. Photos load in the background. */

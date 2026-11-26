@@ -1,7 +1,9 @@
 package com.hkust.marketplace.controllers.admin;
 
 import com.hkust.marketplace.data.SeedData;
+import com.hkust.marketplace.models.ItemCondition;
 import com.hkust.marketplace.models.LendListing;
+import com.hkust.marketplace.models.SaleListing;
 import com.hkust.marketplace.testsupport.OffScreenApp;
 import com.hkust.marketplace.testsupport.ScreenData;
 import com.hkust.marketplace.ui.NotificationDot;
@@ -13,8 +15,11 @@ import java.time.Duration;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** The admin's listing screens, through the real screens off screen (regression log R16, R17). */
+/** The admin's listing screens, through the real screens off screen (regression log R16, R17, R20). */
 class AdminListingScreensTest {
 
     private static OffScreenApp app;
@@ -41,8 +46,54 @@ class AdminListingScreensTest {
 
         assertEquals("", app.valueOf("Leave empty to keep 1 day 12 hours")); // R16: the hint names the duration
         assertEquals(List.of(), app.cutTexts());                              // R17: "days", not "…"
+        assertEquals(List.of(), app.cutPrompts());                            // R20: the hint shows in full
         app.press("Save");
         assertEquals(Duration.ofHours(36), loan.getLendingDuration());        // R14 still holds
+    }
+
+    @Test
+    void editingAListing_keepsItsCondition_orSavesTheOneChosen() {
+        data.seller("condseller", "Condition Seller");
+        SaleListing lamp = data.sale("condseller", "Condition Desk Lamp", 120); // listed as Used
+        app.logIn("Enter as Admin", "admin", SeedData.ADMIN_PASSWORD);
+        app.press("All Listings");
+
+        app.press("Edit", "Condition Desk Lamp");
+        app.press("Save"); // the form shows the listing's own condition, which is required
+        assertEquals(List.of("Listing updated: The seller has been notified."), app.dialogs());
+        assertEquals(ItemCondition.USED, lamp.getCondition());
+
+        app.press("Edit", "Condition Desk Lamp");
+        app.choose("Like New");
+        app.press("Save");
+        assertEquals(ItemCondition.LIKE_NEW, lamp.getCondition()); // Task 3.7: edit any listing details
+    }
+
+    @Test
+    void addingAListing_takesAPriceOnlyForSell_andADurationOnlyForLend() {
+        app.logIn("Enter as Admin", "admin", SeedData.ADMIN_PASSWORD);
+        app.press("All Listings");
+        app.press("+ Add Listing");
+        assertFalse(app.canType("Price (Sell only)"));             // no type chosen yet
+        assertFalse(app.canType("Lending duration (Lend only)"));
+
+        app.choose("Sell");
+        assertTrue(app.canType("Price (Sell only)"));
+        assertFalse(app.canType("Lending duration (Lend only)"));
+        assertThrows(AssertionError.class, () -> app.choose("hours")); // the unit box is disabled too
+        app.type("Price (Sell only)", "120");
+
+        app.choose("Lend");
+        assertFalse(app.canType("Price (Sell only)"));
+        assertEquals("", app.valueOf("Price (Sell only)"));        // the price typed for Sell is not kept
+        assertTrue(app.canType("Lending duration (Lend only)"));
+        app.choose("hours");                                        // the unit box can be used
+        app.type("Lending duration (Lend only)", "7");
+
+        app.choose("Giveaway");
+        assertFalse(app.canType("Price (Sell only)"));
+        assertFalse(app.canType("Lending duration (Lend only)"));
+        assertEquals("", app.valueOf("Lending duration (Lend only)"));
     }
 
     private static final String DOT = "#" + NotificationDot.ID;
@@ -55,11 +106,11 @@ class AdminListingScreensTest {
 
     @Test
     void theDot_risesAfterTheAdminsOwnEdit_whenSaveReturnsToManageUsers() {
-        data.seller("dotseller", "Dot Seller");
+        data.seller("admindotseller", "Admin Dot Seller");
         app.logIn("Enter as Admin", "admin", SeedData.ADMIN_PASSWORD);
         int before = dot();
         app.press("Manage Users");
-        app.press("Edit", "Dot Seller");
+        app.press("Edit", "Admin Dot Seller");
         app.type("Full name (required)", "Dot Seller Renamed");
         app.press("Save");
 

@@ -39,15 +39,15 @@ the client (TA) answered differently: `docs/client-answers.md` wins over the spe
 
 ## 2. What is already done for the admin
 
-| Admin use case (task) | Already provided (shared core) | Status on `main` (25 Nov 2026) |
+| Admin use case (task) | Already provided (shared core) | Status on `main` (26 Nov 2026) |
 |---|---|---|
 | Login (3.1) | `AuthService.login(username, password, UserRole.ADMIN)`; seeded `admin` / `Admin@1234` | done |
 | Own profile (3.4) | `ProfileService.updateProfile`, shared `ui/ProfileView`, wired | done |
-| Notification board (3.6) | `NotificationService`, shared `ui/NotificationBoard`, wired; `services/AccountNotices` | done: the accounts' history. New accounts and users' own profile changes are sent by the shared core; the admin's own edit, deactivate, reactivate and delete by `AdminUserService` (PR #23) |
+| Notification board (3.6) | `NotificationService`, shared `ui/NotificationBoard` and `ui/NotificationDot`, wired; `services/AccountNotices` | done: the accounts' history, and the unread dot (51a26e7). New accounts and users' own profile changes are sent by the shared core; the admin's own edit, deactivate, reactivate and delete by `AdminUserService` (PR #23) |
 | Listing Review (3.2) | `Listing.approve()/reject()`, `ListingActionRecord`, `ui/ListingCard` (admin view) | done (`AdminListingService.approveListing` / `rejectListing`, reason through `Dialogs.askReason`) |
-| Manage All Listings (3.7) | `Listing.remove()`, setters, `store.addListing`, `DealRules.declineOpenOffers`, `PhotoService` | done (`AdminListingService`: edit, add with photos, remove with a reason, open offers declined; photos in Add / Edit from PR #23) |
+| Manage All Listings (3.7) | `Listing.remove()`, setters, `store.addListing`, `DealRules.declineOpenOffers`, `PhotoService` | done (`AdminListingService`: edit, the condition included (assumptions register 94); add with photos, a price only for Sell and a duration only for Lend; remove with a reason, open offers declined; photos in Add / Edit from PR #23) |
 | Users (3.3) | `User.setActive`, **`store.deleteAccount`**, `AuditLogEntry`, `store.addAuditLogEntry` | done (`AdminUserService`: details, edit, deactivate, activate, delete with the Audit Log entry; the registration-date filter and the text search inside `findUsers` from PR #23) |
-| Seller Ratings (3.8) | `getReviewsForSellerIncludingHidden`, `Review.setHidden`, rating/stat queries, `getReviewerName` (writer's name, "Deleted User" for a deleted buyer) | done (`AdminReputationService`: ratings, reviews with filters, hide with a reason) |
+| Seller Ratings (3.8) | `getReviewsForSellerIncludingHidden`, `Review.setHidden`, rating/stat queries, `getReviewerName` (writer's name, "Deleted User" for a deleted buyer) | done (`AdminReputationService`: ratings, reviews with filters, hide with a reason); each review shows the seller's reply under its comment (`ui/ReviewText.reply`, Manage Reviews 3.1.5) |
 | All Deals Record (3.5) | `store.getAllOffers`, `store.getListingOf`, `ui/OfferText` | done (`AdminDealService`: filters, details, CSV export). Start Date (client answer #4): a loan's agreed borrow start (`BorrowRequest.getProposedStartDate()` of the accepted request), otherwise `getAcceptedDate()` |
 
 `controllers/admin/AdminDashboardController` implements `ContentHost` (`show(title, node)`), has
@@ -246,6 +246,10 @@ The average rating is recalculated automatically.
 - Buttons beside a field that grows (a message box, a search box) keep the width their text needs:
   `button.setMinWidth(Region.USE_PREF_SIZE)`. Otherwise a narrow row cuts their text to "…" (regression log R15).
   `PortalScreensTest` fails if any page cuts a button or label short at the app's window size.
+- A text field narrower than its hint (prompt text) cuts the hint at its edge, without "…": let the field take its
+  row's free width (`HBox.setHgrow(field, Priority.ALWAYS)`), or give its width in characters (`setPrefColumnCount`)
+  rather than pixels. `OffScreenApp.cutPrompts()` finds such hints, and `PortalScreensTest` checks every page for them
+  (regression log R20, R22).
 - `UserRole.getDisplayName()`: "Buyer", "Seller", "Admin" for screens (its `toString()` stays "BUYER": the Audit
   Log's account snapshots record it that way).
 - CSS classes in `css/styles.css`: `card`, `badge` + `badge-live|pending|sold|rejected`, `btn-primary`,
@@ -303,21 +307,19 @@ Examples to copy: `DealRulesTest`, `AccountDeletionTest`, `AccountDeletionFlowTe
 (`adminDeactivationAndReviewHiding_surviveARestart`, `auditEntryWithASnapshot_alsoWritesAnEncryptedTxtFile`).
 Demo logins: admin `admin` / `Admin@1234`; sellers `charlie`, `diana`; buyers `alice`, `bob` (`Demo@1234`).
 
-**Screen tests (24 Nov 2026).** On every build, `controllers/PortalScreensTest.adminPortal_everyPageOpens` logs in as `admin` on the welcome screen and presses every sidebar button except Logout. It fails if a page throws while opening, opens any dialog, has a blank title, or has the same title as another page. Adding or renaming pages needs no change to it. To test a page's own buttons, add a class like `controllers/buyer/BuyerScreensTest` in `controllers/admin`:
-
+**Screen tests (24 Nov 2026).** On every build, `controllers/PortalScreensTest.adminPortal_everyPageOpens` logs in as `admin` on the welcome screen and presses every sidebar button except Logout. It fails if a page throws while opening, opens any dialog, has a blank title, has the same title as another page, or cuts a text or a field's hint short. Adding or renaming pages needs no change to it. A page's own buttons are tested in `controllers/admin` (`AdminListingScreensTest`, `AdminRatingsScreensTest`), for example:
 ```java
-
 @Test
 void editOpensTheListingForm() { // app = OffScreenApp.start() in @BeforeAll, app.reset() in @AfterEach
-  app.logIn("Enter as Admin", "com/hkust/marketplace/controllers/admin", SeedData.ADMIN_PASSWORD);
-  app.press("All Listings");
-  app.press("Edit", "IKEA Desk Lamp");    // the "Edit" button on the card that shows this text
-  assertEquals(1, app.dialogs().size());  // every dialog is answered Cancel, or its only button
+    app.logIn("Enter as Admin", "admin", SeedData.ADMIN_PASSWORD);
+    app.press("All Listings");
+    app.press("Edit", "IKEA Desk Lamp");          // the "Edit" button on the card that shows this text
+    assertEquals("Edit Listing", app.pageTitle()); // the form opens inside the app, with Back to All Listings
 }
 ```
-To fill in and submit a dialog instead, give its answer before the step: `app.answer("Edit listing", form -> form.type(...).press(...))`. The screens use the app's store, which in a test run is a temporary folder with the demo data, shared by all screen tests (storage manual §9.8). Do not depend on what another test changed; a test that changes data adds its own with `testsupport/ScreenData`. Examples to copy: `controllers/buyer/MakeOfferScreensTest`, `MyDealsScreensTest`.
+A form inside the app is filled in on the page (`app.type(...)`, `app.choose(...)`, `app.press("Save")`); a dialog is answered before the step that opens it, for example `app.answer("Hide review", form -> form.type(...).press(...))`. The screens use the app's store, which in a test run is a temporary folder with the demo data, shared by all screen tests (storage manual §9.8). Do not depend on what another test changed; a test that changes data adds its own with `testsupport/ScreenData`, under usernames no other test uses (`ScreenData` fails on a taken one, regression log T6). Examples to copy: `controllers/admin/AdminListingScreensTest`, `controllers/buyer/MakeOfferScreensTest`, `MyDealsScreensTest`.
 
-## 9. Known gaps on the admin side (as of 2026-11-25, night)
+## 9. Known gaps on the admin side (as of 2026-11-26)
 
 Tasks 3.1 to 3.8 are all merged. Every admin screen calls its service: `AdminListingService` (PR #10), and
 `AdminUserService`, `AdminDealService` and `AdminReputationService` (PR #17). PR #23 (29193ec) added photos in Add / Edit
@@ -328,46 +330,46 @@ View and Edit user and the deal details open inside the app with "← Back to �
 date pickers use the shared converter, the filters say Search and Reset, deal types read Sell / Lend / Giveaway, the page
 titles match the sidebar, the compiler warnings are gone, and the acceptance scenarios were corrected.
 
+PR #34 (51a26e7, f8ef9c0) fixed R16 and R17, added the unread dot (§10), showed View listing through `ListingOverview`,
+named the roles with `UserRole.getDisplayName()`, made Remove ask first on both screens, showed the price on Edit as
+typed ("250"), and kept the filters when going back to All Listings. After it, on 26 Nov: Edit listing shows and saves
+the condition (assumptions register 94); Add listing takes a price only for Sell and a duration only for Lend, as the
+seller's Create Listing does; the review rows show the seller's reply (R21); the duration's hint (R20) and the user
+search box's hint (R22) show in full; and the comments that numbered the review notes now say what the code does.
+
 Follow-ups, none of them blocking the build:
-- **Two regressions from PR #24, to fix first** (one line each; to log as R16 and R17):
-  - editing a lend listing, the empty duration field's hint shows whole days ("e.g. 1" for a 36-hour loan) instead of
-    "Leave empty to keep 1 day 12 hours", which invites R14's outcome;
-  - on Edit and Add listing, the unit box shows "…" instead of "days": `unitBox.setPrefWidth(100)` is too narrow with
-    the app's styles.
-- **The shared UI** (§10): the unread dot; View listing through `ListingOverview` instead of its own copy of the photos,
-  fields and description; roles through `UserRole.getDisplayName()` instead of the hand-made mapping.
-- **Smaller:** Edit listing shows a Condition box that starts empty and is ignored (spec 5.4.2 doesn't make Condition
-  editable); Remove on the listing's detail screen doesn't confirm first, as Remove on the card does; Back from a detail
-  screen builds the list again, so its filters reset; Edit listing shows the price as "250.0" (`Amounts.plain` gives
-  "250"); AT-UC4A-12 still says OK where the form says Save.
 - **Optional:** parse the price in `AdminListingService` (the barricade) rather than in the screen; `createReviewRow`
-  could get its data from the service; runs of 2+ blank lines remain in `AdminUserServiceTest`, `AdminListingServiceTest`,
-  `AdminUserService` and `AdminTestSupport`.
-- **Already right:** at the app's window size, no admin page cuts a button or label short (`PortalScreensTest`).
+  could get its data from the service; `addListing` and `editListing` are above the course's complexity of 10 (one
+  `requireListingFields(...)` for the checks they share would help); runs of 2+ blank lines remain in
+  `AdminUserServiceTest`, `AdminListingServiceTest`, `AdminAccessControlTest`, `AdminUserService` and `AdminTestSupport`.
+- **Already right:** at the app's window size, no admin page cuts a button, a label or a field's hint short
+  (`PortalScreensTest`).
 
 ## 10. Added on 25 Nov 2026: the shared UI changes, and what the admin portal adds
 
-Five UI changes were made in the shared core, the same in every portal (assumptions registers 89 to 93):
+Five UI changes were made in the shared core, the same in every portal (assumptions registers 89 to 93). Three apply
+to the admin portal, which has no chat (89 and 90 are the chat's): Mark all as read and the category filter come with
+the shared board, and the unread dot came with PR #34 (51a26e7):
 - **Nothing to do:** the Notification Board has **Mark all as read** (while anything is unread) and a **category
   filter**. The admins' board is the busiest (every account change, listing submission and report), so Mark all as
   read helps most here.
-- **Three lines for the unread dot** (the red number on the sidebar's Notifications button):
+- **The unread dot** (the red number on the sidebar's Notifications button), three lines in `AdminDashboardController`:
   - at the end of `initialize()`: `NotificationDot.attach(btnNotifications, new NotificationService());`
   - at the end of `setActive(Button btn, String title)`: `NotificationDot.update();`
   - at the end of `show(String title, Node content)`: `NotificationDot.update();`
 
-  The admin's sidebar pages fill `contentPane` themselves and never call `show(...)`, so the update in `setActive`
+  Listing Review, All Listings, Manage Users, All Deals and Seller Ratings fill `contentPane` themselves and never
+  call `show(...)`, so the update in `setActive`
   is the one that runs on every page. It matters here: an admin's own account action notifies every admin, the one
   who acted included (F4), and Edit user → Save returns through `showUsers()`, which calls only `setActive`. Without
   that line the dot stays at 1 after the Save; with it, it shows 2.
-- **View listing (spec 5.1)** already opens inside the app (PR #24). Replace its own copy of the photos, heading,
-  fields and description with the shared `ListingOverview`, as the buyer's listing screen does:
+  `AdminListingScreensTest.theDot_risesAfterTheAdminsOwnEdit_whenSaveReturnsToManageUsers` checks it.
+- **View listing (spec 5.1)** opens inside the app (PR #24) and shows the shared `ListingOverview`, as the buyer's
+  listing screen does:
   - `new ListingOverview(ListingSummary.of(listing, UserRole.ADMIN, store), store)` gives the photos, the title with
     the badge and price, every field and the description;
-  - below it, "Reports (n)" with each report's reason and details in `ListingOverview.card(...)`, then Edit and Remove;
-  - show it with `show(listing.getTitle(), new SubScreen("Back to All Listings", back, page))`, where `back` shows
-    the same All Listings screen again, so its filters stay.
-- **Roles:** show them with `UserRole.getDisplayName()` on the Manage Users cards and in the user details, instead of
-  the hand-made `== UserRole.BUYER ? "Buyer" : "Seller"`.
+  - below it, "Reports (n)" with each report's reason, reporter and details, then Edit and Remove;
+  - Back to All Listings shows the same All Listings screen again (`returnToAllListings()`), so its filters stay.
+- **Roles** are shown with `UserRole.getDisplayName()` on the Manage Users cards and in the user details.
 - **Check:** log in as `admin` after a reset: the dot says 1; AT-UC4-08; View on a listing with photos opens inside
   the app, with the photos and Back to All Listings.

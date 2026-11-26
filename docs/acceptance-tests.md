@@ -5,7 +5,8 @@ System and acceptance tests are black-box tests of the whole application through
 `Diagrams and Use-Case Specifications.pdf`: one for the basic flow, one for each alternative flow,
 and one for each special requirement that a user can see. They complement the automated tests:
 the unit and integration tests stop at the service layer, and the screen tests
-(`controllers/buyer/*ScreensTest`) run the buyer's flows through the screens. This page is the
+(`controllers/buyer/*ScreensTest`) run the buyer's flows through the screens, and `controllers/seller` and
+`controllers/admin` check those portals' own fixes there. This page is the
 manual checklist for the demo, and for what an automated test cannot judge, such as how a screen looks.
 
 **How to run them**
@@ -207,7 +208,7 @@ reset: 02, 03, 07 and 09 use the report made in 01.
 | ID | Flow | Steps | Expected result | Result |
 |---|---|---|---|---|
 | AT-UC9-01 | Basic flow, steps 1-9 | As `bob`: Browse → *MacBook Pro Charger 61W* → View Details → Report Listing. Choose "Misleading description", type "Says 61W but the label shows 30W.", press Submit Report. | The form is headed "Report 'MacBook Pro Charger 61W' to the admin", lists the six reasons in SR1's order (Prohibited item, Scam or fraud, Misleading description, Offensive content, Spam or duplicate, Other) and has none chosen. After submitting: "Your report of 'MacBook Pro Charger 61W' was submitted. The admin will review the listing." The detail screen stays as it was. | |
-| AT-UC9-02 | Step 8, the admin is notified | Log in as `admin`, open Notification Board. | "Listing Reported": "'MacBook Pro Charger 61W' by Charlie Lee was reported (Misleading description) and needs moderation." The notification does not name `bob`. (VIEW in Manage Marketplace Listings shows the report with its reason and details once the admin's screen is wired.) | |
+| AT-UC9-02 | Step 8, the admin is notified | Log in as `admin`, open Notification Board. | "Listing Reported": "'MacBook Pro Charger 61W' by Charlie Lee was reported (Misleading description) and needs moderation." The notification does not name `bob`. (VIEW in Manage Marketplace Listings lists it under "Reports (1)", with its reason, its details and the reporter, whom only the admin sees.) | |
 | AT-UC9-03 | A1 | As `bob`, press Report Listing on the charger again. | "You have already reported this listing." No form opens. | |
 | AT-UC9-04 | A2, no reason | As `bob`, on the *IKEA Desk Lamp*: press Report Listing, type details, choose no reason, press Submit Report. | "Both a reason and details are required." The form comes back with the details still typed. | |
 | AT-UC9-05 | A2, empty details | In the same form, choose a reason, replace the details with only spaces, press Submit Report. | The same message. The form comes back with the reason still chosen. | |
@@ -223,7 +224,8 @@ The board is the same in all three portals: newest first, unread ones marked, Ma
 **Mark all as read** while anything is unread, and a **category filter** offering the categories on the user's board.
 The red **dot** on the sidebar's Notifications button shows how many are unread; opening the board does not lower it,
 only marking does (UC4 Special Requirement 3). Run in order after a reset. The automated checks are in
-`NotificationServiceTest`, `HistoryAndNotificationsScreensTest` and `FormatsTest`.
+`NotificationServiceTest`, `HistoryAndNotificationsScreensTest`, `FormatsTest`, and the dot tests in
+`SellerScreensTest` and `AdminListingScreensTest`.
 
 | ID | Flow | Steps | Expected result | Result |
 |---|---|---|---|---|
@@ -234,7 +236,7 @@ only marking does (UC4 Special Requirement 3). Run in order after a reset. The a
 | AT-UC4-05 | Marking one keeps the filter | Press Mark as read on it. | It turns grey and loses Unread and its button. The heading says 1 unread notification, the dot 1, and the box still says New Message. | |
 | AT-UC4-06 | Mark all as read | Choose All categories, and press Mark all as read. | No question is asked. "No unread notifications"; no Mark as read button and no Mark all as read; the dot is gone. Both notices are still on the board. | |
 | AT-UC4-07 | The timer raises it at once | Run AT-UC12-01 and keep Alice's dashboard open on any screen. | When the Due-Date Reminder arrives, the dot rises by 1 without a click. | |
-| AT-UC4-08 | The other portals | As `charlie`, then `diana`, then `admin`, open the Notification Board. | The same board: the filter offers each user's own categories, and Mark all as read works as in AT-UC4-06. For `charlie` and `diana`, the dot counts and clears as in AT-UC4-01 to 06. *(The admin's dot appears once the admin portal adds its three lines: see the admin guide.)* | |
+| AT-UC4-08 | The other portals | As `charlie`, then `diana`, then `admin`, open the Notification Board. | The same board: the filter offers each user's own categories, and Mark all as read works as in AT-UC4-06. For all three, the dot counts and clears as in AT-UC4-01 to 06. | |
 
 ## UC4 View Notifications, admin: the accounts' history (Task 3.6; client question F4)
 
@@ -345,6 +347,8 @@ Log in as `charlie` and open **Reviews & Feedback**. After a reset there is one 
 | AT-UC3A-01 | Manage Listings | As `admin`, open Manage All Listings. Filter by Type=Sell and Status=Pending Review. | Only pending sale listings show. | Pass (2026-11-25, Jack) |
 | AT-UC3A-02 | Approve/Reject | Approve a pending listing. Then Reject another with reason "Bad photo". | The listing turns Live or Rejected, and the seller's board shows "Listing Approved" or "Listing Rejected" with the reason. | Pass (2026-11-25, Jack) |
 | AT-UC3A-03 | Remove/Edit | Edit a live listing's title. Then Remove it with reason "Violates policy". | Title updates. Removing declines open offers, notifies the seller, and every buyer with an open offer on the listing is told. | Pass (2026-11-25, Jack) |
+| AT-UC3A-04 | Edit changes the condition (assumptions register 94) | As `admin`, All Listings → Edit on *MacBook Pro Charger 61W*. Look at Condition, choose Like New, and Save. Then View it. | The form opens with Condition **Used**, the listing's own, already chosen. "Listing updated"; View shows the condition Like New; `charlie` has "An administrator edited your listing 'MacBook Pro Charger 61W'." | |
+| AT-UC3A-05 | Add follows the type (Task 3.7: the fields of Task 2.3) | All Listings → + Add Listing. Look at Price and Lending duration. Choose Sell and type the price `120`; then choose Lend and type the duration `7`; then choose Giveaway. | Both are disabled until a type is chosen. Price is enabled only for Sell, the duration and its unit only for Lend, and each is cleared when the type changes, as on the seller's Create Listing (AT-2.3-04). | |
 
 ## Admin — Manage Users (Task 3.3)
 
@@ -360,6 +364,7 @@ Log in as `charlie` and open **Reviews & Feedback**. After a reset there is one 
 | AT-UC3R-01 | Seller Ratings List | As `admin`, open Seller Ratings. | Lists sellers with their average rating and completed deal count. Hidden reviews are not counted. | Pass (2026-11-25, Jack) |
 | AT-UC3R-02 | View Reviews | Click View Reviews on `charlie`. | Lists charlie's reviews. Supports filtering by rating and date range. | Pass (2026-11-25, Jack)  |
 | AT-UC3R-03 | Hide Review | Click Hide on a review, enter reason "Offensive". | The review is hidden. The buyer and seller get notifications. The average rating drops (if applicable). | Pass (2026-11-25, Jack) |
+| AT-UC3R-04 | The seller's reply (Manage Reviews 3.1.5) | Run AT-2.9-02, so that Charlie has replied "Thanks Bob, enjoy!" to Bob's review. As `admin`, Seller Ratings → View Reviews on `charlie`. | Under Bob's comment: "Seller's reply: Thanks Bob, enjoy!", in full. | |
 
 ## Admin — Manage Deals (Task 3.5)
 
@@ -368,9 +373,11 @@ Log in as `charlie` and open **Reviews & Feedback**. After a reset there is one 
 | AT-UC3D-01 | Deal Record | As `admin`, open All Deals Record. | Lists only accepted offers (in progress, completed, returned). Filter by Type, Status, Seller, Buyer. | Pass (2026-11-25, Jack)|
 | AT-UC3D-02 | Deal Details & Export | Click View Details on a deal. Then Export CSV. | Details show buyer, seller, item, dates. CSV contains the filtered rows. | Pass (2026-11-25, Jack)|
 
-## Bug Fix Regression Scenarios (R13, R14)
+## Bug Fix Regression Scenarios (R13, R14, R16, R17, R20, R22)
 
 | ID | Flow | Steps | Expected result | Result |
 |---|---|---|---|---|
 | AT-UC4A-11 | R13: Hide review refreshes | As `admin`, open Ratings → charlie's Reviews. Click Hide on a review, submit a reason. | The list refreshes instantly. The row now shows the "Hidden" badge and the Hide button is gone. | Pass (2026-11-25, Jack) |
 | AT-UC4A-12 | R14, R16, R17: Edit keeps a lend listing's duration | As `admin`, All Listings → + Add Listing: seller `diana`, type Lend, any title, category, condition and place, duration 36 hours; Save. Then Edit it, and Save without typing anything. | On Edit, the duration box is empty with the hint "Leave empty to keep 1 day 12 hours", and the unit box reads "days" in full. After Save, View shows the lending duration 1 day 12 hours. | Pass (2026-11-26, Jack)|
+| AT-UC4A-13 | R20: the duration's hint in full | As in AT-UC4A-12, Edit the 36-hour loan, with the window at its default size. | The hint reads "Leave empty to keep 1 day 12 hours" to its end; the box is wider than its hint. | |
+| AT-UC4A-14 | R22: the user search box's hint in full | As `admin`, open Manage Users, with the window at its default size. | The empty search box shows "Search username or name..." to its end. | |

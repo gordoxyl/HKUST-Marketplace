@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.stream.Stream;
+import java.util.OptionalDouble;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -74,7 +75,9 @@ class PersistenceTest {
         assertEquals(180.0, ((SaleListing) calculus).getPrice());
         ChatThread chat = after.findThread("alice", calculus.getId());
         assertEquals(2, chat.getMessages().size());
-        assertEquals(5.0, after.getAverageRating("charlie").getAsDouble());
+        OptionalDouble avg = after.getAverageRating("charlie");
+        assertTrue(avg.isPresent());
+        assertEquals(5.0, avg.getAsDouble());
         LendListing calculator = (LendListing) after.getAllListings().stream()
                 .filter(l -> l instanceof LendListing).findFirst().orElseThrow();
         assertEquals(Duration.ofDays(90), calculator.getLendingDuration());
@@ -179,9 +182,9 @@ class PersistenceTest {
         DataStore store = new DataStore(clock, storage);
 
         AuditLogEntry deletion = store.addAuditLogEntry(
-                new AuditLogEntry("admin", "bob", "Deleted account", "Spam", "@bob: 2 listings, 1 review"));
+                new AuditLogEntry("com/hkust/marketplace/controllers/admin", "bob", "Deleted account", "Spam", "@bob: 2 listings, 1 review"));
         AuditLogEntry hiding = store.addAuditLogEntry(
-                new AuditLogEntry("admin", "carol", "Hid a review", "Offensive", null));
+                new AuditLogEntry("com/hkust/marketplace/controllers/admin", "carol", "Hid a review", "Offensive", null));
 
         assertEquals(Optional.of("@bob: 2 listings, 1 review"), store.readAuditSnapshotFile(deletion.getLogReference()));
         assertTrue(Files.exists(storage.getAuditFolder().resolve(deletion.getLogReference() + ".txt")));

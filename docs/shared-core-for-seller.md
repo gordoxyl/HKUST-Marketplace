@@ -327,9 +327,9 @@ void declineAsksFirst() { // app = OffScreenApp.start() in @BeforeAll, app.reset
     assertEquals(1, app.dialogs().size());             // the confirmation, answered Cancel: every dialog gets Cancel, or its only button
 }
 ```
-To fill in and submit a dialog instead, give its answer before the step: `app.answer("Decline borrow request", form -> form.press("OK"))`. The screens use the app's store, which in a test run is a temporary folder with the demo data, shared by all screen tests (storage manual §9.8). Do not depend on what another test changed; a test that changes data adds its own with `testsupport/ScreenData`. Examples to copy: `controllers/buyer/MakeOfferScreensTest`, `MyDealsScreensTest`.
+To fill in and submit a dialog instead, give its answer before the step: `app.answer("Decline borrow request", form -> form.press("OK"))`. The screens use the app's store, which in a test run is a temporary folder with the demo data, shared by all screen tests (storage manual §9.8). Do not depend on what another test changed; a test that changes data adds its own with `testsupport/ScreenData`, under usernames no other test uses (`ScreenData` fails on a taken one, regression log T6). Examples to copy: `controllers/seller/SellerScreensTest`, `controllers/buyer/MakeOfferScreensTest`, `MyDealsScreensTest`.
 
-## 9. Known gaps on the seller side (as of 2026-11-25, late night)
+## 9. Known gaps on the seller side (as of 2026-11-26)
 
 Tasks 2.1 to 2.9 are all merged:
 - PR #11: `CreateListingService`, `SellerListingService`, `SellerOfferService`.
@@ -342,9 +342,9 @@ Tasks 2.1 to 2.9 are all merged:
   - the counter-borrow date pickers in the shared format;
   - "Giveaway", `Formats.stars` and `Listing.MAX_PHOTOS`;
   - no unused imports.
+- PR #32 (47e1e79, 3a9194a): `SellerScreensTest`, with screen tests for the dot on every page, Open Chat on an offer and R18 (`r18_aListingPriceIsAPlainAmount_likeEveryOtherPrice`); AT-2.3-06 covers "1e3" and "99.999".
 
 Still open:
-- **R18's named test.** The regression log names `SellerScreensTest.r18_aListingPriceIsAPlainAmount_likeEveryOtherPrice`, which is not in the repository yet. `CreateListingServiceTest.priceMustBeAPositiveNumber` tests the same inputs at the barricade. Commit the class, or name that test in the entry.
 - **The submission:** run the seller acceptance scenarios (Create Listing to Manage Reviews, AT-CHAT-06 to 11 and AT-CHAT-19) on `main` and record the results; they are the script for the seller screenshots.
 - **Screen reads of `DataStore`** (BCE, optional): buyer names on offer rows, and each review's writer and listing title, are read in `SellerDashboardController`. Return them from the services instead.
 - **Already right:** at the app's window size, no seller page cuts a button or label short (`PortalScreensTest`).

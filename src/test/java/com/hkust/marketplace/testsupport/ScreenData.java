@@ -19,6 +19,7 @@ import com.hkust.marketplace.models.Offer;
 import com.hkust.marketplace.models.PriceOffer;
 import com.hkust.marketplace.models.SaleListing;
 import com.hkust.marketplace.models.Seller;
+import com.hkust.marketplace.models.User;
 import com.hkust.marketplace.services.DealRules;
 import com.hkust.marketplace.services.PasswordHasher;
 
@@ -36,7 +37,8 @@ import java.util.Objects;
  * Data of a screen test's own, added to the app's store that the screens use
  * ({@link OffScreenApp#store()}) through the same model events and deal rules the app uses.
  * The tests of a run share that store, so each test names its accounts and listings in a way
- * no other test does. Accounts log in with {@link SeedData#DEMO_PASSWORD}.
+ * no other test does; {@link #buyer} and {@link #seller} fail if the username is already taken.
+ * Accounts log in with {@link SeedData#DEMO_PASSWORD}.
  * <pre>{@code
  * ScreenData data = new ScreenData(app.store());
  * data.buyer("mdbuyer", "Mia Deal");
@@ -63,11 +65,22 @@ public final class ScreenData {
 
     /** A buyer who gave no residence hall. */
     public void buyer(String username, String fullName) {
-        store.addUser(new Buyer(username, fullName, DEMO_HASH, null));
+        add(new Buyer(username, fullName, DEMO_HASH, null));
     }
 
     public void seller(String username, String fullName) {
-        store.addUser(new Seller(username, fullName, DEMO_HASH));
+        add(new Seller(username, fullName, DEMO_HASH));
+    }
+
+    /**
+     * Adds the account, or fails at once if its username is taken, by the demo data or by
+     * another test of the run: using that account would bring the other test's data with it.
+     */
+    private void add(User account) {
+        if (!store.addUser(account)) {
+            throw new IllegalStateException("The username '" + account.getUsername()
+                    + "' is already taken in this run's store: give the test an account of its own");
+        }
     }
 
     /** The admin deactivates the account; a user logged in with it is refused from their next action. */

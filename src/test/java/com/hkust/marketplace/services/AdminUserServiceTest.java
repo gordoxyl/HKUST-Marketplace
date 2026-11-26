@@ -765,14 +765,14 @@ class AdminUserServiceTest {
                     .filter(n -> expectedText.equals(n.getContent()))
                     .count();
             assertEquals(1, count,
-                    "com/hkust/marketplace/controllers/admin " + admin + " should get exactly one notice: " + expectedText);
+                    "admin " + admin + " should get exactly one notice: " + expectedText);
         }
     }
 
     private void assertNoAdminNotices() {
         for (String admin : List.of("ada", "ada2")) {
             assertTrue(notificationsOf(admin, NotificationCategory.ACCOUNT_CHANGE).isEmpty(),
-                    "com/hkust/marketplace/controllers/admin " + admin + " should get no ACCOUNT_CHANGE");
+                    "admin " + admin + " should get no ACCOUNT_CHANGE");
         }
     }
 }

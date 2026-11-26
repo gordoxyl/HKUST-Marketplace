@@ -7,6 +7,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.hkust.marketplace.models.Category;
+import com.hkust.marketplace.models.ItemCondition;
 import com.hkust.marketplace.models.MeetupLocation;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -58,7 +59,7 @@ class AdminAccessControlTest {
     @Test
     void manageMarketplaceListings_UC2_SR3_noSession_editIsDenied() {
         assertThrows(AccessDeniedException.class, () -> service.editListing(listing.getId(),
-                "New Title", "d", Category.TEXTBOOKS, MeetupLocation.LIBRARY, null, null, null));
+                "New Title", "d", Category.TEXTBOOKS, ItemCondition.USED, MeetupLocation.LIBRARY, null, null, null));
         assertEquals("Book", listing.getTitle());                       // nothing changed
         assertTrue(support.store.getAllListingActions().isEmpty());
     }
@@ -68,7 +69,7 @@ class AdminAccessControlTest {
         support.loginAsBuyer();
 
         assertThrows(AccessDeniedException.class, () -> service.editListing(listing.getId(),
-                "New Title", "d", Category.TEXTBOOKS, MeetupLocation.LIBRARY, null, null, null));
+                "New Title", "d", Category.TEXTBOOKS, ItemCondition.USED, MeetupLocation.LIBRARY, null, null, null));
         assertEquals("Book", listing.getTitle());
         assertTrue(support.store.getAllListingActions().isEmpty());
     }

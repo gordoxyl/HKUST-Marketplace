@@ -340,8 +340,7 @@ completed deals also stay on My Deals (UC7 step 2).
 92. **Unread dot** on the sidebar's Notifications button, with the number of unread notifications ("1" to "99", then
     "99+"; hidden at 0; tooltip "n unread notifications"). Only marking notifications as read lowers it (SR3). It is
     updated at login, on every page change, by the board after marking, and at once when the timer changes data. It
-    is in the buyer and seller portals; the admin portal adds it as described in
-    [shared-core-for-admin.md](shared-core-for-admin.md). **Decided** (Gordon), 25 Nov 2026.
+    is in all three portals. **Decided** (Gordon), 25 Nov 2026.
 93. **Category filter** on the Notification Board: "All categories", plus the categories that the user's own
     notifications have, in the order of NotificationCategory (a category the user never receives is not offered). It
     only changes what is shown; the chosen category stays when the board reloads, and the heading's unread count stays

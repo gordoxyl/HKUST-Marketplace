@@ -178,7 +178,7 @@ class AdminListingServiceTest {
         SaleListing book = support.pendingSale();
         support.clock.advance(Duration.ofHours(2));
 
-        service.editListing(book.getId(), "  Calculus Book ", "Cleaner copy", Category.TEXTBOOKS,
+        service.editListing(book.getId(), "  Calculus Book ", "Cleaner copy", Category.TEXTBOOKS, ItemCondition.USED,
                 MeetupLocation.NORTH_GATE, 150.0, null, List.of("p1", "p2"));
 
         assertEquals("Calculus Book", book.getTitle());
@@ -201,8 +201,8 @@ class AdminListingServiceTest {
         SaleListing pending = support.pendingSale();
         SaleListing live = support.liveSale();
 
-        service.editListing(pending.getId(), "New A", "d", Category.TEXTBOOKS, MeetupLocation.LIBRARY, null, null, null);
-        service.editListing(live.getId(), "New B", "d", Category.TEXTBOOKS, MeetupLocation.LIBRARY, null, null, null);
+        service.editListing(pending.getId(), "New A", "d", Category.TEXTBOOKS, ItemCondition.USED, MeetupLocation.LIBRARY, null, null, null);
+        service.editListing(live.getId(), "New B", "d", Category.TEXTBOOKS, ItemCondition.USED, MeetupLocation.LIBRARY, null, null, null);
 
         assertEquals(ListingStatus.PENDING_REVIEW, pending.getStatus());
         assertEquals(ListingStatus.LIVE, live.getStatus());
@@ -214,7 +214,7 @@ class AdminListingServiceTest {
         SaleListing book = support.pendingSale();
 
         ServiceException e = assertThrows(ServiceException.class, () -> service.editListing(book.getId(),
-                "New title", "d", Category.ELECTRONICS, MeetupLocation.NORTH_GATE, price, null, null));
+                "New title", "d", Category.ELECTRONICS, ItemCondition.USED, MeetupLocation.NORTH_GATE, price, null, null));
 
         assertEquals("The price must be a positive number.", e.getMessage());
         assertEquals("Book", book.getTitle());
@@ -230,7 +230,7 @@ class AdminListingServiceTest {
         SaleListing book = support.pendingSale();
 
         ServiceException e = assertThrows(ServiceException.class, () -> service.editListing(book.getId(),
-                title, "d", Category.TEXTBOOKS, MeetupLocation.LIBRARY, null, null, null));
+                title, "d", Category.TEXTBOOKS, ItemCondition.USED, MeetupLocation.LIBRARY, null, null, null));
 
         assertEquals("The title is required.", e.getMessage());
         assertEquals("Book", book.getTitle());
@@ -241,7 +241,7 @@ class AdminListingServiceTest {
     void manageMarketplaceListings_5_4_editNotifiesTheSeller() {
         SaleListing book = support.liveSale();
 
-        service.editListing(book.getId(), "Calculus Book", "d", Category.TEXTBOOKS,
+        service.editListing(book.getId(), "Calculus Book", "d", Category.TEXTBOOKS, ItemCondition.USED,
                 MeetupLocation.LIBRARY, null, null, null);
 
         Notification toSeller = support.store.getNotificationsFor("sam").get(0);
@@ -255,7 +255,7 @@ class AdminListingServiceTest {
         LendListing calc = Fixtures.lend(support.store, "sam", Duration.ofDays(7));
 
         ServiceException e = assertThrows(ServiceException.class, () -> service.editListing(calc.getId(),
-                "Calc", "d", Category.ELECTRONICS, MeetupLocation.LIBRARY, 50.0, null, null));
+                "Calc", "d", Category.ELECTRONICS, ItemCondition.USED, MeetupLocation.LIBRARY, 50.0, null, null));
 
         assertEquals("Only a sale listing has a price.", e.getMessage());
         assertEquals("Calculator", calc.getTitle());
@@ -266,7 +266,7 @@ class AdminListingServiceTest {
         SaleListing book = support.pendingSale();
 
         ServiceException e = assertThrows(ServiceException.class, () -> service.editListing(book.getId(),
-                "Book", "d", Category.TEXTBOOKS, MeetupLocation.LIBRARY, null, Duration.ofDays(7), null));
+                "Book", "d", Category.TEXTBOOKS, ItemCondition.USED, MeetupLocation.LIBRARY, null, Duration.ofDays(7), null));
 
         assertEquals("Only a lend listing has a duration.", e.getMessage());
     }
@@ -277,7 +277,7 @@ class AdminListingServiceTest {
         List<String> seven = List.of("1", "2", "3", "4", "5", "6", "7");
 
         ServiceException e = assertThrows(ServiceException.class, () -> service.editListing(book.getId(),
-                "Book", "d", Category.TEXTBOOKS, MeetupLocation.LIBRARY, null, null, seven));
+                "Book", "d", Category.TEXTBOOKS, ItemCondition.USED, MeetupLocation.LIBRARY, null, null, seven));
 
         assertEquals("A listing can have at most 6 photos.", e.getMessage());
         assertTrue(book.getPhotos().isEmpty());
@@ -286,10 +286,32 @@ class AdminListingServiceTest {
     @Test
     void manageMarketplaceListings_3_7_editRefusedWhenListingDoesNotExist() {
         ServiceException e = assertThrows(ServiceException.class, () -> service.editListing("L999",
-                "x", "d", Category.TEXTBOOKS, MeetupLocation.LIBRARY, null, null, null));
+                "x", "d", Category.TEXTBOOKS, ItemCondition.USED, MeetupLocation.LIBRARY, null, null, null));
         assertEquals("This listing no longer exists.", e.getMessage());
     }
 
+    @Test
+    void manageMarketplaceListings_5_4_editChangesTheCondition() {
+        SaleListing book = support.pendingSale();
+
+        service.editListing(book.getId(), "Book", "d", Category.TEXTBOOKS, ItemCondition.FOR_PARTS,
+                MeetupLocation.LIBRARY, null, null, null);
+
+        assertEquals(ItemCondition.FOR_PARTS, book.getCondition());
+    }
+
+    @Test
+    void manageMarketplaceListings_A1_editWithoutCondition_isRefused_andChangesNothing() {
+        SaleListing book = support.pendingSale();
+
+        ServiceException e = assertThrows(ServiceException.class, () -> service.editListing(book.getId(),
+                "New title", "d", Category.TEXTBOOKS, null, MeetupLocation.LIBRARY, null, null, null));
+
+        assertEquals("The item condition is required.", e.getMessage());
+        assertEquals("Book", book.getTitle());
+        assertEquals(ItemCondition.USED, book.getCondition());
+        assertTrue(support.store.getListingActions(book.getId()).isEmpty());
+    }
 
     // ---------- 3.7 Add Listing (5.6) ----------
 
@@ -516,14 +538,14 @@ class AdminListingServiceTest {
         LendListing calc = Fixtures.lend(support.store, "sam", Duration.ofDays(7));
 
         ServiceException e = assertThrows(ServiceException.class, () -> service.editListing(calc.getId(),
-                "New title", "d", Category.ELECTRONICS, MeetupLocation.NORTH_GATE, null, Duration.ofSeconds(4), null));
+                "New title", "d", Category.ELECTRONICS, ItemCondition.USED, MeetupLocation.NORTH_GATE, null, Duration.ofSeconds(4), null));
 
         assertEquals("The lending duration must be at least 5 seconds.", e.getMessage());
         assertEquals("Calculator", calc.getTitle());                     // nothing was changed first
         assertEquals(Duration.ofDays(7), calc.getLendingDuration());
         assertTrue(support.store.getListingActions(calc.getId()).isEmpty());
 
-        service.editListing(calc.getId(), "New title", "d", Category.ELECTRONICS,
+        service.editListing(calc.getId(), "New title", "d", Category.ELECTRONICS, ItemCondition.USED,
                 MeetupLocation.NORTH_GATE, null, Duration.ofSeconds(5), null);
 
         assertEquals("New title", calc.getTitle());
@@ -557,7 +579,7 @@ class AdminListingServiceTest {
         assertNull(support.store.findUser("sam"));
 
         assertDoesNotThrow(() -> service.editListing(book.getId(), "Archived Book", "d",
-                Category.TEXTBOOKS, MeetupLocation.LIBRARY, null, null, null));
+                Category.TEXTBOOKS, ItemCondition.USED, MeetupLocation.LIBRARY, null, null, null));
 
         assertEquals("Archived Book", book.getTitle());
         assertEquals(ListingStatus.REMOVED, book.getStatus());           // SR2: edit never changes the status

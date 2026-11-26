@@ -116,12 +116,14 @@ public class AdminListingService {
     // ==========================================
 
     /**
-     * Edits a listing (Task 3.7 step 5.4): title, description, category, meet-up location,
-     * price (sale listings only), lending duration (lend listings only) and photos. The
-     * status never changes (Special Requirement 2). The action is recorded and the seller
+     * Edits a listing (Task 3.7 step 5.4): title, description, category, condition, meet-up
+     * location, price (sale listings only), lending duration (lend listings only) and photos.
+     * The status never changes (Special Requirement 2). The action is recorded and the seller
      * is notified. The seller's account may have been deleted; in that case the notification
      * is skipped silently and the edit is still saved.
      *
+     * @param condition the item's condition; required, as when adding (Task 3.7 "Edit any
+     *                  listing details"; assumptions register 94)
      * @param price     new price for a sale listing, or null to leave it unchanged
      * @param duration  new lending duration for a lend listing, or null to leave it unchanged
      * @param photoIds  new photo ids (at most 6), or null to keep the current photos
@@ -129,12 +131,15 @@ public class AdminListingService {
      *         does not exist, or a price or duration is given for the wrong listing type
      */
     public void editListing(String listingId, String title, String description, Category category,
-                            MeetupLocation meetupLocation, Double price, Duration duration,
-                            List<String> photoIds) {
+                            ItemCondition condition, MeetupLocation meetupLocation, Double price,
+                            Duration duration, List<String> photoIds) {
         Admin admin = AccessControl.requireAdmin();
         String cleanTitle = requireTitle(title);
         if (category == null || meetupLocation == null) {
             throw new ServiceException("Category and meet-up location are required.");
+        }
+        if (condition == null) {
+            throw new ServiceException("The item condition is required.");
         }
         if (price != null && (!(price > 0) || Double.isInfinite(price))) {
             throw new ServiceException("The price must be a positive number.");
@@ -161,6 +166,7 @@ public class AdminListingService {
             listing.setTitle(cleanTitle);
             listing.setDescription(description);
             listing.setCategory(category);
+            listing.setCondition(condition);
             listing.setMeetupLocation(meetupLocation);
             if (price != null) {
                 ((SaleListing) listing).setPrice(price);

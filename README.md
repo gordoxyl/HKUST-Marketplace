@@ -9,9 +9,9 @@ ratings. Everything is saved, encrypted, between runs.
 
 | Required | Where |
 |---|---|
-| Screenshots of the execution, with sample inputs and outputs | [docs/walkthrough.md](docs/walkthrough.md) |
+| Screenshots of the execution, with sample inputs and outputs | [docs/walkthrough.md](docs/walkthrough.md): one story with valid inputs through the three portals (sections 1 to 5), then each task's answer to invalid input (section 6) |
 | Report on the unit testing (100% pass) | [docs/reports/surefire.html](docs/reports/surefire.html) |
-| Report on the coverage test (>65% branch coverage) | [docs/reports/jacoco-all/index.html](docs/reports/jacoco-all/index.html) (the whole project, screens included) and [docs/reports/jacoco/index.html](docs/reports/jacoco/index.html) (the models, data and services); IntelliJ's own coverage run as a cross-check: [docs/screenshots/intellij-coverage.png](docs/screenshots/intellij-coverage.png) *(added at release)*. The policy and the figures: [Reports](#reports) |
+| Report on the coverage test (>65% branch coverage) | [docs/reports/jacoco-all/index.html](docs/reports/jacoco-all/index.html) (the whole project, screens included) and [docs/reports/jacoco/index.html](docs/reports/jacoco/index.html) (the models, data and services); IntelliJ's own coverage run as a cross-check: [docs/screenshots/intellij-coverage.png](docs/screenshots/intellij-coverage.png). The policy and the figures: [Reports](#reports) |
 | Documentation on the implemented tasks (JavaDoc) | [docs/reports/apidocs/index.html](docs/reports/apidocs/index.html) |
 | Supplementary notes | [docs/supplementary-notes.md](docs/supplementary-notes.md) |
 

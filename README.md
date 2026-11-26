@@ -9,11 +9,11 @@ ratings. Everything is saved, encrypted, between runs.
 
 | Required | Where |
 |---|---|
-| Screenshots of the execution, with sample inputs and outputs | [docs/walkthrough.md](docs/walkthrough.md) *(added at release)* |
+| Screenshots of the execution, with sample inputs and outputs | [docs/walkthrough.md](docs/walkthrough.md) |
 | Report on the unit testing (100% pass) | [docs/reports/surefire.html](docs/reports/surefire.html) *(added at release)* |
 | Report on the coverage test (>65% branch coverage) | [docs/reports/jacoco-all/index.html](docs/reports/jacoco-all/index.html) (the whole project, screens included) and [docs/reports/jacoco/index.html](docs/reports/jacoco/index.html) (the models, data and services) *(added at release)*; IntelliJ's own coverage run as a cross-check: [docs/screenshots/intellij-coverage.png](docs/screenshots/intellij-coverage.png) *(added at release)*. The policy and the figures: [Reports](#reports) |
 | Documentation on the implemented tasks (JavaDoc) | [docs/reports/apidocs/index.html](docs/reports/apidocs/index.html) *(added at release)* |
-| Supplementary notes | [docs/supplementary-notes.md](docs/supplementary-notes.md) *(added at release)* |
+| Supplementary notes | [docs/supplementary-notes.md](docs/supplementary-notes.md) |
 
 The reports are HTML: after cloning the repository, open them in a browser (GitHub shows them as source code). They
 come from the final build; `.\mvnw.cmd clean verify` makes the same reports again in `target/reports/` (see
@@ -192,7 +192,7 @@ Test tools in `src/test/.../testsupport`: `TestClock` (a clock the test moves by
 | [docs/course-concepts.md](docs/course-concepts.md) | which COMP 3111 concept is applied where |
 | [docs/storage-manual.md](docs/storage-manual.md) | how the encrypted storage works |
 | [docs/shared-core-for-seller.md](docs/shared-core-for-seller.md), [docs/shared-core-for-admin.md](docs/shared-core-for-admin.md) | guides to the shared core for the seller and admin developers |
-| [docs/assumptions-register.md](docs/assumptions-register.md) *(added at release)* | the behaviours we decided where the requirements and the spec say nothing; the docs cite them as "assumptions register n" |
+| [docs/assumptions-register.md](docs/assumptions-register.md) | the behaviours we decided where the requirements and the spec say nothing; the docs cite them as "assumptions register n" |
 
 The sections after this one (Project Structure, Shared Core, Dev mode, Troubleshooting) are for developers.
 

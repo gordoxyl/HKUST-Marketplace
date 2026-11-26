@@ -25,7 +25,7 @@ Scenarios marked *needs Task 2.5* need a seller to accept or counter an offer: l
 after the reset: it adds deals that a seller has already accepted or countered for `alice` (Desk Fan, Free
 Notebooks, Camera Tripod, HDMI Cable, Bluetooth Speaker, Camping Tent), and the scenarios can be run on them.
 
-Scenarios for the other use cases are added as each one is built.
+The buyer's use cases and the shared screens come first, then the seller's and the admin's tasks.
 
 ---
 

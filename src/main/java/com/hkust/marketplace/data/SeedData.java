@@ -2,7 +2,6 @@ package com.hkust.marketplace.data;
 
 import com.hkust.marketplace.models.*;
 import com.hkust.marketplace.services.PasswordHasher;
-import com.hkust.marketplace.utils.DevLogin;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -115,7 +114,6 @@ public final class SeedData {
                 "Bob Wong sent a borrow request for Graphing Calculator TI-84."));
 
         store.setClock(realClock);
-        DevLogin.seedAccounts(store); // DEV-ONLY: test accounts for dev runs; remove before release
     }
 
     /** Adds the listing and approves it, as the admin would. */

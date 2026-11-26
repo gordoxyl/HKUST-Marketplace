@@ -192,6 +192,27 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 
 ---
 
+## R16: Editing a lend listing, the duration's hint showed whole days again
+
+- **Area / owner:** Admin (`AdminDashboardController`, Edit listing), Jack's. A regression of R14's fix, from PR #24 (83e9b52).
+- **Found:** 2026-11-25, in Gordon's review of 83e9b52 (through the screens, off screen). **Fixed:** 2026-11-26, c1f7835.
+- **Input:** as `admin`, All Listings → Edit on a Lend listing whose duration is 36 hours (or 10 seconds).
+- **Correct output:** the duration box is empty and its hint reads "Leave empty to keep 1 day 12 hours" ("Leave empty to keep 10 seconds"); Save without typing keeps the duration.
+- **Output before the fix:** the hint read "e.g. 1" ("e.g. 0"). Typing what it suggests, "1", and Save turned 36 hours into 1 day: R14's outcome.
+- **Cause:** the in-app form of PR #24 wrote the hint from `getLendingDuration().toDays()`, whole days only, instead of R14's `Formats.duration(...)`.
+- **Test:** `AdminListingScreensTest.editingALendListing_namesItsDuration_cutsNoText_andKeepsIt`
+
+## R17: The duration's unit read "…" on Add and Edit listing
+
+- **Area / owner:** Admin (`AdminDashboardController`, Add / Edit listing), Jack's. From PR #24 (83e9b52).
+- **Found:** 2026-11-25, in Gordon's review of 83e9b52 (a picture of the screen, and `OffScreenApp.cutTexts()`). **Fixed:** 2026-11-26, c1f7835.
+- **Input:** at the app's window size (1200 × 780), as `admin`, All Listings → + Add Listing, or Edit on a Lend listing.
+- **Correct output:** the unit box reads "days".
+- **Output before the fix:** it read "…"; the test got the cut texts `[days]` instead of `[]`.
+- **Cause:** `unitBox.setPrefWidth(100)` fitted the old dialog, but the app's stylesheet pads combo boxes more, so 100 px is too narrow for the text.
+- **Fix:** the line is removed; the box takes the width its text needs.
+- **Test:** the same test (no text cut on the Edit form).
+
 ## R18: A listing's price took any number Java reads, such as "99.999" or "1e3"
 
 - **Area / owner:** Seller (`SellerDashboardController` and the Create/Edit Listing services), Daniel's.
@@ -202,6 +223,19 @@ The test keeps the bug from coming back. Every entry below names its test, and i
 - **Cause:** the screen read the text with `Double.parseDouble`, which takes exponents and any number of decimals, instead of the shared `Amounts.parse`.
 - **Fix:** the screen passes the typed text to `CreateListingService.createSale` and `SellerListingService.updateSale`, which parse it at the service barricade with `Amounts.parse` and throw the same message; the screen's `parsePrice` is gone. The tests pass text, not a `double`.
 - **Test:** `SellerScreensTest.r18_aListingPriceIsAPlainAmount_likeEveryOtherPrice`
+
+---
+
+## R19: The registration screens showed their form at the left edge of the window
+
+- **Area / owner:** shared UI: the buyer's registration screen (Gordon) and the seller's (Daniel's), changed together with Gordon's go-ahead for the UI of all three portals. The layout came with the course skeleton (0d1c58a).
+- **Found:** 2026-11-26, in the walkthrough screenshots (`docs/walkthrough.md`, shots 02 and 03). **Fixed:** 2026-11-26.
+- **Input:** start the app at its default size (1200 × 780); Enter as Buyer, then Register here. The same from Enter as Seller.
+- **Correct output:** the form's card in the middle of the window, as on the three login screens.
+- **Output before the fix:** the card against the left edge, its middle 369 px left of the window's middle (the seller's 362 px, beside its scroll bar), with empty background on the right.
+- **Cause:** the 460-pixel width limit sat on the scroll pane's content instead of on the card. A scroll pane puts its content at the top left, so the 460-pixel content stayed there.
+- **Fix:** the scroll pane's content now fills it (`fitToWidth`, `fitToHeight`) and centres the card, which keeps the 460-pixel limit itself. The content's `minHeight` is USE_PREF_SIZE, so a short window still scrolls the form instead of squeezing it (`BuyerRegisterView.fxml`, `SellerRegisterView.fxml`).
+- **Test:** `PortalScreensTest.loginAndRegistrationCards_areCentred` (it measures with `OffScreenApp.offCentre`)
 
 ---
 

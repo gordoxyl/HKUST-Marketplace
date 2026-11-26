@@ -7,6 +7,8 @@ import com.hkust.marketplace.utils.SessionManager;
 import javafx.application.Platform;
 import javafx.beans.InvalidationListener;
 import javafx.collections.ListChangeListener;
+import javafx.geometry.BoundingBox;
+import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.ButtonBar;
@@ -16,6 +18,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Labeled;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
@@ -292,6 +295,37 @@ public final class OffScreenApp {
                 .filter(node -> node.getStyleClass().contains("listing-card-title") && isShown(node))
                 .map(OffScreenApp::textOf)
                 .toList());
+    }
+
+    /**
+     * How far, in pixels, the middle of the first shown node with this style class is from the
+     * middle of the area it is shown in, across: the visible part of the scroll pane around it (left
+     * of its scroll bar), or else the window. 0 when the node is centred, as the card of a login
+     * screen ("auth-pane") is.
+     */
+    public double offCentre(String styleClass) {
+        return read(() -> {
+            Parent root = root();
+            root.applyCss();
+            root.layout();
+            Node node = all(root).stream()
+                    .filter(shown -> shown.getStyleClass().contains(styleClass) && isShown(shown))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("Nothing on the screen has the style class " + styleClass));
+            Bounds onWindow = node.localToScene(node.getLayoutBounds());
+            return Math.abs(onWindow.getCenterX() - areaShowing(node).getCenterX());
+        });
+    }
+
+    /** In window coordinates: the visible part of the scroll pane the node is in, or else the whole window. */
+    private Bounds areaShowing(Node node) {
+        for (Node around = node.getParent(); around != null; around = around.getParent()) {
+            if (around instanceof ScrollPane scrollPane) {
+                Node viewport = scrollPane.lookup(".viewport");
+                return viewport.localToScene(viewport.getLayoutBounds());
+            }
+        }
+        return new BoundingBox(0, 0, window.getScene().getWidth(), window.getScene().getHeight());
     }
 
     /**

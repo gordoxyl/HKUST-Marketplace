@@ -43,12 +43,16 @@ public class AdminDashboardController implements ContentHost {
     private static final double COL_ACTIONS_MIN = 100;
     private static final double COL_RETURN_DATE_MIN = 160;
 
+    // 3.6: Kept to preserve filters when backing out
+    private Node allListingsScreen;
+
     @FXML
     public void initialize() {
         showGreeting();
         currentActiveBtn = btnReview;
         LiveUpdates.setOnDataChanged(() -> contentPane.getScene() != null, this::refreshCurrentScreen);
         showReview();
+        NotificationDot.attach(btnNotifications, new NotificationService());
     }
 
     private void refreshCurrentScreen() {
@@ -69,12 +73,14 @@ public class AdminDashboardController implements ContentHost {
         btn.getStyleClass().add("sidebar-btn-active");
         currentActiveBtn = btn;
         pageTitle.setText(title);
+        NotificationDot.update();
     }
 
     @Override
     public void show(String title, Node content) {
         pageTitle.setText(title);
         contentPane.getChildren().setAll(content);
+        NotificationDot.update();
     }
 
     // ==========================================
@@ -250,7 +256,29 @@ public class AdminDashboardController implements ContentHost {
 
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
+        allListingsScreen = scroll; // 3.6: Save the screen state
         contentPane.getChildren().add(scroll);
+    }
+
+    // 3.6: Return keeping filters
+    private void returnToAllListings() {
+        setActive(btnAllListings, "All Listings");
+        listingsReload.run();
+        show("All Listings", allListingsScreen);
+    }
+
+    // 3.4: Unified confirm and remove
+    private void confirmAndRemove(Listing l, Runnable after) {
+        if (!Dialogs.confirm("Remove listing", "Remove '" + l.getTitle() + "'? Open offers will be declined and the buyers notified.")) return;
+        Optional<String> reason = Dialogs.askReason("Remove listing", "Why is '" + l.getTitle() + "' removed?");
+        if (reason.isEmpty()) return;
+        try {
+            listingService.removeListing(l.getId(), reason.get());
+            Dialogs.info("Listing removed", "The seller and affected buyers have been notified.");
+        } catch (ServiceException ex) {
+            Dialogs.problem(ex);
+        }
+        after.run();
     }
 
     private ListingCard createManageCard(Listing l) {
@@ -266,18 +294,7 @@ public class AdminDashboardController implements ContentHost {
 
         Button remove = new Button("Remove");
         remove.getStyleClass().addAll("btn-danger", "btn-sm");
-        remove.setOnAction(e -> {
-            if (!Dialogs.confirm("Remove listing", "Remove '" + l.getTitle() + "'? Open offers will be declined and the buyers notified.")) return;
-            Optional<String> reason = Dialogs.askReason("Remove listing", "Why is '" + l.getTitle() + "' removed?");
-            if (reason.isEmpty()) return;
-            try {
-                listingService.removeListing(l.getId(), reason.get());
-                Dialogs.info("Listing removed", "The seller and affected buyers have been notified.");
-            } catch (ServiceException ex) {
-                Dialogs.problem(ex);
-            }
-            listingsReload.run();
-        });
+        remove.setOnAction(e -> confirmAndRemove(l, listingsReload));
 
         card.addActions(view, edit, remove);
         return card;
@@ -289,53 +306,9 @@ public class AdminDashboardController implements ContentHost {
             VBox detailLayout = new VBox(16);
             detailLayout.setPadding(new Insets(10));
 
-            // 1. Photos
-            FlowPane photos = new FlowPane(10, 10);
-            if (d.listing().getPhotos().isEmpty()) {
-                photos.getChildren().add(new PhotoFrame(DataStore.getInstance(), null, 200, 150));
-            } else {
-                for (String photoId : d.listing().getPhotos()) {
-                    photos.getChildren().add(new PhotoFrame(DataStore.getInstance(), photoId, 200, 150));
-                }
-            }
-
-            // 2. Summary & Fields (Reusing ListingSummary for consistency)
-            ListingSummary summary = ListingSummary.of(d.listing(), UserRole.ADMIN, DataStore.getInstance());
-
-            Label title = new Label(summary.title());
-            title.getStyleClass().add("section-title");
-            title.setWrapText(true);
-
-            Label badge = new Label(summary.badgeText());
-            badge.getStyleClass().addAll("badge", summary.badgeStyle());
-
-            Label price = new Label(summary.priceText());
-            price.getStyleClass().add("listing-card-price");
-
-            HBox heading = new HBox(12, title, badge, price);
-            heading.setAlignment(Pos.CENTER_LEFT);
-
-            GridPane fields = new GridPane();
-            fields.setHgap(24);
-            fields.setVgap(6);
-            int row = 0;
-            for (ListingSummary.Field field : summary.fields()) {
-                Label name = new Label(field.name());
-                name.getStyleClass().add("listing-card-line");
-                Label val = new Label(field.value());
-                val.getStyleClass().add("chat-text");
-                fields.addRow(row++, name, val);
-            }
-
-            Label descTitle = new Label("Description");
-            descTitle.getStyleClass().add("listing-card-title");
-            Label descText = new Label(summary.descriptionText());
-            descText.setWrapText(true);
-            descText.getStyleClass().add("chat-text");
-
-            VBox descBox = new VBox(6, descTitle, descText);
-            descBox.getStyleClass().add("card");
-            descBox.setPadding(new Insets(14));
+            // 3.1: Use shared ListingOverview
+            DataStore store = DataStore.getInstance();
+            ListingOverview overview = new ListingOverview(ListingSummary.of(d.listing(), UserRole.ADMIN, store), store);
 
             // 3. Reports
             VBox reportsBox = new VBox(10);
@@ -363,25 +336,18 @@ public class AdminDashboardController implements ContentHost {
 
             Button removeBtn = new Button("Remove");
             removeBtn.getStyleClass().add("btn-danger");
-            removeBtn.setOnAction(e -> {
-                Optional<String> reason = Dialogs.askReason("Remove listing", "Why is '" + l.getTitle() + "' removed?");
-                if (reason.isEmpty()) return;
-                try {
-                    listingService.removeListing(l.getId(), reason.get());
-                    Dialogs.info("Listing removed", "The seller and affected buyers have been notified.");
-                    showAllListings();
-                } catch (ServiceException ex) {
-                    Dialogs.problem(ex);
-                }
-            });
+            // 3.4 & 3.6
+            removeBtn.setOnAction(e -> confirmAndRemove(l, this::returnToAllListings));
 
             HBox actions = new HBox(10, editBtn, removeBtn);
 
-            detailLayout.getChildren().addAll(photos, heading, fields, descBox, reportsBox, actions);
+            // 3.1: Add overview instead of the manual fields
+            detailLayout.getChildren().addAll(overview, reportsBox, actions);
 
             ScrollPane scroll = new ScrollPane(detailLayout);
             scroll.setFitToWidth(true);
-            show("Listing Details", new SubScreen("Back to All Listings", this::showAllListings, scroll));
+            // 3.6: Back button uses returnToAllListings
+            show("Listing Details", new SubScreen("Back to All Listings", this::returnToAllListings, scroll));
 
         } catch (ServiceException ex) {
             Dialogs.problem(ex);
@@ -419,7 +385,6 @@ public class AdminDashboardController implements ContentHost {
         TextField durationField = new TextField();
         ComboBox<String> unitBox = new ComboBox<>(FXCollections.observableArrayList("seconds", "minutes", "hours", "days"));
         unitBox.getSelectionModel().select("days");
-        unitBox.setPrefWidth(100);
 
         // Photos
         List<String> photoIds = new ArrayList<>();
@@ -455,18 +420,24 @@ public class AdminDashboardController implements ContentHost {
         if (!adding) {
             categoryBox.setValue(existing.getCategory());
             locationBox.setValue(existing.getMeetupLocation());
-            if (existing instanceof SaleListing s) priceField.setText(String.valueOf(s.getPrice()));
+            // 3.5: Amounts.plain instead of String.valueOf
+            if (existing instanceof SaleListing s) priceField.setText(Amounts.plain(s.getPrice()));
             if (existing instanceof LendListing l) {
-                durationField.setPromptText("e.g. " + l.getLendingDuration().toDays()); // Widen prompt
+                durationField.setPromptText("Leave empty to keep " + Formats.duration(l.getLendingDuration()));
             }
         }
 
         if (adding) {
             form.getChildren().addAll(new Label("Seller username *"), sellerField, new Label("Listing type *"), typeBox);
         }
+
+        // 3.3: Condition only when adding
         form.getChildren().addAll(new Label("Title *"), titleField, new Label("Description"), descArea,
-                new Label("Category *"), categoryBox, new Label("Condition *"), conditionBox,
-                new Label("Meet-up location *"), locationBox);
+                new Label("Category *"), categoryBox);
+        if (adding) {
+            form.getChildren().addAll(new Label("Condition *"), conditionBox);
+        }
+        form.getChildren().addAll(new Label("Meet-up location *"), locationBox);
 
         boolean showPrice = adding || existing instanceof SaleListing;
         boolean showDuration = adding || existing instanceof LendListing;
@@ -479,7 +450,8 @@ public class AdminDashboardController implements ContentHost {
         saveBtn.getStyleClass().add("btn-gold");
         Button cancelBtn = new Button("Cancel");
         cancelBtn.getStyleClass().add("btn-outline");
-        cancelBtn.setOnAction(e -> showAllListings());
+        // 3.6: Use returnToAllListings
+        cancelBtn.setOnAction(e -> returnToAllListings());
 
         saveBtn.setOnAction(e -> {
             Double price = null;
@@ -515,7 +487,8 @@ public class AdminDashboardController implements ContentHost {
                             categoryBox.getValue(), locationBox.getValue(), price, duration, photoIds);
                     Dialogs.info("Listing updated", "The seller has been notified.");
                 }
-                showAllListings();
+                // 3.6: Use returnToAllListings
+                returnToAllListings();
             } catch (ServiceException ex) {
                 Dialogs.problem(ex); // Keep form intact on error
             }
@@ -525,7 +498,8 @@ public class AdminDashboardController implements ContentHost {
 
         ScrollPane scroll = new ScrollPane(form);
         scroll.setFitToWidth(true);
-        show(adding ? "Add Listing" : "Edit Listing", new SubScreen("Back to All Listings", this::showAllListings, scroll));
+        // 3.6: Back button uses returnToAllListings
+        show(adding ? "Add Listing" : "Edit Listing", new SubScreen("Back to All Listings", this::returnToAllListings, scroll));
     }
 
     // ==========================================
@@ -634,8 +608,8 @@ public class AdminDashboardController implements ContentHost {
         Label name = new Label(u.getFullName() + " (@" + u.getUsername() + ")");
         name.getStyleClass().add("section-title");
 
-        // Fix: Role in display name (Buyer/Seller instead of BUYER/SELLER)
-        String roleStr = (u.getRole() == UserRole.BUYER) ? "Buyer" : "Seller";
+        // 3.2: Role names from UserRole
+        String roleStr = u.getRole().getDisplayName();
         Label meta = new Label(roleStr + " · Registered " + Formats.date(u.getCreatedAt()));
         meta.getStyleClass().add("text-muted");
         info.getChildren().addAll(name, meta);
@@ -719,9 +693,10 @@ public class AdminDashboardController implements ContentHost {
             VBox personal = new VBox(6);
             personal.getStyleClass().add("card");
             personal.setPadding(new Insets(14));
+            // 3.2: Role names from UserRole
             personal.getChildren().addAll(
                     new Label("Full name: " + details.user().getFullName()),
-                    new Label("Role: " + (details.user().getRole() == UserRole.BUYER ? "Buyer" : "Seller")),
+                    new Label("Role: " + details.user().getRole().getDisplayName()),
                     new Label("Status: " + (details.user().isActive() ? "Active" : "Deactivated")),
                     new Label("Registered: " + Formats.date(details.user().getCreatedAt()))
             );
@@ -1151,7 +1126,6 @@ public class AdminDashboardController implements ContentHost {
 
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
-        // Fix: use SubScreen for standard back button
         show("Reviews of @" + seller.username(), new SubScreen("Back to Seller Ratings", this::showRatings, scroll));
     }
 

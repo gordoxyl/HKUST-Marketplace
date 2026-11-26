@@ -14,8 +14,10 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Arrays;
 import java.util.Set;
+import java.util.OptionalDouble;
 
 import static org.junit.jupiter.api.Assertions.*;
+
 
 /**
  * Tests for Manage All User Accounts (Task 3.3): view and filter users (6.1),
@@ -340,7 +342,9 @@ class AdminUserServiceTest {
         assertTrue(support.store.getAllReviews().contains(review));            // still stored
         assertEquals("Deleted User", support.store.getReviewerName(review));   // shown as Deleted User
         assertEquals(1, support.store.getRatingCount("sam"));                  // still counted
-        assertEquals(4.0, support.store.getAverageRating("sam").getAsDouble());
+        OptionalDouble avg = support.store.getAverageRating("sam");
+        assertTrue(avg.isPresent());
+        assertEquals(4.0, avg.getAsDouble());
         assertFalse(support.store.getAuditLog().get(0).getDataSnapshot().isBlank());
     }
 
@@ -761,14 +765,14 @@ class AdminUserServiceTest {
                     .filter(n -> expectedText.equals(n.getContent()))
                     .count();
             assertEquals(1, count,
-                    "admin " + admin + " should get exactly one notice: " + expectedText);
+                    "com/hkust/marketplace/controllers/admin " + admin + " should get exactly one notice: " + expectedText);
         }
     }
 
     private void assertNoAdminNotices() {
         for (String admin : List.of("ada", "ada2")) {
             assertTrue(notificationsOf(admin, NotificationCategory.ACCOUNT_CHANGE).isEmpty(),
-                    "admin " + admin + " should get no ACCOUNT_CHANGE");
+                    "com/hkust/marketplace/controllers/admin " + admin + " should get no ACCOUNT_CHANGE");
         }
     }
 }

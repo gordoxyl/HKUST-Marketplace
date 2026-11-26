@@ -96,6 +96,45 @@ class AdminListingScreensTest {
         assertEquals("", app.valueOf("Lending duration (Lend only)"));
     }
 
+    @Test
+    void aTimerEvent_keepsTheAddListingFormAsTyped() {
+        app.logIn("Enter as Admin", "admin", SeedData.ADMIN_PASSWORD);
+        app.press("All Listings");
+        app.press("+ Add Listing");
+        app.type("Title *", "Half-typed Kettle");
+
+        app.dataChanged(); // the borrowing-deadline timer changed the data (UC12 step 4)
+
+        assertEquals("Add Listing", app.pageTitle());              // R24: the form is not replaced
+        assertEquals("Half-typed Kettle", app.valueOf("Title *"));
+    }
+
+    @Test
+    void aTimerEvent_bringsAllListingsUpToDate_andKeepsItsFilter() {
+        data.seller("timerseller", "Timer Seller");
+        app.logIn("Enter as Admin", "admin", SeedData.ADMIN_PASSWORD);
+        app.press("All Listings");
+        app.type("Seller...", "timerseller");
+        app.press("Search");
+        assertEquals(List.of(), app.cardTitles());
+
+        data.sale("timerseller", "Timer Kettle", 40);
+        app.dataChanged();
+
+        assertEquals("All Listings", app.pageTitle());
+        assertEquals(List.of("Timer Kettle"), app.cardTitles()); // the new listing, and still only this seller's
+    }
+
+    @Test
+    void manageUsers_eachFilterLabelStaysBesideItsBox() {
+        app.logIn("Enter as Admin", "admin", SeedData.ADMIN_PASSWORD);
+        app.press("Manage Users");
+
+        assertTrue(app.onOneLine("Reg. From:", "Reg. From")); // R25: the filter bar wraps a label with its box
+        assertTrue(app.onOneLine("Reg. To:", "Reg. To"));
+        assertEquals(List.of(), app.cutPrompts());              // R22 still holds
+    }
+
     private static final String DOT = "#" + NotificationDot.ID;
 
     /** The number on the dot; 0 when it is hidden. */

@@ -716,7 +716,7 @@ public class SellerDashboardController implements ContentHost {
             TextField endField = new TextField(endTime);
             for (TextField time : new TextField[]{startField, endField}) {
                 time.setPromptText("HH:mm or HH:mm:ss");
-                time.setPrefWidth(150);
+                time.setPrefColumnCount(12); // room for the whole hint, and wider with a bigger font
             }
             GridPane form = new GridPane();
             form.setHgap(10);

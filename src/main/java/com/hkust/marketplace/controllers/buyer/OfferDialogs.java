@@ -89,7 +89,7 @@ final class OfferDialogs {
         TextField endTime = new TextField(period.endTime());
         for (TextField time : new TextField[] {startTime, endTime}) {
             time.setPromptText("HH:mm or HH:mm:ss");
-            time.setPrefWidth(150);
+            time.setPrefColumnCount(12); // room for the whole hint, and wider with a bigger font
         }
 
         GridPane form = new GridPane();

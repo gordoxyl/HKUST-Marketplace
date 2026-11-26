@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -123,6 +124,22 @@ class MakeOfferScreensTest {
         assertTrue(dialogs.get(3).startsWith("Not possible: The borrow period must end at least 5 seconds"), dialogs::toString);
         assertTrue(dialogs.get(5).startsWith("Not possible: Please enter both the start and the end"), dialogs::toString);
         assertTrue(dialogs.get(7).startsWith("Submitted: "), dialogs::toString);
+    }
+
+    @Test
+    void borrowRequest_theEmptiedTimeBoxesShowTheirWholeHint() {
+        data.lend("moseller", "Offer Hint Kayak", Duration.ofDays(2));
+        List<List<String>> cut = new ArrayList<>();
+        app.answer("Request Borrow", form -> {
+            form.type(TIME, 0, "").type(TIME, 1, ""); // the hint shows once the suggested time is cleared
+            cut.add(form.cutPrompts());
+            form.press("Cancel");
+        });
+        openAsNewBuyer("mobuyer12", "Offer Hint Kayak");
+
+        app.press("Request Borrow");
+
+        assertEquals(List.of(List.of()), cut); // R23: "HH:mm or HH:mm:ss" in full
     }
 
     @Test

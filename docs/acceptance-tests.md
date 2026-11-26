@@ -317,7 +317,7 @@ Log in as `charlie` and open **Seller Stats** after a reset: the Sold chemistry 
 | AT-2.8-04 | Step 5, the pie chart | As `alice`, My Deals → calculus → Mark Complete; reopen Seller Stats. | Completed deals 2; the pie shows Sell (2); no Lend or Giveaway slice. | |
 | AT-2.8-05 | A2 No ratings | As `diana`, open Seller Stats. | "Average rating: No ratings yet"; the card shows "—". | |
 | AT-2.8-06 | A3 No completed deals | As `diana` (no completed deal), open Seller Stats. | The pie area says "No completed deals yet." | |
-| AT-2.8-07 | A1 No listings | Register a new seller (or, in a dev run, log in as `seller`) and open Seller Stats. | Every number is 0, "No ratings yet", and the charts area says "There isn't enough data to draw charts yet." | |
+| AT-2.8-07 | A1 No listings | Register a new seller and open Seller Stats. | Every number is 0, "No ratings yet", and the charts area says "There isn't enough data to draw charts yet." | |
 | AT-2.8-08 | SR1 Hidden review | As `admin`, Seller Ratings → hide Charlie's review; as `charlie`, reopen Seller Stats. | Ratings 0 and "No ratings yet"; the hidden review is not counted. | |
 
 ## Manage Reviews (Task 2.9)
@@ -332,7 +332,7 @@ Log in as `charlie` and open **Reviews & Feedback**. After a reset there is one 
 | AT-2.9-04 | A3 Empty reply | Press Reply, clear the box, Send reply. | "The reply cannot be empty."; the form comes back with the empty box. | |
 | AT-2.9-05 | Step 6, flag | Press Flag, OK. Then as `admin`, open Notification Board and Seller Ratings. | "Review flagged"; the card shows "Awaiting moderation" and the button is disabled. The admin has "@charlie flagged a review of 'Organic Chemistry Textbook' as inappropriate." and the review shows "Flagged by seller". | |
 | AT-2.9-06 | A4 Already flagged | Try to flag a review that is already flagged. | The button is disabled; the service answers "This review is already awaiting moderation." | |
-| AT-2.9-07 | A1 No reviews | As a seller with no reviews (a new account, or `seller` in a dev run), open Reviews & Feedback. | "No reviews yet. A buyer can review you after a completed deal." and "Average rating: No ratings yet". | |
+| AT-2.9-07 | A1 No reviews | As a seller with no reviews (a new account), open Reviews & Feedback. | "No reviews yet. A buyer can review you after a completed deal." and "Average rating: No ratings yet". | |
 | AT-2.9-08 | Deleted buyer (client answer #6) | As `admin`, Manage Users → delete `bob`; as `charlie`, reopen Reviews & Feedback. | The review is still shown, "by Deleted User", and the average is unchanged. Replying still works and no notification is sent. | |
 | AT-2.9-09 | A5 Cancel | Press Reply, type something, Cancel. | No message, nothing saved; the card still offers Reply. | |
 

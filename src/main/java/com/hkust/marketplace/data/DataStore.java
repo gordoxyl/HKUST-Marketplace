@@ -1,7 +1,6 @@
 package com.hkust.marketplace.data;
 
 import com.hkust.marketplace.models.*;
-import com.hkust.marketplace.utils.DevLogin;
 
 import java.nio.file.Path;
 import java.time.Clock;
@@ -125,8 +124,7 @@ public class DataStore {
 
     private static DataStore createAppStore() {
         Path folder = Path.of(System.getProperty(DATA_FOLDER_PROPERTY, DATA_FOLDER.toString()));
-        String fileName = DevLogin.isEnabled() ? "marketplace-dev.dat" : "marketplace.dat"; // DEV-ONLY: dev runs use their own file; make it "marketplace.dat" before release
-        DataStore store = new DataStore(Clock.systemDefaultZone(), new EncryptedJsonStorage(folder.resolve(fileName)));
+        DataStore store = new DataStore(Clock.systemDefaultZone(), new EncryptedJsonStorage(folder.resolve("marketplace.dat")));
         store.loadOrSeed();
         if (store.getLoadProblem() != null) {
             // Only the app's store logs this; MarketplaceApp also shows it in a dialog
@@ -751,11 +749,11 @@ public class DataStore {
 
     // ========== Admin records ==========
 
-    public ListingActionRecord addListingAction(ListingActionRecord record) {
-        return transaction(() -> {
+    /** Records an admin's action on a listing; the record gets its id and date here (the caller keeps it). */
+    public void addListingAction(ListingActionRecord record) {
+        transaction(() -> {
             record.markAdded(newId("A"), now());
             listingActions.add(record);
-            return record;
         });
     }
 

@@ -1,21 +1,18 @@
 # Resets HKUST Marketplace's saved data to the demo data (Windows).
 #
 # Usage, from the repository root (the folder with pom.xml):
-#   scripts\reset-data.cmd                 reset both the normal and the dev data
-#   scripts\reset-data.cmd normal          reset only the normal data (marketplace.dat)
-#   scripts\reset-data.cmd dev             reset only the dev-mode data (marketplace-dev.dat)
+#   scripts\reset-data.cmd                 reset the saved data (marketplace.dat)
 #   scripts\reset-data.cmd -NoBackup       erase instead of keeping a backup
 #
 # How it works: the app re-creates the demo data whenever its save file is missing. So this
-# script moves the save files (and their audit snapshots and listing photos) out of the way, into
+# script moves the save file (and its audit snapshots and listing photos) out of the way, into
 # marketplace-data\backups\<date-time>\, and the next start of the app begins from the demo
 # data. With -NoBackup the files are deleted instead.
 #
 # The app must be closed: a running app keeps its data in memory and would save it back.
 
+[CmdletBinding(PositionalBinding = $false)]   # a stray word, such as the old "dev", is an error
 param(
-    [ValidateSet('all', 'normal', 'dev')]
-    [string]$Which = 'all',
     [switch]$NoBackup
 )
 
@@ -33,28 +30,16 @@ if ($running) {
     exit 1
 }
 
-# 2. Find the files that belong to the chosen save files
-$baseNames = switch ($Which) {
-    'normal' { @('marketplace') }
-    'dev'    { @('marketplace-dev') }
-    default  { @('marketplace', 'marketplace-dev') }
-}
-$label = switch ($Which) {
-    'normal' { 'normal' }
-    'dev'    { 'dev-mode' }
-    default  { 'normal and dev-mode' }
-}
+# 2. Find the save file and what belongs to it: a leftover .tmp, any .unreadable-<date> copies,
+#    and the audit and photo folders
 $items = @()
 if (Test-Path $dataFolder) {
-    foreach ($base in $baseNames) {
-        # The save file, a leftover .tmp, any .unreadable-<date> copies, and the audit and photo folders
-        $items += Get-ChildItem -LiteralPath $dataFolder -Force |
-            Where-Object { $_.Name -eq "$base.dat" -or $_.Name -like "$base.dat.*" -or
-                           $_.Name -eq "$base-audit" -or $_.Name -eq "$base-photos" }
-    }
+    $items = @(Get-ChildItem -LiteralPath $dataFolder -Force |
+        Where-Object { $_.Name -eq 'marketplace.dat' -or $_.Name -like 'marketplace.dat.*' -or
+                       $_.Name -eq 'marketplace-audit' -or $_.Name -eq 'marketplace-photos' })
 }
 if ($items.Count -eq 0) {
-    Write-Host "Nothing to reset: there is no saved $label data, so the app already starts from the demo data."
+    Write-Host "Nothing to reset: there is no saved data, so the app already starts from the demo data."
     exit 0
 }
 
@@ -75,4 +60,4 @@ if ($NoBackup) {
     Write-Host "Backup: $backup"
 }
 
-Write-Host "Done. The next start of the app creates fresh demo data ($label)." -ForegroundColor Green
+Write-Host "Done. The next start of the app creates fresh demo data." -ForegroundColor Green

@@ -3,7 +3,6 @@ package com.hkust.marketplace.controllers.seller;
 import com.hkust.marketplace.models.UserRole;
 import com.hkust.marketplace.services.AuthService;
 import com.hkust.marketplace.services.LoginResult;
-import com.hkust.marketplace.utils.DevLogin;
 import com.hkust.marketplace.utils.SceneManager;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
@@ -15,11 +14,6 @@ public class SellerLoginController {
     @FXML private TextField usernameField;
     @FXML private PasswordField passwordField;
     @FXML private Label errorLabel;
-
-    @FXML
-    public void initialize() {
-        DevLogin.prefill(UserRole.SELLER, usernameField, passwordField); // DEV-ONLY: remove before release
-    }
 
     @FXML
     private void handleLogin() {

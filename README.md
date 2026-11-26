@@ -112,7 +112,6 @@ The app keeps its data between runs in the `marketplace-data` folder, which is c
 | `marketplace.dat` | All accounts, listings, offers, chats, reviews, reports, notifications and admin records |
 | `marketplace-audit/<ref>.txt` | Data snapshot of a deleted account, one file per Audit Log entry |
 | `marketplace-photos/<id>.img` | One listing photo per file. Encrypted too, so it can't be opened as a picture outside the app |
-| `marketplace-dev.dat` | The same as `marketplace.dat`, for dev runs (`-Pdev`) only, so dev accounts never mix with normal data |
 
 - **Encrypted, never plain text.** Every file is encrypted with AES-GCM (`data/DataCipher`); the data file is JSON inside. A file that was edited or damaged is detected and refused. The key is built into the code, so any copy of the app can read the files, and so could anyone with the source code.
 - **Saved automatically** after every change. On the first run, or when the folder is missing, the demo data below is created.
@@ -124,8 +123,8 @@ The app keeps its data between runs in the `marketplace-data` folder, which is c
   | Windows | `scripts\reset-data.cmd` |
   | macOS | `sh scripts/reset-data.sh` |
 
-  The script moves the current save files into `marketplace-data/backups/<date-time>/`, so a reset can be undone, and the next start of the app creates fresh demo data. Add `normal` or `dev` to reset only that file, and `-NoBackup` (Windows) or `--no-backup` (macOS) to erase instead of keeping a backup. It refuses to run while the app is open, because the running app would save its data straight back.
-- **To add practice data** (deals to try by hand while the seller's screens are not built), close the app and run `scripts\practice-data.cmd` (Windows) or `sh scripts/practice-data.sh` (macOS) from the repository root. It gives `alice` (or `-Buyer <name>`; `buyer` in dev mode) one deal for every button of My Deals, and adds listings in every availability state:
+  The script moves the current save file and its folders into `marketplace-data/backups/<date-time>/`, so a reset can be undone, and the next start of the app creates fresh demo data. Add `-NoBackup` (Windows) or `--no-backup` (macOS) to erase instead of keeping a backup. It refuses to run while the app is open, because the running app would save its data straight back.
+- **To add practice data** (deals to try by hand without first setting them up through the seller's screens), close the app and run `scripts\practice-data.cmd` (Windows) or `sh scripts/practice-data.sh` (macOS) from the repository root. It gives `alice` (or `-Buyer <name>`) one deal for every button of My Deals, and adds listings in every availability state:
 
   | Where | What is added |
   |---|---|
@@ -159,7 +158,7 @@ The build **fails** if any test fails, or if **branch coverage drops below 65%**
 
 **Coverage policy.** The submission asks for ">65% branch coverage" without saying of which code, so the build checks it twice:
 - **Everything**, screens included: the strict reading. The screen tests keep the screens covered; new screen code without tests lowers this figure.
-- **The measured code**: the models, data, services and utils, where all the logic lives. It leaves out the JavaFX screen controllers, `MarketplaceApp`, `SceneManager` and the dev-only `DevLogin` (the excluded list is `jacoco.ui.excludes` in `pom.xml`). Screens hold no logic of their own: they read the input, call a tested service and show the result. The screen tests open every page, and the manual acceptance tests check the flows. That only stays true if **screens stay thin**: any check, rule or calculation goes into a service with tests, never into a controller.
+- **The measured code**: the models, data, services and utils, where all the logic lives. It leaves out the JavaFX screen controllers, `MarketplaceApp` and `SceneManager` (the excluded list is `jacoco.ui.excludes` in `pom.xml`). Screens hold no logic of their own: they read the input, call a tested service and show the result. The screen tests open every page, and the manual acceptance tests check the flows. That only stays true if **screens stay thin**: any check, rule or calculation goes into a service with tests, never into a controller.
 
 Figures on 25 Nov 2026, with all three portals, the shared UI changes and the seller's follow-ups merged (PR #20 to #27): 1296 tests; measured code **96.8% branch** (97.8% line); everything, screens included, **80.6% branch** (81.8% line). By package: services 96.8%, models 98.7%, data 92.4%, shared screens (`ui`) 92.2%, buyer screens 93.5%. The seller's and admin's screens are at 16.2% and 21.1%: the screen tests only open their pages, and their logic is in their tested services.
 
@@ -194,7 +193,7 @@ Test tools in `src/test/.../testsupport`: `TestClock` (a clock the test moves by
 | [docs/shared-core-for-seller.md](docs/shared-core-for-seller.md), [docs/shared-core-for-admin.md](docs/shared-core-for-admin.md) | guides to the shared core for the seller and admin developers |
 | [docs/assumptions-register.md](docs/assumptions-register.md) | the behaviours we decided where the requirements and the spec say nothing; the docs cite them as "assumptions register n" |
 
-The sections after this one (Project Structure, Shared Core, Dev mode, Troubleshooting) are for developers.
+The sections after this one (Project Structure, Shared Core, Troubleshooting) are for developers.
 
 ## Project Structure
 
@@ -311,17 +310,6 @@ The screen calls the service and shows any `ServiceException` message to the use
 **Time.** Never call `LocalDateTime.now()`; use `store.now()`. The store dates records when they're added (posted date, offer date, timestamps), and tests replace its clock.
 
 **Storage.** `DataStore` saves everything after every change and loads it at start-up, so keep all data access going through it. Nothing else needs to know about files. See [Saved Data](#saved-data).
-
-## Dev mode: pre-filled logins (DEV-ONLY, remove before release)
-Add `-Pdev` to the run command (`.\mvnw.cmd clean javafx:run -Pdev`, or tick the **dev** profile in IntelliJ's Maven tool window). Each login screen is then pre-filled with a test account, so you only click **Login**:
-
-| Portal | Username | Password |
-|--------|----------|----------|
-| Buyer  | `buyer`  | `Buyer.123`  |
-| Seller | `seller` | `Seller.123` |
-| Admin  | `admin`  | `Admin.123`  |
-
-The `buyer` and `seller` accounts exist only in dev mode, and dev mode gives `admin` the password above. Without `-Pdev` none of this happens. To remove the shortcut, search the code for `DEV-ONLY`.
 
 ## Troubleshooting
 
